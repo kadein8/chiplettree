@@ -1,0 +1,23 @@
+{
+  "dims": {
+    "hidden_dim": 128,
+    "intermediate_dim": 256,
+    "num_heads": 2,
+    "head_dim": 64,
+    "n_layers": 2,
+    "vocab_size": 16,
+    "max_seq_len": 8
+  },
+  "layout": {
+    "emb_base": 256,
+    "final_gamma_base": 2048,
+    "lm_head_base": 32768,
+    "weight_window_beats": 32768,
+    "layer_weight_stride": 16400,
+    "hbm_weight_base": 1024
+  },
+  "rtl_notes": {
+    "rmsnorm_mean_divisor": 1024.0,
+    "lm_head_weight_layout": "token-major embedding duplicated as tile-major lm_head matrix"
+  }
+}

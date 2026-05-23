@@ -1,0 +1,14 @@
+tb_name=tb_control_chip_stage2_single_chiplet_native_tree_main_frontend_platform_driver
+timestamp=2026-05-08 10:17:28
+repo_root=/mnt/hgfs/E/Paper/Chen/first
+run_dir=/mnt/hgfs/E/Paper/Chen/first/verification/stage2/30_vcs_control_chip_stage2_single_chiplet_real_ssd_sync_tree_step_payload_bringup
+log_dir=/mnt/hgfs/E/Paper/Chen/first/verification/stage2/30_vcs_control_chip_stage2_single_chiplet_real_ssd_sync_tree_step_payload_bringup/logs
+compile_status=SKIP
+run_status=SKIP
+judge=FAIL
+reason=python_export_failed
+sync_step_json=/mnt/hgfs/E/Paper/Chen/first/code/runtime_exchange/session_trace_000/step_000/worker_exec/sync_tree_step_request.json
+real_model_path=/mnt/hgfs/E/Paper/Chen/first/code/model/models/Qwen/Qwen3-0___6B
+real_weight_fixture_json=
+export_log=/mnt/hgfs/E/Paper/Chen/first/verification/stage2/30_vcs_control_chip_stage2_single_chiplet_real_ssd_sync_tree_step_payload_bringup/logs/tb_control_chip_stage2_single_chiplet_native_tree_main_frontend_platform_driver_python_export.log
+prep_log=/mnt/hgfs/E/Paper/Chen/first/verification/stage2/30_vcs_control_chip_stage2_single_chiplet_real_ssd_sync_tree_step_payload_bringup/logs/tb_control_chip_stage2_single_chiplet_native_tree_main_frontend_platform_driver_python_prep.log

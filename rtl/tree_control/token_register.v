@@ -39,6 +39,25 @@ module token_register (
     input  [`KV_GROUP_LEN_W-1:0] wr_group_len,
     input  [`BRANCH_MASK_W-1:0]  wr_branch_mask,
     input                        wr_is_shared,
+    // wr_bundle_*：
+    // 1. 这是论文路径里 AGU/free_list -> token_register 的并行写表边界；
+    // 2. bundle 入口优先于旧标量 wr_*，用于整层/多 branch 同拍写入 token->KV 映射；
+    // 3. 每个有效 slot 都在本拍独立写入自己的表项，不再因为多 slot 同拍而整拍停住。
+    input                        wr_bundle_valid,
+    output                       wr_bundle_ready,
+    input  [`TREE_FRONTIER_SLOTS-1:0] wr_bundle_slot_valid,
+    input  [`TREE_FRONTIER_SLOTS*`TOKEN_REG_INDEX_W-1:0] wr_bundle_index,
+    input  [`REQ_ID_W-1:0]       wr_bundle_req_id,
+    input  [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] wr_bundle_token_id,
+    input  [`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0] wr_bundle_position_id,
+    input  [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] wr_bundle_node_id,
+    input  [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] wr_bundle_branch_id,
+    input  [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] wr_bundle_sram_id,
+    input  [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] wr_bundle_bank_id,
+    input  [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0] wr_bundle_subbank_start,
+    input  [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] wr_bundle_group_len,
+    input  [`TREE_FRONTIER_SLOTS*`BRANCH_MASK_W-1:0] wr_bundle_branch_mask,
+    input  [`TREE_FRONTIER_SLOTS-1:0] wr_bundle_is_shared,
 
     // 查找端：
     // 按 req_id + token_id + position_id 查回对应的物理 KV 位置与条目状态。
@@ -58,6 +77,27 @@ module token_register (
     output                       lookup_resp_is_shared,
     output [`TOKEN_STATE_W-1:0]  lookup_resp_state,
     output [`TOKEN_ENTRY_TYPE_W-1:0] lookup_resp_entry_type,
+    // lookup_bundle_*：
+    // 1. 这是论文 strict 主路径里 token_register -> compute issue 的并行查表边界；
+    // 2. 上游一次提交一个 level/bundle，请求同拍查回多个 branch/slot 的物理 KV 位置；
+    // 3. 与单 lookup 一样，响应在下一拍寄存输出，便于后级统一按 ready/valid 接收。
+    input                        lookup_bundle_valid,
+    output                       lookup_bundle_ready,
+    input  [`REQ_ID_W-1:0]       lookup_bundle_req_id,
+    input  [`TREE_FRONTIER_SLOTS-1:0] lookup_bundle_slot_valid,
+    input  [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] lookup_bundle_token_id,
+    input  [`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0] lookup_bundle_position_id,
+    output                       lookup_bundle_resp_valid,
+    output [`REQ_ID_W-1:0]       lookup_bundle_resp_req_id,
+    output [`TREE_FRONTIER_SLOTS-1:0] lookup_bundle_resp_hit,
+    output [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] lookup_bundle_resp_sram_id,
+    output [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] lookup_bundle_resp_bank_id,
+    output [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0] lookup_bundle_resp_subbank_start,
+    output [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] lookup_bundle_resp_group_len,
+    output [`TREE_FRONTIER_SLOTS*`BRANCH_MASK_W-1:0] lookup_bundle_resp_branch_mask,
+    output [`TREE_FRONTIER_SLOTS-1:0] lookup_bundle_resp_is_shared,
+    output [`TREE_FRONTIER_SLOTS*`TOKEN_STATE_W-1:0] lookup_bundle_resp_state,
+    output [`TREE_FRONTIER_SLOTS*`TOKEN_ENTRY_TYPE_W-1:0] lookup_bundle_resp_entry_type,
 
     // commit / flush：
     // commit 把某条树条目标为 committed/stream；
@@ -110,6 +150,20 @@ reg [`BRANCH_MASK_W-1:0] lookup_branch_mask_comb;
 reg lookup_is_shared_comb;
 reg [`TOKEN_STATE_W-1:0] lookup_state_comb;
 reg [`TOKEN_ENTRY_TYPE_W-1:0] lookup_entry_type_comb;
+reg [`TREE_FRONTIER_SLOTS-1:0] lookup_bundle_hit_comb;
+reg [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] lookup_bundle_sram_id_comb;
+reg [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] lookup_bundle_bank_id_comb;
+reg [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0]
+    lookup_bundle_subbank_start_comb;
+reg [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0]
+    lookup_bundle_group_len_comb;
+reg [`TREE_FRONTIER_SLOTS*`BRANCH_MASK_W-1:0]
+    lookup_bundle_branch_mask_comb;
+reg [`TREE_FRONTIER_SLOTS-1:0] lookup_bundle_is_shared_comb;
+reg [`TREE_FRONTIER_SLOTS*`TOKEN_STATE_W-1:0]
+    lookup_bundle_state_comb;
+reg [`TREE_FRONTIER_SLOTS*`TOKEN_ENTRY_TYPE_W-1:0]
+    lookup_bundle_entry_type_comb;
 
 // lookup 响应寄存器：
 // 采用一拍寄存方式，保证查找接口是同步返回。
@@ -124,6 +178,21 @@ reg [`BRANCH_MASK_W-1:0] lookup_resp_branch_mask_r;
 reg lookup_resp_is_shared_r;
 reg [`TOKEN_STATE_W-1:0] lookup_resp_state_r;
 reg [`TOKEN_ENTRY_TYPE_W-1:0] lookup_resp_entry_type_r;
+reg lookup_bundle_resp_valid_r;
+reg [`REQ_ID_W-1:0] lookup_bundle_resp_req_id_r;
+reg [`TREE_FRONTIER_SLOTS-1:0] lookup_bundle_resp_hit_r;
+reg [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] lookup_bundle_resp_sram_id_r;
+reg [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] lookup_bundle_resp_bank_id_r;
+reg [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0]
+    lookup_bundle_resp_subbank_start_r;
+reg [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0]
+    lookup_bundle_resp_group_len_r;
+reg [`TREE_FRONTIER_SLOTS*`BRANCH_MASK_W-1:0]
+    lookup_bundle_resp_branch_mask_r;
+reg [`TREE_FRONTIER_SLOTS-1:0] lookup_bundle_resp_is_shared_r;
+reg [`TREE_FRONTIER_SLOTS*`TOKEN_STATE_W-1:0] lookup_bundle_resp_state_r;
+reg [`TREE_FRONTIER_SLOTS*`TOKEN_ENTRY_TYPE_W-1:0]
+    lookup_bundle_resp_entry_type_r;
 
 // 当前有效条目个数，作为调试/容量观测输出。
 reg [`TOKEN_REG_INDEX_W:0] entry_count_r;
@@ -132,8 +201,10 @@ reg [`TOKEN_REG_INDEX_W:0] entry_count_r;
 integer idx_i;
 integer count_i;
 integer init_i;
+integer wr_bundle_slot_i;
+integer lookup_bundle_slot_i;
+integer lookup_bundle_entry_i;
 reg [`BRANCH_MASK_W-1:0] next_branch_mask;
-
 // is_node_selected：
 // 给定 branch_id / node_id，去 node_mask 里取这个“branch 上该 node”的选择位。
 function is_node_selected;
@@ -151,9 +222,14 @@ function is_node_selected;
     end
 endfunction
 
-// wr_ready / lookup_ready 固定为 1，表示 token_register 不对上游施加反压。
-assign wr_ready = 1'b1;
+// wr_ready / wr_bundle_ready：
+// 1. 没有 bundle 时，旧标量 wr_* 仍然始终 ready；
+// 2. 有 bundle 时，旧标量 wr_ready 拉低，强制上游只走 bundle 边界；
+// 3. wr_bundle_ready 固定允许整包进入，由本模块在时序块里并行处理所有有效 slot。
+assign wr_ready = !wr_bundle_valid;
+assign wr_bundle_ready = 1'b1;
 assign lookup_ready = 1'b1;
+assign lookup_bundle_ready = 1'b1;
 assign lookup_resp_valid = lookup_resp_valid_r;
 assign lookup_resp_hit = lookup_resp_hit_r;
 assign lookup_resp_req_id = lookup_resp_req_id_r;
@@ -165,6 +241,17 @@ assign lookup_resp_branch_mask = lookup_resp_branch_mask_r;
 assign lookup_resp_is_shared = lookup_resp_is_shared_r;
 assign lookup_resp_state = lookup_resp_state_r;
 assign lookup_resp_entry_type = lookup_resp_entry_type_r;
+assign lookup_bundle_resp_valid = lookup_bundle_resp_valid_r;
+assign lookup_bundle_resp_req_id = lookup_bundle_resp_req_id_r;
+assign lookup_bundle_resp_hit = lookup_bundle_resp_hit_r;
+assign lookup_bundle_resp_sram_id = lookup_bundle_resp_sram_id_r;
+assign lookup_bundle_resp_bank_id = lookup_bundle_resp_bank_id_r;
+assign lookup_bundle_resp_subbank_start = lookup_bundle_resp_subbank_start_r;
+assign lookup_bundle_resp_group_len = lookup_bundle_resp_group_len_r;
+assign lookup_bundle_resp_branch_mask = lookup_bundle_resp_branch_mask_r;
+assign lookup_bundle_resp_is_shared = lookup_bundle_resp_is_shared_r;
+assign lookup_bundle_resp_state = lookup_bundle_resp_state_r;
+assign lookup_bundle_resp_entry_type = lookup_bundle_resp_entry_type_r;
 assign entry_count = entry_count_r;
 assign error_flag = 1'b0;
 
@@ -211,6 +298,88 @@ always @* begin
     end
 end
 
+// 并行 bundle lookup 组合搜索逻辑：
+// 1. 每个 slot 独立按 req/token/position 搜索；
+// 2. 命中后返回对应 SRAM 位置、branch mask、条目状态；
+// 3. 不命中的 slot 保持 miss/全零，等待后级按论文语义处理。
+always @* begin
+    lookup_bundle_hit_comb = {`TREE_FRONTIER_SLOTS{1'b0}};
+    lookup_bundle_sram_id_comb =
+        {(`TREE_FRONTIER_SLOTS*`SRAM_ID_W){1'b0}};
+    lookup_bundle_bank_id_comb =
+        {(`TREE_FRONTIER_SLOTS*`BANK_ID_W){1'b0}};
+    lookup_bundle_subbank_start_comb =
+        {(`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W){1'b0}};
+    lookup_bundle_group_len_comb =
+        {(`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W){1'b0}};
+    lookup_bundle_branch_mask_comb =
+        {(`TREE_FRONTIER_SLOTS*`BRANCH_MASK_W){1'b0}};
+    lookup_bundle_is_shared_comb = {`TREE_FRONTIER_SLOTS{1'b0}};
+    lookup_bundle_state_comb =
+        {(`TREE_FRONTIER_SLOTS*`TOKEN_STATE_W){1'b0}};
+    lookup_bundle_entry_type_comb =
+        {(`TREE_FRONTIER_SLOTS*`TOKEN_ENTRY_TYPE_W){1'b0}};
+
+    for (lookup_bundle_slot_i = 0;
+         lookup_bundle_slot_i < `TREE_FRONTIER_SLOTS;
+         lookup_bundle_slot_i = lookup_bundle_slot_i + 1) begin
+        lookup_bundle_state_comb[
+            (lookup_bundle_slot_i*`TOKEN_STATE_W) +: `TOKEN_STATE_W] =
+            TOKEN_STATE_INVALID;
+        lookup_bundle_entry_type_comb[
+            (lookup_bundle_slot_i*`TOKEN_ENTRY_TYPE_W) +:
+            `TOKEN_ENTRY_TYPE_W] = `TOKEN_ENTRY_TREE;
+
+        if (lookup_bundle_slot_valid[lookup_bundle_slot_i]) begin
+            for (lookup_bundle_entry_i = 0;
+                 lookup_bundle_entry_i < `TOKEN_REG_DEPTH;
+                 lookup_bundle_entry_i = lookup_bundle_entry_i + 1) begin
+                if (!lookup_bundle_hit_comb[lookup_bundle_slot_i] &&
+                    valid_entry[lookup_bundle_entry_i] &&
+                    (entry_req_id[lookup_bundle_entry_i] == lookup_bundle_req_id) &&
+                    (entry_token_id[lookup_bundle_entry_i] ==
+                        lookup_bundle_token_id[
+                            (lookup_bundle_slot_i*`TOKEN_ID_W) +: `TOKEN_ID_W]) &&
+                    (entry_position_id[lookup_bundle_entry_i] ==
+                        lookup_bundle_position_id[
+                            (lookup_bundle_slot_i*`POSITION_ID_W) +:
+                            `POSITION_ID_W]) &&
+                    (entry_state[lookup_bundle_entry_i] != TOKEN_STATE_INVALID)) begin
+                    lookup_bundle_hit_comb[lookup_bundle_slot_i] = 1'b1;
+                    lookup_bundle_sram_id_comb[
+                        (lookup_bundle_slot_i*`SRAM_ID_W) +: `SRAM_ID_W] =
+                        entry_sram_id[lookup_bundle_entry_i];
+                    lookup_bundle_bank_id_comb[
+                        (lookup_bundle_slot_i*`BANK_ID_W) +: `BANK_ID_W] =
+                        entry_bank_id[lookup_bundle_entry_i];
+                    lookup_bundle_subbank_start_comb[
+                        (lookup_bundle_slot_i*`SUBBANK_ID_W) +:
+                        `SUBBANK_ID_W] =
+                        entry_subbank_start[lookup_bundle_entry_i];
+                    lookup_bundle_group_len_comb[
+                        (lookup_bundle_slot_i*`KV_GROUP_LEN_W) +:
+                        `KV_GROUP_LEN_W] =
+                        entry_group_len[lookup_bundle_entry_i];
+                    lookup_bundle_branch_mask_comb[
+                        (lookup_bundle_slot_i*`BRANCH_MASK_W) +:
+                        `BRANCH_MASK_W] =
+                        entry_branch_mask[lookup_bundle_entry_i];
+                    lookup_bundle_is_shared_comb[lookup_bundle_slot_i] =
+                        entry_is_shared[lookup_bundle_entry_i];
+                    lookup_bundle_state_comb[
+                        (lookup_bundle_slot_i*`TOKEN_STATE_W) +:
+                        `TOKEN_STATE_W] =
+                        entry_state[lookup_bundle_entry_i];
+                    lookup_bundle_entry_type_comb[
+                        (lookup_bundle_slot_i*`TOKEN_ENTRY_TYPE_W) +:
+                        `TOKEN_ENTRY_TYPE_W] =
+                        entry_type[lookup_bundle_entry_i];
+                end
+            end
+        end
+    end
+end
+
 // 主时序块：
 // 1. 复位时清空整张表；
 // 2. 每拍锁存 lookup 响应；
@@ -245,6 +414,24 @@ always @(posedge clk or negedge rst_n) begin
         lookup_resp_is_shared_r <= 1'b0;
         lookup_resp_state_r <= TOKEN_STATE_INVALID;
         lookup_resp_entry_type_r <= `TOKEN_ENTRY_TREE;
+        lookup_bundle_resp_valid_r <= 1'b0;
+        lookup_bundle_resp_req_id_r <= {`REQ_ID_W{1'b0}};
+        lookup_bundle_resp_hit_r <= {`TREE_FRONTIER_SLOTS{1'b0}};
+        lookup_bundle_resp_sram_id_r <=
+            {(`TREE_FRONTIER_SLOTS*`SRAM_ID_W){1'b0}};
+        lookup_bundle_resp_bank_id_r <=
+            {(`TREE_FRONTIER_SLOTS*`BANK_ID_W){1'b0}};
+        lookup_bundle_resp_subbank_start_r <=
+            {(`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W){1'b0}};
+        lookup_bundle_resp_group_len_r <=
+            {(`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W){1'b0}};
+        lookup_bundle_resp_branch_mask_r <=
+            {(`TREE_FRONTIER_SLOTS*`BRANCH_MASK_W){1'b0}};
+        lookup_bundle_resp_is_shared_r <= {`TREE_FRONTIER_SLOTS{1'b0}};
+        lookup_bundle_resp_state_r <=
+            {(`TREE_FRONTIER_SLOTS*`TOKEN_STATE_W){1'b0}};
+        lookup_bundle_resp_entry_type_r <=
+            {(`TREE_FRONTIER_SLOTS*`TOKEN_ENTRY_TYPE_W){1'b0}};
     end else begin
         // lookup 响应总是在当前拍把组合搜索结果锁存下来。
         lookup_resp_valid_r <= lookup_valid;
@@ -258,10 +445,113 @@ always @(posedge clk or negedge rst_n) begin
         lookup_resp_is_shared_r <= lookup_is_shared_comb;
         lookup_resp_state_r <= lookup_state_comb;
         lookup_resp_entry_type_r <= lookup_entry_type_comb;
+        lookup_bundle_resp_valid_r <= lookup_bundle_valid;
+        lookup_bundle_resp_req_id_r <= lookup_bundle_req_id;
+        lookup_bundle_resp_hit_r <= lookup_bundle_hit_comb;
+        lookup_bundle_resp_sram_id_r <= lookup_bundle_sram_id_comb;
+        lookup_bundle_resp_bank_id_r <= lookup_bundle_bank_id_comb;
+        lookup_bundle_resp_subbank_start_r <=
+            lookup_bundle_subbank_start_comb;
+        lookup_bundle_resp_group_len_r <= lookup_bundle_group_len_comb;
+        lookup_bundle_resp_branch_mask_r <= lookup_bundle_branch_mask_comb;
+        lookup_bundle_resp_is_shared_r <= lookup_bundle_is_shared_comb;
+        lookup_bundle_resp_state_r <= lookup_bundle_state_comb;
+        lookup_bundle_resp_entry_type_r <= lookup_bundle_entry_type_comb;
 
-        if (wr_valid && wr_ready) begin
-            // 普通写入：
-            // 把新条目标记为 SPEC + TREE，表示它还是 speculative tree token。
+        if (wr_bundle_valid) begin
+            // bundle 写表：
+            // 1. 每个有效 slot 都带着自己独立的 index / token / position / 物理位置；
+            // 2. 本模块在同一拍里逐 slot 展开写入，形成论文要求的整层并行元数据落表；
+            // 3. 若上游错误地给出重复 index，则后出现的 slot 会覆盖前者，因此 index 唯一性
+            //    仍然由 AGU/free_list 负责保证。
+            for (wr_bundle_slot_i = 0;
+                 wr_bundle_slot_i < `TREE_FRONTIER_SLOTS;
+                 wr_bundle_slot_i = wr_bundle_slot_i + 1) begin
+                if (wr_bundle_slot_valid[wr_bundle_slot_i]) begin
+                    valid_entry[
+                        wr_bundle_index[
+                            (wr_bundle_slot_i*`TOKEN_REG_INDEX_W) +:
+                            `TOKEN_REG_INDEX_W]] <= 1'b1;
+                    entry_req_id[
+                        wr_bundle_index[
+                            (wr_bundle_slot_i*`TOKEN_REG_INDEX_W) +:
+                            `TOKEN_REG_INDEX_W]] <= wr_bundle_req_id;
+                    entry_token_id[
+                        wr_bundle_index[
+                            (wr_bundle_slot_i*`TOKEN_REG_INDEX_W) +:
+                            `TOKEN_REG_INDEX_W]] <=
+                        wr_bundle_token_id[
+                            (wr_bundle_slot_i*`TOKEN_ID_W) +: `TOKEN_ID_W];
+                    entry_position_id[
+                        wr_bundle_index[
+                            (wr_bundle_slot_i*`TOKEN_REG_INDEX_W) +:
+                            `TOKEN_REG_INDEX_W]] <=
+                        wr_bundle_position_id[
+                            (wr_bundle_slot_i*`POSITION_ID_W) +:
+                            `POSITION_ID_W];
+                    entry_node_id[
+                        wr_bundle_index[
+                            (wr_bundle_slot_i*`TOKEN_REG_INDEX_W) +:
+                            `TOKEN_REG_INDEX_W]] <=
+                        wr_bundle_node_id[
+                            (wr_bundle_slot_i*`NODE_ID_W) +: `NODE_ID_W];
+                    entry_branch_id[
+                        wr_bundle_index[
+                            (wr_bundle_slot_i*`TOKEN_REG_INDEX_W) +:
+                            `TOKEN_REG_INDEX_W]] <=
+                        wr_bundle_branch_id[
+                            (wr_bundle_slot_i*`BRANCH_ID_W) +:
+                            `BRANCH_ID_W];
+                    entry_sram_id[
+                        wr_bundle_index[
+                            (wr_bundle_slot_i*`TOKEN_REG_INDEX_W) +:
+                            `TOKEN_REG_INDEX_W]] <=
+                        wr_bundle_sram_id[
+                            (wr_bundle_slot_i*`SRAM_ID_W) +: `SRAM_ID_W];
+                    entry_bank_id[
+                        wr_bundle_index[
+                            (wr_bundle_slot_i*`TOKEN_REG_INDEX_W) +:
+                            `TOKEN_REG_INDEX_W]] <=
+                        wr_bundle_bank_id[
+                            (wr_bundle_slot_i*`BANK_ID_W) +: `BANK_ID_W];
+                    entry_subbank_start[
+                        wr_bundle_index[
+                            (wr_bundle_slot_i*`TOKEN_REG_INDEX_W) +:
+                            `TOKEN_REG_INDEX_W]] <=
+                        wr_bundle_subbank_start[
+                            (wr_bundle_slot_i*`SUBBANK_ID_W) +:
+                            `SUBBANK_ID_W];
+                    entry_group_len[
+                        wr_bundle_index[
+                            (wr_bundle_slot_i*`TOKEN_REG_INDEX_W) +:
+                            `TOKEN_REG_INDEX_W]] <=
+                        wr_bundle_group_len[
+                            (wr_bundle_slot_i*`KV_GROUP_LEN_W) +:
+                            `KV_GROUP_LEN_W];
+                    entry_branch_mask[
+                        wr_bundle_index[
+                            (wr_bundle_slot_i*`TOKEN_REG_INDEX_W) +:
+                            `TOKEN_REG_INDEX_W]] <=
+                        wr_bundle_branch_mask[
+                            (wr_bundle_slot_i*`BRANCH_MASK_W) +:
+                            `BRANCH_MASK_W];
+                    entry_is_shared[
+                        wr_bundle_index[
+                            (wr_bundle_slot_i*`TOKEN_REG_INDEX_W) +:
+                            `TOKEN_REG_INDEX_W]] <=
+                        wr_bundle_is_shared[wr_bundle_slot_i];
+                    entry_state[
+                        wr_bundle_index[
+                            (wr_bundle_slot_i*`TOKEN_REG_INDEX_W) +:
+                            `TOKEN_REG_INDEX_W]] <= TOKEN_STATE_SPEC;
+                    entry_type[
+                        wr_bundle_index[
+                            (wr_bundle_slot_i*`TOKEN_REG_INDEX_W) +:
+                            `TOKEN_REG_INDEX_W]] <= `TOKEN_ENTRY_TREE;
+                end
+            end
+        end else if (wr_valid) begin
+            // 旧标量写口保留给非 strict-paper 的遗留路径。
             valid_entry[wr_index] <= 1'b1;
             entry_req_id[wr_index] <= wr_req_id;
             entry_token_id[wr_index] <= wr_token_id;

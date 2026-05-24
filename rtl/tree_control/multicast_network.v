@@ -5,9 +5,11 @@
 /*
  * 文件作用：
  * 1. 本文件实现论文 TreeControl / SRAM 共享基础设施里的 multicast_network。
- * 2. 它把 sram_subsystem 返回的多 lane 读响应，按 pe_mask 解复用/广播到各个消费者 PE。
+ * 2. 它消费的不是裸 `sram_subsystem` 返回 beat，而是 `request_controller`
+ *    根据 SRAM 返回和保存的 `pe_mask/req_id` 重组后的多 lane 响应。
  * 3. 在论文完整路径和当前整合实现里，它位于：
- *    request_controller / sram_subsystem
+ *    sram_subsystem
+ *      -> request_controller(resp regroup)
  *      -> multicast_network
  *      -> 各个下游消费者（tree path、串行算子、KV commit 等）
  * 4. 它本质上不是计算模块，而是一个响应路由器：

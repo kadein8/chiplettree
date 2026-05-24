@@ -39,6 +39,37 @@
 // attention head 数量，512 / 64 = 8
 `define HEAD_NUM                     8
 
+// Strict paper path generic model/profile names.
+// 说明：
+// 1. strict tree-mask 论文主链后续只能依赖这些通用参数名；
+// 2. 当前默认值仍然来自仓库里已跑通的 toy profile；
+// 3. 若后续切换到别的模型，优先改这里的基础参数，而不是在 PE mesh/descriptor 中写死某个模型名。
+`define MODEL_DMODEL                 `QWEN3_DMODEL
+`define MODEL_INTERMEDIATE_DIM       `QWEN3_INTERMEDIATE_SIZE
+`define MODEL_HEAD_NUM               `QWEN3_NUM_Q_HEADS
+`define MODEL_HEAD_DIM               64
+`define MODEL_N_LAYERS               2
+`define MODEL_VOCAB_SIZE             1024
+`define MODEL_MAX_POS_EMB            32
+
+// Strict paper path PE-array baseline.
+// 论文当前冻结口径：16 个 PE，4x4 mesh，每个 PE 128 MAC。
+`define STRICT_PAPER_PE_ROWS         4
+`define STRICT_PAPER_PE_COLS         4
+`define PE_NUM                       (`STRICT_PAPER_PE_ROWS * `STRICT_PAPER_PE_COLS)
+`define MAC_NUM_PER_PE               128
+
+// Strict paper path default layout/base-address parameters.
+// Addresses in SRAM beats (128-bit). Scaled for d=1024, vocab=1024.
+`define MODEL_EMB_BASE               23'd256
+`define MODEL_FINAL_NORM_GAMMA_ADDR  23'd131584
+`define MODEL_WORK_HIDDEN0_BASE      23'd131840
+`define MODEL_WORK_HIDDEN1_BASE      23'd133888
+`define MODEL_WORK_FINAL_BASE        23'd135936
+`define MODEL_WEIGHT_SRAM_BASE       23'd280000
+`define MODEL_LM_HEAD_WEIGHT_BASE    23'd140000
+`define MODEL_HBM_WEIGHT_BASE        32'd1024
+
 // Derived helper quantity
 
 // 每个 KV 元素占用的字节数

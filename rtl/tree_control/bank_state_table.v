@@ -40,6 +40,23 @@ module bank_state_table #(
     input  [`SUBBANK_ID_W-1:0]   cand_subbank_start,
     input  [`KV_GROUP_LEN_W-1:0] cand_group_len,
 
+    // cand_bundle_*：
+    // 1. 这是 free_list -> bank_state_table 的论文并行分配边界；
+    // 2. bundle 入口优先于旧标量 cand_*；
+    // 3. 每个有效 slot 都在本拍独立更新自己的占用/owner 状态，不再因为多 slot 同拍而停住。
+    input                        cand_bundle_valid,
+    output                       cand_bundle_ready,
+    input  [`REQ_ID_W-1:0]       cand_bundle_req_id,
+    input  [`TREE_FRONTIER_SLOTS-1:0] cand_bundle_slot_valid,
+    input  [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] cand_bundle_branch_id,
+    input  [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] cand_bundle_node_id,
+    input  [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] cand_bundle_size_subbank,
+    input  [`TREE_FRONTIER_SLOTS-1:0] cand_bundle_shared,
+    input  [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] cand_bundle_sram_id,
+    input  [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] cand_bundle_bank_id,
+    input  [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0] cand_bundle_subbank_start,
+    input  [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] cand_bundle_group_len,
+
     // alloc_resp_*：
     // 把 bank 侧确认后的结果返回给上游或调试逻辑。
     output                       alloc_resp_valid,
@@ -157,6 +174,21 @@ reg [`BRANCH_MASK_W-1:0] selected_node_branch_mask;
 reg [`BRANCH_MASK_W-1:0] commit_selected_mask;
 reg [`BRANCH_MASK_W-1:0] flush_selected_mask;
 reg [`BRANCH_MASK_W-1:0] legal_commit_mask;
+integer cand_bundle_slot_i;
+reg active_cand_valid_comb;
+reg [`REQ_ID_W-1:0] active_cand_req_id_comb;
+reg [`BRANCH_ID_W-1:0] active_cand_branch_id_comb;
+reg [`NODE_ID_W-1:0] active_cand_node_id_comb;
+reg [`KV_GROUP_LEN_W-1:0] active_cand_size_subbank_comb;
+reg active_cand_shared_comb;
+reg [`SRAM_ID_W-1:0] active_cand_sram_id_comb;
+reg [`BANK_ID_W-1:0] active_cand_bank_id_comb;
+reg [`SUBBANK_ID_W-1:0] active_cand_subbank_start_comb;
+reg [`KV_GROUP_LEN_W-1:0] active_cand_group_len_comb;
+reg bundle_resp_claimed_comb;
+reg bundle_slot_grant_comb;
+reg bundle_slot_reuse_comb;
+reg [`BANK_OCC_BITMAP_W-1:0] bundle_slot_occ_bitmap_comb;
 
 // node_branch_select_mask：
 // 给定一个 node_id 和 node_mask，返回“哪些 branch 的这个 node 被选中”。
@@ -179,7 +211,8 @@ function [`BRANCH_MASK_W-1:0] node_branch_select_mask;
 endfunction
 
 // 本模块不对 cand/query 施加反压，输入到达时直接在内部判断。
-assign cand_ready = 1'b1;
+assign cand_ready = !cand_bundle_valid;
+assign cand_bundle_ready = 1'b1;
 assign alloc_resp_valid = alloc_resp_valid_r;
 assign alloc_resp_grant = alloc_resp_grant_r;
 assign alloc_resp_req_id = alloc_resp_req_id_r;
@@ -194,6 +227,19 @@ assign query_resp_state = query_resp_state_r;
 assign query_resp_branch_mask = query_resp_branch_mask_r;
 assign query_resp_refcnt = query_resp_refcnt_r;
 
+always @* begin
+    active_cand_valid_comb = cand_valid;
+    active_cand_req_id_comb = cand_req_id;
+    active_cand_branch_id_comb = cand_branch_id;
+    active_cand_node_id_comb = cand_node_id;
+    active_cand_size_subbank_comb = cand_size_subbank;
+    active_cand_shared_comb = cand_shared;
+    active_cand_sram_id_comb = cand_sram_id;
+    active_cand_bank_id_comb = cand_bank_id;
+    active_cand_subbank_start_comb = cand_subbank_start;
+    active_cand_group_len_comb = cand_group_len;
+end
+
 // 组合判断逻辑：
 // 1. 判定 cand_* 指向的连续区间是否可分配，或是否可以作为 shared 复用。
 // 2. 生成 query 响应。
@@ -202,19 +248,19 @@ always @* begin
     cand_reuse = 1'b0;
     cand_occ_bitmap = {`BANK_OCC_BITMAP_W{1'b0}};
     cand_branch_onehot = {`BRANCH_MASK_W{1'b0}};
-    req_size_i = cand_group_len;
-    cand_flat_i = (cand_sram_id * `SRAM_BANK_NUM) + cand_bank_id;
+    req_size_i = active_cand_group_len_comb;
+    cand_flat_i = (active_cand_sram_id_comb * `SRAM_BANK_NUM) + active_cand_bank_id_comb;
 
-    if (cand_branch_id < `BRANCH_NUM) begin
-        cand_branch_onehot[cand_branch_id] = 1'b1;
+    if (active_cand_branch_id_comb < `BRANCH_NUM) begin
+        cand_branch_onehot[active_cand_branch_id_comb] = 1'b1;
     end
 
-    if ((req_size_i > 0) && (req_size_i == cand_size_subbank) &&
-        ((cand_subbank_start + req_size_i) <= `SUBBANK_NUM_PER_BANK)) begin
+    if ((req_size_i > 0) && (req_size_i == active_cand_size_subbank_comb) &&
+        ((active_cand_subbank_start_comb + req_size_i) <= `SUBBANK_NUM_PER_BANK)) begin
         // 先按“整段都空闲”来判定普通 grant。
         range_free = 1'b1;
         for (bit_idx_i = 0; bit_idx_i < req_size_i; bit_idx_i = bit_idx_i + 1) begin
-            if (occ_bitmap[cand_flat_i][cand_subbank_start + bit_idx_i]) begin
+            if (occ_bitmap[cand_flat_i][active_cand_subbank_start_comb + bit_idx_i]) begin
                 range_free = 1'b0;
             end
         end
@@ -224,18 +270,18 @@ always @* begin
             cand_grant = 1'b1;
             cand_occ_bitmap = occ_bitmap[cand_flat_i];
             for (bit_idx_i = 0; bit_idx_i < req_size_i; bit_idx_i = bit_idx_i + 1) begin
-                cand_occ_bitmap[cand_subbank_start + bit_idx_i] = 1'b1;
+                cand_occ_bitmap[active_cand_subbank_start_comb + bit_idx_i] = 1'b1;
             end
-        end else if (ENABLE_SHARED_PREFIX_FREEZE && cand_shared) begin
+        end else if (ENABLE_SHARED_PREFIX_FREEZE && active_cand_shared_comb) begin
             // 若共享前缀冻结启用，则允许对同 req/node 的 shared 区间做“复用式 grant”。
             range_free = 1'b1;
             for (bit_idx_i = 0; bit_idx_i < req_size_i; bit_idx_i = bit_idx_i + 1) begin
-                if (!occ_bitmap[cand_flat_i][cand_subbank_start + bit_idx_i] ||
-                    !entry_shared[cand_flat_i][cand_subbank_start + bit_idx_i] ||
-                    (entry_req_id[cand_flat_i][cand_subbank_start + bit_idx_i] !=
-                     cand_req_id) ||
-                    (entry_node_id[cand_flat_i][cand_subbank_start + bit_idx_i] !=
-                     cand_node_id)) begin
+                if (!occ_bitmap[cand_flat_i][active_cand_subbank_start_comb + bit_idx_i] ||
+                    !entry_shared[cand_flat_i][active_cand_subbank_start_comb + bit_idx_i] ||
+                    (entry_req_id[cand_flat_i][active_cand_subbank_start_comb + bit_idx_i] !=
+                     active_cand_req_id_comb) ||
+                    (entry_node_id[cand_flat_i][active_cand_subbank_start_comb + bit_idx_i] !=
+                     active_cand_node_id_comb)) begin
                     range_free = 1'b0;
                 end
             end
@@ -415,50 +461,249 @@ always @(posedge clk or negedge rst_n) begin
             end
         end
 
-        if (cand_valid && cand_ready) begin
-            // 锁存本拍 candidate 的响应。
+        if (cand_bundle_valid) begin
+            // bundle 路径：
+            // 1. free_list 已经为每个 slot 挑好了候选物理区间；
+            // 2. 这里逐 slot 校验并落表，使多个 branch 的 bank 状态可以同拍更新；
+            // 3. alloc_resp_* 只镜像本拍遇到的第一个有效 slot，供旧调试/兼容路径观察。
+            bundle_resp_claimed_comb = 1'b0;
+            for (cand_bundle_slot_i = 0;
+                 cand_bundle_slot_i < `TREE_FRONTIER_SLOTS;
+                 cand_bundle_slot_i = cand_bundle_slot_i + 1) begin
+                if (cand_bundle_slot_valid[cand_bundle_slot_i]) begin
+                    bundle_slot_grant_comb = 1'b0;
+                    bundle_slot_reuse_comb = 1'b0;
+                    bundle_slot_occ_bitmap_comb = {`BANK_OCC_BITMAP_W{1'b0}};
+                    req_size_i =
+                        cand_bundle_group_len[
+                            (cand_bundle_slot_i*`KV_GROUP_LEN_W) +:
+                            `KV_GROUP_LEN_W];
+                    cand_flat_i =
+                        (cand_bundle_sram_id[
+                            (cand_bundle_slot_i*`SRAM_ID_W) +: `SRAM_ID_W] *
+                         `SRAM_BANK_NUM) +
+                        cand_bundle_bank_id[
+                            (cand_bundle_slot_i*`BANK_ID_W) +: `BANK_ID_W];
+                    cand_branch_onehot = {`BRANCH_MASK_W{1'b0}};
+                    if (cand_bundle_branch_id[
+                            (cand_bundle_slot_i*`BRANCH_ID_W) +:
+                            `BRANCH_ID_W] < `BRANCH_NUM) begin
+                        cand_branch_onehot[
+                            cand_bundle_branch_id[
+                                (cand_bundle_slot_i*`BRANCH_ID_W) +:
+                                `BRANCH_ID_W]] = 1'b1;
+                    end
+
+                    if ((req_size_i > 0) &&
+                        (req_size_i ==
+                         cand_bundle_size_subbank[
+                            (cand_bundle_slot_i*`KV_GROUP_LEN_W) +:
+                            `KV_GROUP_LEN_W]) &&
+                        ((cand_bundle_subbank_start[
+                            (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                            `SUBBANK_ID_W] + req_size_i) <=
+                         `SUBBANK_NUM_PER_BANK)) begin
+                        range_free = 1'b1;
+                        for (bit_idx_i = 0;
+                             bit_idx_i < req_size_i;
+                             bit_idx_i = bit_idx_i + 1) begin
+                            if (occ_bitmap[cand_flat_i][
+                                    cand_bundle_subbank_start[
+                                        (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                        `SUBBANK_ID_W] + bit_idx_i]) begin
+                                range_free = 1'b0;
+                            end
+                        end
+
+                        if (range_free) begin
+                            bundle_slot_grant_comb = 1'b1;
+                            bundle_slot_occ_bitmap_comb = occ_bitmap[cand_flat_i];
+                            for (bit_idx_i = 0;
+                                 bit_idx_i < req_size_i;
+                                 bit_idx_i = bit_idx_i + 1) begin
+                                bundle_slot_occ_bitmap_comb[
+                                    cand_bundle_subbank_start[
+                                        (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                        `SUBBANK_ID_W] + bit_idx_i] = 1'b1;
+                            end
+                        end else if (ENABLE_SHARED_PREFIX_FREEZE &&
+                                     cand_bundle_shared[cand_bundle_slot_i]) begin
+                            range_free = 1'b1;
+                            for (bit_idx_i = 0;
+                                 bit_idx_i < req_size_i;
+                                 bit_idx_i = bit_idx_i + 1) begin
+                                if (!occ_bitmap[cand_flat_i][
+                                         cand_bundle_subbank_start[
+                                             (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                             `SUBBANK_ID_W] + bit_idx_i] ||
+                                    !entry_shared[cand_flat_i][
+                                         cand_bundle_subbank_start[
+                                             (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                             `SUBBANK_ID_W] + bit_idx_i] ||
+                                    (entry_req_id[cand_flat_i][
+                                         cand_bundle_subbank_start[
+                                             (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                             `SUBBANK_ID_W] + bit_idx_i] !=
+                                     cand_bundle_req_id) ||
+                                    (entry_node_id[cand_flat_i][
+                                         cand_bundle_subbank_start[
+                                             (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                             `SUBBANK_ID_W] + bit_idx_i] !=
+                                     cand_bundle_node_id[
+                                         (cand_bundle_slot_i*`NODE_ID_W) +:
+                                         `NODE_ID_W])) begin
+                                    range_free = 1'b0;
+                                end
+                            end
+
+                            if (range_free) begin
+                                bundle_slot_grant_comb = 1'b1;
+                                bundle_slot_reuse_comb = 1'b1;
+                                bundle_slot_occ_bitmap_comb =
+                                    occ_bitmap[cand_flat_i];
+                            end
+                        end
+                    end
+
+                    if (!bundle_resp_claimed_comb) begin
+                        alloc_resp_valid_r <= 1'b1;
+                        alloc_resp_grant_r <= bundle_slot_grant_comb;
+                        alloc_resp_req_id_r <= cand_bundle_req_id;
+                        alloc_resp_sram_id_r <=
+                            cand_bundle_sram_id[
+                                (cand_bundle_slot_i*`SRAM_ID_W) +:
+                                `SRAM_ID_W];
+                        alloc_resp_bank_id_r <=
+                            cand_bundle_bank_id[
+                                (cand_bundle_slot_i*`BANK_ID_W) +:
+                                `BANK_ID_W];
+                        alloc_resp_subbank_start_r <=
+                            cand_bundle_subbank_start[
+                                (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                `SUBBANK_ID_W];
+                        alloc_resp_group_len_r <=
+                            cand_bundle_group_len[
+                                (cand_bundle_slot_i*`KV_GROUP_LEN_W) +:
+                                `KV_GROUP_LEN_W];
+                        alloc_resp_occ_bitmap_r <= bundle_slot_occ_bitmap_comb;
+                        bundle_resp_claimed_comb = 1'b1;
+                    end
+
+                    if (bundle_slot_grant_comb) begin
+                        for (bit_idx_i = 0;
+                             bit_idx_i < req_size_i;
+                             bit_idx_i = bit_idx_i + 1) begin
+                            occ_bitmap[cand_flat_i][
+                                cand_bundle_subbank_start[
+                                    (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                    `SUBBANK_ID_W] + bit_idx_i] = 1'b1;
+                            if (!bundle_slot_reuse_comb) begin
+                                committed_bitmap[cand_flat_i][
+                                    cand_bundle_subbank_start[
+                                        (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                        `SUBBANK_ID_W] + bit_idx_i] = 1'b0;
+                                owner_mask[cand_flat_i][
+                                    cand_bundle_subbank_start[
+                                        (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                        `SUBBANK_ID_W] + bit_idx_i] =
+                                    cand_branch_onehot;
+                            end else if (cand_bundle_shared[cand_bundle_slot_i]) begin
+                                owner_mask[cand_flat_i][
+                                    cand_bundle_subbank_start[
+                                        (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                        `SUBBANK_ID_W] + bit_idx_i] =
+                                    owner_mask[cand_flat_i][
+                                        cand_bundle_subbank_start[
+                                            (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                            `SUBBANK_ID_W] + bit_idx_i] |
+                                    cand_branch_onehot;
+                            end
+                            entry_req_id[cand_flat_i][
+                                cand_bundle_subbank_start[
+                                    (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                    `SUBBANK_ID_W] + bit_idx_i] =
+                                cand_bundle_req_id;
+                            entry_node_id[cand_flat_i][
+                                cand_bundle_subbank_start[
+                                    (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                    `SUBBANK_ID_W] + bit_idx_i] =
+                                cand_bundle_node_id[
+                                    (cand_bundle_slot_i*`NODE_ID_W) +:
+                                    `NODE_ID_W];
+                            entry_shared[cand_flat_i][
+                                cand_bundle_subbank_start[
+                                    (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                    `SUBBANK_ID_W] + bit_idx_i] =
+                                cand_bundle_shared[cand_bundle_slot_i];
+                            if (bundle_slot_reuse_comb) begin
+                                if (ENABLE_PREFIX_PROMOTION &&
+                                    cand_bundle_shared[cand_bundle_slot_i] &&
+                                    ((cand_branch_onehot &
+                                      ~owner_mask[cand_flat_i][
+                                          cand_bundle_subbank_start[
+                                              (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                              `SUBBANK_ID_W] + bit_idx_i]) !=
+                                     {`BRANCH_MASK_W{1'b0}})) begin
+                                    promoted_bitmap[cand_flat_i][
+                                        cand_bundle_subbank_start[
+                                            (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                            `SUBBANK_ID_W] + bit_idx_i] = 1'b1;
+                                end
+                            end else begin
+                                promoted_bitmap[cand_flat_i][
+                                    cand_bundle_subbank_start[
+                                        (cand_bundle_slot_i*`SUBBANK_ID_W) +:
+                                        `SUBBANK_ID_W] + bit_idx_i] = 1'b0;
+                            end
+                        end
+                    end
+                end
+            end
+        end else if (active_cand_valid_comb) begin
+            // 标量兼容路径：
+            // 1. 没有 bundle 时，沿用旧 cand_* 调试/兼容接口；
+            // 2. strict paper 正式主链已经不再依赖这里的“单 slot 挑选”语义。
             alloc_resp_valid_r <= 1'b1;
             alloc_resp_grant_r <= cand_grant;
-            alloc_resp_req_id_r <= cand_req_id;
-            alloc_resp_sram_id_r <= cand_sram_id;
-            alloc_resp_bank_id_r <= cand_bank_id;
-            alloc_resp_subbank_start_r <= cand_subbank_start;
-            alloc_resp_group_len_r <= cand_group_len;
+            alloc_resp_req_id_r <= active_cand_req_id_comb;
+            alloc_resp_sram_id_r <= active_cand_sram_id_comb;
+            alloc_resp_bank_id_r <= active_cand_bank_id_comb;
+            alloc_resp_subbank_start_r <= active_cand_subbank_start_comb;
+            alloc_resp_group_len_r <= active_cand_group_len_comb;
             alloc_resp_occ_bitmap_r <= cand_occ_bitmap;
 
             if (cand_grant) begin
-                // grant 成功时，把区间占用写入表中。
-                for (bit_idx_i = 0; bit_idx_i < cand_group_len; bit_idx_i = bit_idx_i + 1) begin
-                    occ_bitmap[cand_flat_i][cand_subbank_start + bit_idx_i] <= 1'b1;
+                for (bit_idx_i = 0;
+                     bit_idx_i < active_cand_group_len_comb;
+                     bit_idx_i = bit_idx_i + 1) begin
+                    occ_bitmap[cand_flat_i][active_cand_subbank_start_comb + bit_idx_i] <= 1'b1;
                     if (!cand_reuse) begin
-                        // 新分配：清 committed，owner 初始化为当前分支 onehot。
-                        committed_bitmap[cand_flat_i][cand_subbank_start + bit_idx_i] <= 1'b0;
-                        owner_mask[cand_flat_i][cand_subbank_start + bit_idx_i] <=
+                        committed_bitmap[cand_flat_i][active_cand_subbank_start_comb + bit_idx_i] <= 1'b0;
+                        owner_mask[cand_flat_i][active_cand_subbank_start_comb + bit_idx_i] <=
                             cand_branch_onehot;
-                    end else if (cand_shared) begin
-                        // shared 复用：不重置 committed，只把新 branch 合入 owner_mask。
-                        owner_mask[cand_flat_i][cand_subbank_start + bit_idx_i] <=
-                            owner_mask[cand_flat_i][cand_subbank_start + bit_idx_i] |
+                    end else if (active_cand_shared_comb) begin
+                        owner_mask[cand_flat_i][active_cand_subbank_start_comb + bit_idx_i] <=
+                            owner_mask[cand_flat_i][active_cand_subbank_start_comb + bit_idx_i] |
                             cand_branch_onehot;
                     end
-                    entry_req_id[cand_flat_i][cand_subbank_start + bit_idx_i] <= cand_req_id;
-                    entry_node_id[cand_flat_i][cand_subbank_start + bit_idx_i] <= cand_node_id;
-                    entry_shared[cand_flat_i][cand_subbank_start + bit_idx_i] <=
-                        cand_shared;
+                    entry_req_id[cand_flat_i][active_cand_subbank_start_comb + bit_idx_i] <=
+                        active_cand_req_id_comb;
+                    entry_node_id[cand_flat_i][active_cand_subbank_start_comb + bit_idx_i] <=
+                        active_cand_node_id_comb;
+                    entry_shared[cand_flat_i][active_cand_subbank_start_comb + bit_idx_i] <=
+                        active_cand_shared_comb;
                     if (cand_reuse) begin
                         if (ENABLE_PREFIX_PROMOTION &&
-                            cand_shared &&
+                            active_cand_shared_comb &&
                             ((cand_branch_onehot &
                               ~owner_mask[cand_flat_i]
-                                         [cand_subbank_start + bit_idx_i]) !=
+                                         [active_cand_subbank_start_comb + bit_idx_i]) !=
                              {`BRANCH_MASK_W{1'b0}})) begin
-                            // 复用 shared 前缀时，新 branch 加入 owner 也可能触发 promotion。
                             promoted_bitmap[cand_flat_i]
-                                          [cand_subbank_start + bit_idx_i] <= 1'b1;
+                                          [active_cand_subbank_start_comb + bit_idx_i] <= 1'b1;
                         end
                     end else begin
-                        // 新分配默认不是 promoted。
-                        promoted_bitmap[cand_flat_i][cand_subbank_start + bit_idx_i] <=
+                        promoted_bitmap[cand_flat_i][active_cand_subbank_start_comb + bit_idx_i] <=
                             1'b0;
                     end
                 end

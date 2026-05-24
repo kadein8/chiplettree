@@ -3,6 +3,9 @@
 `include "config/memory_params.vh"
 `include "config/model_params.vh"
 `include "tree_control/NativeTreeMainFrontend.v"
+`include "tree_control/StrictTreeMaskPaperPath.v"
+`include "tree_control/StrictTreeMaskPaperMeshBackend.v"
+`include "tree_control/StrictTreeMaskPaperReadout.v"
 `include "tree_control/multicast_network.v"
 `include "tree_control/PredictionWindowSerialDispatcher.v"
 `include "tree_control/kv_commit_copier.v"
@@ -242,12 +245,11 @@ wire [CONF_W-1:0] native_tree_main_pred_confidence_w;
 wire native_tree_main_pred_is_last_in_window_w;
 wire native_tree_main_pred_tree_mask_en_w;
 wire [15:0] native_tree_main_pred_prefix_len_w;
-wire [`TOY_MAX_POS_EMB-1:0] native_tree_main_pred_visible_mask_w;
-wire agu_tree_in_ready_w;
+wire [`MODEL_MAX_POS_EMB-1:0] native_tree_main_pred_visible_mask_w;
 wire native_tree_main_req_fire_w;
 wire native_tree_main_frontier_capture_fire_w;
 wire native_tree_main_pred_fire_w;
-wire [`TREE_MAX_FRONTIER_LEVELS*WINDOW_BRANCH_SLOTS*`TOY_MAX_POS_EMB-1:0]
+wire [`TREE_MAX_FRONTIER_LEVELS*WINDOW_BRANCH_SLOTS*`MODEL_MAX_POS_EMB-1:0]
     native_tree_visible_mask_by_level_w;
 wire tree_parallel_mode_w;
 localparam [`SRAM_ADDR_W-1:0] TREE_PARALLEL_FINAL_NORM_GAMMA_ADDR = 23'd2048;
@@ -570,8 +572,95 @@ wire tree_parallel_scalar_resp_consume_w;
 wire tree_parallel_sram_resp_valid_w;
 wire [`SRAM_RDATA_W-1:0] tree_parallel_sram_resp_data_w;
 wire [`REQ_ID_W-1:0] tree_parallel_sram_resp_id_w;
-wire [`TOKEN_ENTRY_TYPE_W-1:0] kv_lookup_entry_type_w;
-wire [`TOKEN_STATE_W-1:0] kv_lookup_entry_state_w;
+wire [`TOKEN_ENTRY_TYPE_W-1:0] token_lookup_entry_type_w;
+wire [`TOKEN_STATE_W-1:0] token_lookup_entry_state_w;
+wire strict_tree_paper_backend_active_w;
+wire paper_issue_bundle_ready_w;
+wire paper_issue_bundle_valid_w;
+wire [`REQ_ID_W-1:0] paper_issue_bundle_req_id_w;
+wire [`TREE_FRONTIER_SLOTS-1:0] paper_issue_bundle_slot_valid_w;
+wire [`TREE_FRONTIER_SLOTS-1:0] paper_issue_bundle_slot_lookup_hit_w;
+wire [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] paper_issue_bundle_token_id_w;
+wire [`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0]
+    paper_issue_bundle_position_id_w;
+wire [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] paper_issue_bundle_node_id_w;
+wire [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0]
+    paper_issue_bundle_parent_node_id_w;
+wire [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] paper_issue_bundle_branch_id_w;
+wire [`TREE_LEVEL_ID_W-1:0] paper_issue_bundle_level_id_w;
+wire [4:0] paper_issue_bundle_slot_count_w;
+wire [15:0] paper_issue_bundle_prefix_len_w;
+wire [`TREE_FRONTIER_SLOTS-1:0] paper_issue_bundle_slot_tree_mask_en_w;
+wire [`TREE_FRONTIER_SLOTS*`MODEL_MAX_POS_EMB-1:0]
+    paper_issue_bundle_slot_visible_mask_w;
+wire [`TREE_FRONTIER_SLOTS*PRIVATE_DEPTH_W-1:0]
+    paper_issue_bundle_private_depth_w;
+wire [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] paper_issue_bundle_sram_id_w;
+wire [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] paper_issue_bundle_bank_id_w;
+wire [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0]
+    paper_issue_bundle_subbank_start_w;
+wire [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0]
+    paper_issue_bundle_group_len_w;
+wire [`TREE_FRONTIER_SLOTS*`BRANCH_MASK_W-1:0]
+    paper_issue_bundle_branch_mask_w;
+wire [`TREE_FRONTIER_SLOTS-1:0] paper_issue_bundle_is_shared_w;
+wire [`TREE_FRONTIER_SLOTS*`TOKEN_STATE_W-1:0]
+    paper_issue_bundle_entry_state_w;
+wire [`TREE_FRONTIER_SLOTS*`TOKEN_ENTRY_TYPE_W-1:0]
+    paper_issue_bundle_entry_type_w;
+wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_embedding_base_addr_w;
+wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_hidden0_base_addr_w;
+wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_hidden1_base_addr_w;
+wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_final_base_addr_w;
+wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_weight_sram_base_addr_w;
+wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_kv_cache_base_addr_w;
+wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_draft_kv_base_addr_w;
+wire [`HBM_ADDR_W-1:0] paper_issue_bundle_hbm_weight_base_addr_w;
+wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_final_norm_gamma_addr_w;
+wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_lm_head_weight_base_addr_w;
+wire paper_mesh_busy_w;
+wire [`MEM_REQ_LANES-1:0] paper_mesh_vec_req_valid_w;
+wire [`MEM_REQ_LANES-1:0] paper_mesh_vec_req_ready_w;
+wire [`MEM_REQ_LANES-1:0] paper_mesh_vec_req_write_w;
+wire [`MEM_REQ_LANES*`SRAM_ADDR_W-1:0] paper_mesh_vec_req_addr_w;
+wire [`MEM_REQ_LANES*`SRAM_WDATA_W-1:0] paper_mesh_vec_req_wdata_w;
+wire [`MEM_REQ_LANES*`REQ_ID_W-1:0] paper_mesh_vec_req_req_id_w;
+wire [`MEM_REQ_LANES*`PE_MASK_W-1:0] paper_mesh_vec_req_pe_mask_w;
+wire [`MEM_REQ_LANES*`REQ_PRIORITY_W-1:0] paper_mesh_vec_req_priority_w;
+wire [`MEM_REQ_LANES*`BANK_ID_W-1:0] paper_mesh_vec_req_bank_id_w;
+wire [`MEM_REQ_LANES*`SUBBANK_ID_W-1:0] paper_mesh_vec_req_subbank_id_w;
+wire [`PE_MASK_W-1:0] paper_mesh_mc_resp_ready_w;
+wire paper_mesh_tile_result_valid_w;
+wire [`REQ_ID_W-1:0] paper_mesh_tile_result_req_id_w;
+wire [`BRANCH_NUM-1:0] paper_mesh_tile_result_slot_valid_w;
+wire [`BRANCH_NUM*`BRANCH_ID_W-1:0] paper_mesh_tile_result_branch_id_w;
+wire [DEPTH_PACK_W-1:0] paper_mesh_tile_result_private_depth_w;
+wire [`BRANCH_NUM*`NODE_ID_W-1:0] paper_mesh_tile_result_node_id_w;
+wire [`BRANCH_NUM*`NODE_ID_W-1:0] paper_mesh_tile_result_parent_node_id_w;
+wire [1:0] paper_mesh_tile_result_kind_w;
+wire [15:0] paper_mesh_tile_result_tile_index_w;
+wire [`BRANCH_NUM-1:0] paper_mesh_tile_result_last_w;
+wire [`BRANCH_NUM*`SRAM_RDATA_W-1:0] paper_mesh_tile_result_data_w;
+wire paper_readout_result_valid_w;
+wire [`REQ_ID_W-1:0] paper_readout_result_req_id_w;
+wire [`BRANCH_NUM-1:0] paper_readout_result_slot_valid_w;
+wire [`BRANCH_NUM*`TOKEN_ID_W-1:0] paper_readout_result_real_token_id_w;
+wire [`BRANCH_NUM*`BRANCH_ID_W-1:0] paper_readout_result_branch_id_w;
+wire [DEPTH_PACK_W-1:0] paper_readout_result_private_depth_w;
+wire [`BRANCH_NUM*`NODE_ID_W-1:0] paper_readout_result_node_id_w;
+wire [`BRANCH_NUM*`NODE_ID_W-1:0] paper_readout_result_parent_node_id_w;
+wire paper_readout_busy_w;
+wire paper_mesh_resp_select_w;
+wire [`MEM_REQ_LANES-1:0] rc_vec_req_valid_w;
+wire [`MEM_REQ_LANES-1:0] rc_vec_req_ready_w;
+wire [`MEM_REQ_LANES-1:0] rc_vec_req_write_w;
+wire [`MEM_REQ_LANES*`SRAM_ADDR_W-1:0] rc_vec_req_addr_w;
+wire [`MEM_REQ_LANES*`SRAM_WDATA_W-1:0] rc_vec_req_wdata_w;
+wire [`MEM_REQ_LANES*`REQ_ID_W-1:0] rc_vec_req_req_id_w;
+wire [`MEM_REQ_LANES*`PE_MASK_W-1:0] rc_vec_req_pe_mask_w;
+wire [`MEM_REQ_LANES*`REQ_PRIORITY_W-1:0] rc_vec_req_priority_w;
+wire [`MEM_REQ_LANES*`BANK_ID_W-1:0] rc_vec_req_bank_id_w;
+wire [`MEM_REQ_LANES*`SUBBANK_ID_W-1:0] rc_vec_req_subbank_id_w;
 wire hbm_req_valid_w;
 wire hbm_req_write_w;
 wire [`HBM_ADDR_W-1:0] hbm_req_addr_w;
@@ -634,88 +723,9 @@ localparam integer DEPTH_PACK_W =
 localparam integer EPOCH_PACK_W =
     (`BRANCH_NUM * BRANCH_EPOCH_W);
 wire native_tree_ownership_req_ready_w;
-wire prefix_valid;
-wire prefix_ready;
-wire [`REQ_ID_W-1:0] prefix_req_id;
-wire prefix_node_valid;
-wire [`NODE_ID_W-1:0] prefix_node_id;
-wire [`NODE_ID_W-1:0] prefix_parent_node_id;
-wire [`TOKEN_ID_W-1:0] prefix_token_id;
-wire [`POSITION_ID_W-1:0] prefix_position_id;
-wire [`LAYER_ID_W-1:0] prefix_layer_id;
-wire prefix_is_last;
-wire [15:0] ownership_prefix_count_w;
-wire frontier_valid;
-wire frontier_ready;
-wire [`REQ_ID_W-1:0] frontier_req_id;
-wire [`TREE_LEVEL_ID_W-1:0] frontier_level_id;
-wire [`TREE_FRONTIER_SLOTS-1:0] frontier_slot_valid;
-wire [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] frontier_node_id;
-wire [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] agu_frontier_node_id_w;
-wire [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] frontier_parent_node_id;
-wire [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] frontier_token_id;
-wire [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] frontier_referenced_token_id;
-wire [`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0] frontier_position_id;
-wire [`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0]
-    frontier_referenced_position_id;
-wire [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] frontier_branch_id;
-wire [15:0] frontier_level_slot_count;
-wire [`TREE_FRONTIER_SLOTS-1:0] frontier_tree_mask_en;
-wire prefetch_enq_ready;
-wire prefetch_enq_valid;
-wire [`REQ_ID_W-1:0] prefetch_enq_req_id;
-wire [`BRANCH_ID_W-1:0] prefetch_enq_branch_id;
-wire [`NODE_ID_W-1:0] prefetch_enq_node_id;
-wire [`LAYER_ID_W-1:0] prefetch_enq_layer_id;
-wire [`KV_GROUP_LEN_W-1:0] prefetch_enq_size_subbank;
-wire prefetch_enq_shared;
-wire prefetch_flush_valid;
-wire [`REQ_ID_W-1:0] prefetch_flush_req_id;
-wire [`BRANCH_MASK_W-1:0] prefetch_flush_branch_mask;
-wire [`NODE_MASK_W-1:0] prefetch_flush_node_mask;
-wire queue_deq_valid;
-wire queue_deq_ready;
-wire [`REQ_ID_W-1:0] queue_deq_req_id;
-wire [`BRANCH_ID_W-1:0] queue_deq_branch_id;
-wire [`NODE_ID_W-1:0] queue_deq_node_id;
-wire [`LAYER_ID_W-1:0] queue_deq_layer_id;
-wire [`KV_GROUP_LEN_W-1:0] queue_deq_size_subbank;
-wire queue_deq_shared;
-wire cand_resp_valid;
-wire cand_resp_grant;
-wire [`REQ_ID_W-1:0] cand_resp_req_id;
-wire [`SRAM_ID_W-1:0] cand_resp_sram_id;
-wire [`BANK_ID_W-1:0] cand_resp_bank_id;
-wire [`SUBBANK_ID_W-1:0] cand_resp_subbank_start;
-wire [`KV_GROUP_LEN_W-1:0] cand_resp_group_len;
-wire alloc_cand_valid;
-wire [`REQ_ID_W-1:0] alloc_cand_req_id;
-wire [`BRANCH_ID_W-1:0] alloc_cand_branch_id;
-wire [`NODE_ID_W-1:0] alloc_cand_node_id;
-wire [`KV_GROUP_LEN_W-1:0] alloc_cand_size_subbank;
-wire alloc_cand_shared;
-wire [`SRAM_ID_W-1:0] alloc_cand_sram_id;
-wire [`BANK_ID_W-1:0] alloc_cand_bank_id;
-wire [`SUBBANK_ID_W-1:0] alloc_cand_subbank_start;
-wire [`KV_GROUP_LEN_W-1:0] alloc_cand_group_len;
-wire free_list_flush_valid;
-wire [`REQ_ID_W-1:0] free_list_flush_req_id;
-wire [`BRANCH_MASK_W-1:0] free_list_flush_branch_mask;
-wire [`NODE_MASK_W-1:0] free_list_flush_node_mask;
+// 该信号供 lifecycle busy 判定与 TB 调试观察使用，
+// 实际 flush drain 状态已经下沉到论文主路径容器内部的 free_list。
 wire free_list_flush_drain_busy;
-wire flush_reclaim_valid;
-wire [`SRAM_ID_W-1:0] flush_reclaim_sram_id;
-wire [`BANK_ID_W-1:0] flush_reclaim_bank_id;
-wire [`SUBBANK_ID_W-1:0] flush_reclaim_subbank_start;
-wire [`KV_GROUP_LEN_W-1:0] flush_reclaim_group_len;
-wire alloc_resp_valid;
-wire alloc_resp_grant;
-wire [`REQ_ID_W-1:0] alloc_resp_req_id;
-wire [`SRAM_ID_W-1:0] alloc_resp_sram_id;
-wire [`BANK_ID_W-1:0] alloc_resp_bank_id;
-wire [`SUBBANK_ID_W-1:0] alloc_resp_subbank_start;
-wire [`KV_GROUP_LEN_W-1:0] alloc_resp_group_len;
-wire [`BANK_OCC_BITMAP_W-1:0] alloc_resp_occ_bitmap;
 wire token_wr_valid;
 wire [`REQ_ID_W-1:0] token_wr_req_id;
 wire [`TOKEN_ID_W-1:0] token_wr_token_id;
@@ -728,10 +738,10 @@ wire [`SRAM_ID_W-1:0] token_wr_sram_id;
 wire [`BANK_ID_W-1:0] token_wr_bank_id;
 wire [`SUBBANK_ID_W-1:0] token_wr_subbank_start;
 wire [`KV_GROUP_LEN_W-1:0] token_wr_group_len;
-wire token_flush_valid;
-wire [`REQ_ID_W-1:0] token_flush_req_id;
-wire [`BRANCH_MASK_W-1:0] token_flush_branch_mask;
-wire [`NODE_MASK_W-1:0] token_flush_node_mask;
+wire [`TOKEN_REG_INDEX_W-1:0] token_wr_index_w;
+// token_wr_bundle_*：
+// AGU/token path 在 strict 顶层不再直接写 token_register 标量口，
+// 而是先包成论文边界要求的 bundle，再由 token_register 内部兼容层消费。
 wire [`TOKEN_REG_INDEX_W:0] token_entry_count;
 wire token_error_flag;
 wire token_commit_valid;
@@ -768,6 +778,7 @@ wire [`BRANCH_MASK_W-1:0] cmp_flush_branch_mask_w;
 wire [`NODE_MASK_W-1:0] cmp_flush_node_mask_w;
 wire cmp_accepted_prefix_valid_w;
 wire [`REQ_ID_W-1:0] cmp_accepted_prefix_req_id_w;
+wire [`BRANCH_ID_W-1:0] cmp_accepted_prefix_branch_id_w;
 wire [PRIVATE_DEPTH_W-1:0] cmp_accepted_prefix_depth_w;
 wire [(`MAX_VERIFY_NODES_PER_BRANCH*`NODE_ID_W)-1:0]
     cmp_accepted_prefix_node_id_w;
@@ -777,7 +788,6 @@ wire wb_generated_token_fire_w;
 wire [`TOKEN_ID_W-1:0] wb_generated_token_id_w;
 wire native_tree_req_accept_fire_w;
 wire native_tree_lifecycle_busy_w;
-reg [`TOKEN_REG_INDEX_W-1:0] token_wr_index_r;
 reg lifecycle_window_active_r;
 reg [`REQ_ID_W-1:0] lifecycle_req_id_r;
 reg tree_parallel_session_active_r;
@@ -869,7 +879,6 @@ integer tree_parallel_replay_node_id_i;
 integer tree_parallel_replay_flat_idx_i;
 reg tree_parallel_seed_found_comb;
 reg tree_parallel_seed_ref_found_comb;
-reg [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] agu_tree_parallel_frontier_node_id_comb;
 wire tree_parallel_req_mode_w;
 localparam [CONF_W-1:0] HHT_CONF_MIN_W =
     {{(CONF_W-1){1'b0}}, 1'b1};
@@ -905,6 +914,50 @@ assign tree_parallel_kv_commit_req_id_w = {`REQ_ID_W{1'b0}};
 assign tree_parallel_vec_req_valid_w =
     tree_parallel_vec_rd_valid_raw_w | tree_parallel_vec_wr_valid_raw_w;
 assign tree_parallel_vec_req_write_w = tree_parallel_vec_wr_valid_raw_w;
+assign rc_vec_req_valid_w =
+    strict_tree_paper_backend_active_w ?
+        paper_mesh_vec_req_valid_w :
+        tree_parallel_vec_req_valid_w;
+assign rc_vec_req_write_w =
+    strict_tree_paper_backend_active_w ?
+        paper_mesh_vec_req_write_w :
+        tree_parallel_vec_req_write_w;
+assign rc_vec_req_addr_w =
+    strict_tree_paper_backend_active_w ?
+        paper_mesh_vec_req_addr_w :
+        tree_parallel_vec_req_addr_w;
+assign rc_vec_req_wdata_w =
+    strict_tree_paper_backend_active_w ?
+        paper_mesh_vec_req_wdata_w :
+        tree_parallel_vec_req_wdata_w;
+assign rc_vec_req_req_id_w =
+    strict_tree_paper_backend_active_w ?
+        paper_mesh_vec_req_req_id_w :
+        tree_parallel_vec_req_req_id_w;
+assign rc_vec_req_pe_mask_w =
+    strict_tree_paper_backend_active_w ?
+        paper_mesh_vec_req_pe_mask_w :
+        tree_parallel_vec_req_pe_mask_w;
+assign rc_vec_req_priority_w =
+    strict_tree_paper_backend_active_w ?
+        paper_mesh_vec_req_priority_w :
+        tree_parallel_vec_req_priority_w;
+assign rc_vec_req_bank_id_w =
+    strict_tree_paper_backend_active_w ?
+        paper_mesh_vec_req_bank_id_w :
+        tree_parallel_vec_req_bank_id_w;
+assign rc_vec_req_subbank_id_w =
+    strict_tree_paper_backend_active_w ?
+        paper_mesh_vec_req_subbank_id_w :
+        tree_parallel_vec_req_subbank_id_w;
+assign paper_mesh_vec_req_ready_w =
+    strict_tree_paper_backend_active_w ?
+        rc_vec_req_ready_w :
+        {`MEM_REQ_LANES{1'b0}};
+assign tree_parallel_vec_req_ready_w =
+    strict_tree_paper_backend_active_w ?
+        {`MEM_REQ_LANES{1'b0}} :
+        rc_vec_req_ready_w;
 
 genvar tree_parallel_vec_lane_g;
 generate
@@ -1136,13 +1189,21 @@ assign sidecar_resp_select_w =
     !native_tree_resp_select_w &&
     lane0_resp_valid_w &&
     (lane0_resp_req_id_w == closure_sidecar_pe_req_id_w);
+assign paper_mesh_resp_select_w =
+    strict_tree_paper_backend_active_w &&
+    !native_tree_resp_select_w &&
+    !sidecar_resp_select_w &&
+    !tree_parallel_kv_commit_resp_select_w &&
+    (|mc_pe_valid_w);
 assign tree_parallel_resp_select_w =
+    !strict_tree_paper_backend_active_w &&
     tree_parallel_mode_w &&
     !native_tree_resp_select_w &&
     !sidecar_resp_select_w &&
     !tree_parallel_kv_commit_resp_select_w &&
     (|tree_parallel_vec_resp_is_draft_w);
 assign tree_parallel_scalar_resp_select_w =
+    !strict_tree_paper_backend_active_w &&
     tree_parallel_mode_w &&
     !native_tree_resp_select_w &&
     !sidecar_resp_select_w &&
@@ -1190,6 +1251,7 @@ assign tree_parallel_scalar_resp_consume_w =
 assign op_resp_valid =
     (native_tree_resp_select_w || sidecar_resp_select_w ||
      tree_parallel_kv_commit_resp_select_w ||
+     paper_mesh_resp_select_w ||
      tree_parallel_resp_select_w ||
      tree_parallel_scalar_resp_select_w) ?
         1'b0 : lane0_resp_valid_w;
@@ -1210,11 +1272,14 @@ assign tree_parallel_scalar_tail_resp_ready_w =
         tree_parallel_kv_commit_resp_ready_w :
         op_resp_ready));
 assign mc_pe_ready_w =
+    paper_mesh_resp_select_w ?
+        paper_mesh_mc_resp_ready_w :
+    (
     tree_parallel_resp_select_w ?
         tree_parallel_vec_resp_consume_w :
     (tree_parallel_scalar_resp_select_w ?
         {{(`PE_MASK_W-1){1'b1}}, tree_parallel_scalar_resp_consume_w} :
-        {{(`PE_MASK_W-1){1'b1}}, tree_parallel_scalar_tail_resp_ready_w});
+        {{(`PE_MASK_W-1){1'b1}}, tree_parallel_scalar_tail_resp_ready_w}));
 
 assign pred_src_ready =
     ENABLE_NATIVE_TREE_MAIN_FRONTEND ? 1'b1 :
@@ -1226,15 +1291,16 @@ assign tree_parallel_mode_w =
     tree_parallel_session_active_r ||
     tree_parallel_req_mode_w ||
     tree_parallel_kv_commit_busy_w;
+assign strict_tree_paper_backend_active_w =
+    tree_parallel_mode_w ||
+    paper_mesh_busy_w ||
+    paper_readout_busy_w;
 assign native_tree_main_pred_ready_w =
-    tree_parallel_mode_w ? agu_tree_in_ready_w : pred_ready;
+    tree_parallel_mode_w ? 1'b0 : pred_ready;
 assign tree_parallel_req_valid_w =
     tree_parallel_req_mode_w && native_tree_req_valid;
 assign tree_parallel_committed_prefix_len_w =
     {{(16-`POSITION_ID_W){1'b0}}, native_tree_src_committed_len};
-assign agu_frontier_node_id_w =
-    tree_parallel_mode_w ? agu_tree_parallel_frontier_node_id_comb :
-                           frontier_node_id;
 
 always @* begin
     tree_parallel_seed_node_id_w = {`NODE_ID_W{1'b0}};
@@ -1253,16 +1319,6 @@ always @* begin
         {(`BRANCH_NUM*`MAX_PRIVATE_NODES_PER_BRANCH){1'b0}};
     tree_parallel_seed_found_comb = 1'b0;
     tree_parallel_seed_ref_found_comb = 1'b0;
-    agu_tree_parallel_frontier_node_id_comb =
-        {(`TREE_FRONTIER_SLOTS*`NODE_ID_W){1'b0}};
-
-    for (tree_parallel_branch_idx_i = 0;
-         tree_parallel_branch_idx_i < `TREE_FRONTIER_SLOTS;
-         tree_parallel_branch_idx_i = tree_parallel_branch_idx_i + 1) begin
-        agu_tree_parallel_frontier_node_id_comb[
-            (tree_parallel_branch_idx_i*`NODE_ID_W) +: `NODE_ID_W] =
-            {{(`NODE_ID_W-`TREE_LEVEL_ID_W){1'b0}}, frontier_level_id};
-    end
 
     for (tree_parallel_prefix_idx_i = 0;
          tree_parallel_prefix_idx_i < `TREE_MAX_PREFIX_NODES;
@@ -1431,7 +1487,7 @@ assign pred_prefix_len_w =
 assign pred_visible_mask_w =
     ENABLE_NATIVE_TREE_MAIN_FRONTEND ?
         (tree_parallel_mode_w ? {`TOY_MAX_POS_EMB{1'b0}} :
-         native_tree_main_pred_visible_mask_w) :
+         native_tree_main_pred_visible_mask_w[`TOY_MAX_POS_EMB-1:0]) :
         {`TOY_MAX_POS_EMB{1'b0}};
 
 assign tree_cfg_valid_w =
@@ -1560,52 +1616,19 @@ assign bank_commit_node_mask =
     tree_parallel_commit_replay_active_r ?
         tree_parallel_commit_issue_node_mask_comb :
         commit_node_mask;
-assign commit_valid =
-    tree_parallel_mode_w ? tree_parallel_commit_valid_w : cmp_commit_valid_w;
-assign commit_branch_mask =
-    tree_parallel_mode_w ?
-        tree_parallel_commit_branch_mask_comb :
-        cmp_commit_branch_mask_w;
-assign commit_node_mask =
-    tree_parallel_mode_w ?
-        tree_parallel_commit_node_mask_comb :
-        cmp_commit_node_mask_w;
-assign flush_valid =
-    tree_parallel_mode_w ? tree_parallel_flush_valid_comb : cmp_flush_valid_w;
-assign flush_branch_mask =
-    tree_parallel_mode_w ?
-        tree_parallel_commit_flush_mask_w :
-        cmp_flush_branch_mask_w;
-assign flush_node_mask =
-    tree_parallel_mode_w ?
-        tree_parallel_flush_node_mask_comb :
-        cmp_flush_node_mask_w;
-assign accepted_prefix_valid =
-    tree_parallel_mode_w ?
-        (tree_parallel_commit_valid_w &&
-         (tree_parallel_commit_depth_w != 3'd0)) :
-        cmp_accepted_prefix_valid_w;
-assign accepted_prefix_req_id =
-    tree_parallel_mode_w ? lifecycle_req_id_r : cmp_accepted_prefix_req_id_w;
-assign accepted_prefix_depth =
-    tree_parallel_mode_w ?
-        tree_parallel_commit_depth_w[PRIVATE_DEPTH_W-1:0] :
-        cmp_accepted_prefix_depth_w;
-assign accepted_prefix_node_id =
-    tree_parallel_mode_w ?
-        tree_parallel_accepted_prefix_node_id_comb :
-        cmp_accepted_prefix_node_id_w;
-assign live_branch_mask =
-    tree_parallel_mode_w ?
-        tree_parallel_live_branch_mask_comb :
-        cmp_live_branch_mask_w;
-assign prune_branch_mask =
-    tree_parallel_mode_w ?
-        tree_parallel_prune_branch_mask_comb :
-        cmp_prune_branch_mask_w;
-assign branch_liveness_update_valid_w =
-    tree_parallel_mode_w ? tree_parallel_commit_valid_w :
-    cmp_accepted_prefix_valid_w;
+assign commit_valid = cmp_commit_valid_w;
+assign commit_branch_mask = cmp_commit_branch_mask_w;
+assign commit_node_mask = cmp_commit_node_mask_w;
+assign flush_valid = cmp_flush_valid_w;
+assign flush_branch_mask = cmp_flush_branch_mask_w;
+assign flush_node_mask = cmp_flush_node_mask_w;
+assign accepted_prefix_valid = cmp_accepted_prefix_valid_w;
+assign accepted_prefix_req_id = cmp_accepted_prefix_req_id_w;
+assign accepted_prefix_depth = cmp_accepted_prefix_depth_w;
+assign accepted_prefix_node_id = cmp_accepted_prefix_node_id_w;
+assign live_branch_mask = cmp_live_branch_mask_w;
+assign prune_branch_mask = cmp_prune_branch_mask_w;
+assign branch_liveness_update_valid_w = cmp_accepted_prefix_valid_w;
 assign tree_parallel_wb_pending_r = tree_parallel_wb_pending_state_r;
 assign tree_parallel_wb_result_valid_w =
     tree_parallel_wb_pending_r;
@@ -1854,7 +1877,6 @@ always @(posedge clk or negedge rst_n) begin
         hht_update_referenced_position_r <= {`POSITION_ID_W{1'b0}};
         hht_update_confidence_r <= {CONF_W{1'b0}};
         onchip_hht_admission_open_r <= 1'b0;
-        token_wr_index_r <= {`TOKEN_REG_INDEX_W{1'b0}};
         lifecycle_window_active_r <= 1'b0;
         lifecycle_req_id_r <= {`REQ_ID_W{1'b0}};
         tree_parallel_session_active_r <= 1'b0;
@@ -1934,7 +1956,6 @@ always @(posedge clk or negedge rst_n) begin
         end
 
         if (token_wr_valid) begin
-            token_wr_index_r <= token_wr_index_r + 1'b1;
             if ((lifecycle_window_active_r ||
                  tree_parallel_session_active_r ||
                  tree_parallel_commit_pending_r ||
@@ -1943,7 +1964,7 @@ always @(posedge clk or negedge rst_n) begin
                 (token_wr_branch_id < `BRANCH_NUM)) begin
                 lifecycle_commit_index_by_slot_r[
                     (token_wr_branch_id*`TOKEN_REG_INDEX_W) +:
-                    `TOKEN_REG_INDEX_W] <= token_wr_index_r;
+                    `TOKEN_REG_INDEX_W] <= token_wr_index_w;
                 lifecycle_commit_sram_id_by_slot_r[
                     (token_wr_branch_id*`SRAM_ID_W) +: `SRAM_ID_W] <=
                     token_wr_sram_id;
@@ -1964,7 +1985,7 @@ always @(posedge clk or negedge rst_n) begin
                         tree_parallel_meta_flat_idx_i] <= 1'b1;
                     lifecycle_commit_index_by_node_r[
                         (tree_parallel_meta_flat_idx_i*`TOKEN_REG_INDEX_W) +:
-                        `TOKEN_REG_INDEX_W] <= token_wr_index_r;
+                        `TOKEN_REG_INDEX_W] <= token_wr_index_w;
                     lifecycle_commit_sram_id_by_node_r[
                         (tree_parallel_meta_flat_idx_i*`SRAM_ID_W) +:
                         `SRAM_ID_W] <= token_wr_sram_id;
@@ -1982,7 +2003,6 @@ always @(posedge clk or negedge rst_n) begin
         end
 
         if (native_tree_req_accept_fire_w) begin
-            token_wr_index_r <= {`TOKEN_REG_INDEX_W{1'b0}};
             lifecycle_req_id_r <= native_tree_req_id;
             tree_parallel_session_active_r <= tree_parallel_req_mode_w;
             lifecycle_window_active_r <=
@@ -2123,6 +2143,90 @@ always @(posedge clk or negedge rst_n) begin
             end
         end
 
+        if (paper_issue_bundle_valid_w && paper_issue_bundle_ready_w) begin
+            for (tree_parallel_branch_idx_i = 0;
+                 tree_parallel_branch_idx_i < `TREE_FRONTIER_SLOTS;
+                 tree_parallel_branch_idx_i =
+                     tree_parallel_branch_idx_i + 1) begin
+                if (paper_issue_bundle_slot_valid_w[tree_parallel_branch_idx_i] &&
+                    (paper_issue_bundle_branch_id_w[
+                        (tree_parallel_branch_idx_i*`BRANCH_ID_W) +:
+                        `BRANCH_ID_W] < `BRANCH_NUM)) begin
+                    lifecycle_slot_meta_valid_r[
+                        paper_issue_bundle_branch_id_w[
+                            (tree_parallel_branch_idx_i*`BRANCH_ID_W) +:
+                            `BRANCH_ID_W]] <= 1'b1;
+                    lifecycle_cmp_candidate_token_id_r[
+                        (paper_issue_bundle_branch_id_w[
+                            (tree_parallel_branch_idx_i*`BRANCH_ID_W) +:
+                            `BRANCH_ID_W]*`TOKEN_ID_W) +:
+                        `TOKEN_ID_W] <=
+                        paper_issue_bundle_token_id_w[
+                            (tree_parallel_branch_idx_i*`TOKEN_ID_W) +:
+                            `TOKEN_ID_W];
+                    lifecycle_cmp_node_id_r[
+                        (paper_issue_bundle_branch_id_w[
+                            (tree_parallel_branch_idx_i*`BRANCH_ID_W) +:
+                            `BRANCH_ID_W]*`NODE_ID_W) +:
+                        `NODE_ID_W] <=
+                        paper_issue_bundle_node_id_w[
+                            (tree_parallel_branch_idx_i*`NODE_ID_W) +:
+                            `NODE_ID_W];
+                    lifecycle_cmp_parent_node_id_r[
+                        (paper_issue_bundle_branch_id_w[
+                            (tree_parallel_branch_idx_i*`BRANCH_ID_W) +:
+                            `BRANCH_ID_W]*`NODE_ID_W) +:
+                        `NODE_ID_W] <=
+                        paper_issue_bundle_parent_node_id_w[
+                            (tree_parallel_branch_idx_i*`NODE_ID_W) +:
+                            `NODE_ID_W];
+                    lifecycle_cmp_branch_id_r[
+                        (paper_issue_bundle_branch_id_w[
+                            (tree_parallel_branch_idx_i*`BRANCH_ID_W) +:
+                            `BRANCH_ID_W]*`BRANCH_ID_W) +:
+                        `BRANCH_ID_W] <=
+                        paper_issue_bundle_branch_id_w[
+                            (tree_parallel_branch_idx_i*`BRANCH_ID_W) +:
+                            `BRANCH_ID_W];
+                    lifecycle_candidate_depth_by_branch_r[
+                        (paper_issue_bundle_branch_id_w[
+                            (tree_parallel_branch_idx_i*`BRANCH_ID_W) +:
+                            `BRANCH_ID_W]*PRIVATE_DEPTH_W) +:
+                        PRIVATE_DEPTH_W] <=
+                        paper_issue_bundle_private_depth_w[
+                            (tree_parallel_branch_idx_i*PRIVATE_DEPTH_W) +:
+                            PRIVATE_DEPTH_W];
+                    if ((paper_issue_bundle_private_depth_w[
+                             (tree_parallel_branch_idx_i*PRIVATE_DEPTH_W) +:
+                             PRIVATE_DEPTH_W] != {PRIVATE_DEPTH_W{1'b0}}) &&
+                        (paper_issue_bundle_private_depth_w[
+                             (tree_parallel_branch_idx_i*PRIVATE_DEPTH_W) +:
+                             PRIVATE_DEPTH_W] <=
+                         `MAX_VERIFY_NODES_PER_BRANCH)) begin
+                        tree_parallel_meta_flat_idx_i =
+                            (paper_issue_bundle_branch_id_w[
+                                (tree_parallel_branch_idx_i*`BRANCH_ID_W) +:
+                                `BRANCH_ID_W] * `MAX_VERIFY_NODES_PER_BRANCH) +
+                            paper_issue_bundle_private_depth_w[
+                                (tree_parallel_branch_idx_i*PRIVATE_DEPTH_W) +:
+                                PRIVATE_DEPTH_W] - 1'b1;
+                        lifecycle_candidate_node_path_by_branch_r[
+                            (tree_parallel_meta_flat_idx_i*`NODE_ID_W) +:
+                            `NODE_ID_W] <=
+                            paper_issue_bundle_node_id_w[
+                                (tree_parallel_branch_idx_i*`NODE_ID_W) +:
+                                `NODE_ID_W];
+                        lifecycle_candidate_parent_path_by_branch_r[
+                            (tree_parallel_meta_flat_idx_i*`NODE_ID_W) +:
+                            `NODE_ID_W] <=
+                            paper_issue_bundle_parent_node_id_w[
+                                (tree_parallel_branch_idx_i*`NODE_ID_W) +:
+                                `NODE_ID_W];
+                    end
+                end
+            end
+        end
+
         if (ENABLE_NATIVE_TREE_MAIN_FRONTEND &&
             lifecycle_window_active_r &&
             !tree_parallel_mode_w &&
@@ -2185,6 +2289,36 @@ always @(posedge clk or negedge rst_n) begin
             active_issue_valid_r <= 1'b0;
         end
 
+        if (strict_tree_paper_backend_active_w &&
+            paper_readout_result_valid_w &&
+            lifecycle_window_active_r) begin
+            lifecycle_slot_result_valid_r <= paper_readout_result_slot_valid_w;
+            lifecycle_cmp_real_token_id_r <=
+                paper_readout_result_real_token_id_w;
+            lifecycle_cmp_branch_id_r <= paper_readout_result_branch_id_w;
+            lifecycle_cmp_node_id_r <= paper_readout_result_node_id_w;
+            lifecycle_cmp_parent_node_id_r <=
+                paper_readout_result_parent_node_id_w;
+            lifecycle_result_depth_by_branch_r <=
+                paper_readout_result_private_depth_w;
+            for (tree_parallel_branch_idx_i = 0;
+                 tree_parallel_branch_idx_i < `BRANCH_NUM;
+                 tree_parallel_branch_idx_i =
+                     tree_parallel_branch_idx_i + 1) begin
+                lifecycle_result_accept_comb[tree_parallel_branch_idx_i] <=
+                    paper_readout_result_slot_valid_w[
+                        tree_parallel_branch_idx_i] &&
+                    (paper_readout_result_real_token_id_w[
+                        (tree_parallel_branch_idx_i*`TOKEN_ID_W) +:
+                        `TOKEN_ID_W] ==
+                     lifecycle_cmp_candidate_token_id_r[
+                        (tree_parallel_branch_idx_i*`TOKEN_ID_W) +:
+                        `TOKEN_ID_W]);
+            end
+            lifecycle_cmp_fire_r <= 1'b1;
+            lifecycle_window_active_r <= 1'b0;
+        end
+
         if (tree_parallel_mode_w &&
             tree_parallel_commit_valid_w &&
             lifecycle_window_active_r) begin
@@ -2238,6 +2372,47 @@ always @(posedge clk or negedge rst_n) begin
                 (tree_parallel_commit_depth_w[PRIVATE_DEPTH_W-1:0] !=
                  {PRIVATE_DEPTH_W{1'b0}});
             tree_parallel_wb_pending_state_r <= 1'b1;
+        end
+
+        if (strict_tree_paper_backend_active_w &&
+            lifecycle_cmp_fire_r) begin
+            tree_parallel_commit_pending_r <=
+                cmp_accepted_prefix_valid_w &&
+                (cmp_accepted_prefix_depth_w != {PRIVATE_DEPTH_W{1'b0}});
+            tree_parallel_commit_pending_depth_r <=
+                cmp_accepted_prefix_valid_w ?
+                    cmp_accepted_prefix_depth_w :
+                    {PRIVATE_DEPTH_W{1'b0}};
+            tree_parallel_commit_replay_active_r <=
+                cmp_accepted_prefix_valid_w &&
+                (cmp_accepted_prefix_depth_w != {PRIVATE_DEPTH_W{1'b0}});
+            tree_parallel_commit_replay_cursor_r <= {PRIVATE_DEPTH_W{1'b0}};
+            tree_parallel_commit_replay_depth_r <=
+                cmp_accepted_prefix_valid_w ?
+                    cmp_accepted_prefix_depth_w :
+                    {PRIVATE_DEPTH_W{1'b0}};
+            tree_parallel_session_active_r <=
+                cmp_accepted_prefix_valid_w &&
+                (cmp_accepted_prefix_depth_w != {PRIVATE_DEPTH_W{1'b0}});
+            if (cmp_accepted_prefix_valid_w) begin
+                tree_parallel_commit_pending_branch_r <=
+                cmp_accepted_prefix_branch_id_w;
+                tree_parallel_commit_pending_node_id_r <=
+                    cmp_accepted_prefix_node_id_w;
+                tree_parallel_commit_replay_branch_r <=
+                cmp_accepted_prefix_branch_id_w;
+                tree_parallel_commit_replay_node_id_r <=
+                    cmp_accepted_prefix_node_id_w;
+            end else begin
+                tree_parallel_commit_pending_branch_r <=
+                    {`BRANCH_ID_W{1'b0}};
+                tree_parallel_commit_pending_node_id_r <=
+                    {(`MAX_VERIFY_NODES_PER_BRANCH*`NODE_ID_W){1'b0}};
+                tree_parallel_commit_replay_branch_r <=
+                    {`BRANCH_ID_W{1'b0}};
+                tree_parallel_commit_replay_node_id_r <=
+                    {(`MAX_VERIFY_NODES_PER_BRANCH*`NODE_ID_W){1'b0}};
+            end
         end
 
         if (tree_parallel_commit_replay_active_r &&
@@ -2437,7 +2612,7 @@ NativeTreeOwnershipClosureSidecar u_native_tree_ownership_closure_sidecar (
     .debug_pe_resp_fire(native_tree_sidecar_pe_resp_fire_w)
 );
 
-tree_analyze u_tree_analyze (
+StrictTreeMaskPaperPath u_strict_tree_mask_paper_path (
     .clk(clk),
     .rst_n(rst_n),
     .req_valid(
@@ -2463,36 +2638,17 @@ tree_analyze u_tree_analyze (
     .src_frontier_branch_id(native_tree_src_frontier_branch_id),
     .src_frontier_level_id(native_tree_src_frontier_level_id),
     .src_frontier_tree_mask_en(native_tree_src_frontier_tree_mask_en),
-    .prefix_valid(prefix_valid),
-    .prefix_ready(prefix_ready),
-    .prefix_req_id(prefix_req_id),
-    .prefix_node_valid(prefix_node_valid),
-    .prefix_node_id(prefix_node_id),
-    .prefix_parent_node_id(prefix_parent_node_id),
-    .prefix_token_id(prefix_token_id),
-    .prefix_position_id(prefix_position_id),
-    .prefix_layer_id(prefix_layer_id),
-    .prefix_is_last(prefix_is_last),
-    .prefix_count(ownership_prefix_count_w),
-    .frontier_valid(frontier_valid),
-    .frontier_ready(frontier_ready),
-    .frontier_req_id(frontier_req_id),
-    .frontier_level_id(frontier_level_id),
-    .frontier_slot_valid(frontier_slot_valid),
-    .frontier_node_id(frontier_node_id),
-    .frontier_parent_node_id(frontier_parent_node_id),
-    .frontier_token_id(frontier_token_id),
-    .frontier_referenced_token_id(frontier_referenced_token_id),
-    .frontier_position_id(frontier_position_id),
-    .frontier_referenced_position_id(frontier_referenced_position_id),
-    .frontier_branch_id(frontier_branch_id),
-    .frontier_level_slot_count(frontier_level_slot_count),
-    .frontier_tree_mask_en(frontier_tree_mask_en)
-);
-
-comparator u_comparator (
-    .clk(clk),
-    .rst_n(rst_n),
+    .visible_mask_by_level(native_tree_visible_mask_by_level_w),
+    .flush_freeze(1'b0),
+    .flush_ctrl_valid(1'b0),
+    .flush_ctrl_req_id({`REQ_ID_W{1'b0}}),
+    .flush_ctrl_branch_mask({`BRANCH_MASK_W{1'b0}}),
+    .flush_ctrl_node_mask({`NODE_MASK_W{1'b0}}),
+    .branch_liveness_valid(1'b0),
+    .branch_liveness_req_id({`REQ_ID_W{1'b0}}),
+    .branch_liveness_live_mask({`BRANCH_MASK_W{1'b0}}),
+    .branch_liveness_prune_mask({`BRANCH_MASK_W{1'b0}}),
+    .reduce_start_valid(lifecycle_cmp_fire_r),
     .cmp_req_id(lifecycle_req_id_r),
     .cmp_slot_valid(lifecycle_cmp_slot_valid_comb),
     .cmp_slot_real_token_id(lifecycle_cmp_real_token_id_r),
@@ -2500,10 +2656,9 @@ comparator u_comparator (
     .cmp_slot_node_id(lifecycle_cmp_node_id_r),
     .cmp_slot_parent_node_id(lifecycle_cmp_parent_node_id_r),
     .cmp_slot_branch_id(lifecycle_cmp_branch_id_r),
-    .reduce_start_valid(lifecycle_cmp_fire_r),
     .reduce_req_id(lifecycle_req_id_r),
-    .active_branch_valid(lifecycle_slot_meta_valid_r),
     .active_branch_epoch({EPOCH_PACK_W{1'b0}}),
+    .active_branch_valid(lifecycle_slot_meta_valid_r),
     .active_branch_depth(lifecycle_active_branch_depth_comb),
     .active_branch_node_id(lifecycle_active_branch_node_id_comb),
     .active_branch_parent_node_id(lifecycle_active_branch_parent_node_id_comb),
@@ -2515,110 +2670,44 @@ comparator u_comparator (
     .result_node_id(lifecycle_cmp_node_id_r),
     .result_parent_node_id(lifecycle_cmp_parent_node_id_r),
     .result_accept(lifecycle_result_accept_comb),
-    .commit_valid(cmp_commit_valid_w),
-    .commit_branch_mask(cmp_commit_branch_mask_w),
-    .commit_node_mask(cmp_commit_node_mask_w),
-    .flush_valid(cmp_flush_valid_w),
-    .flush_branch_mask(cmp_flush_branch_mask_w),
-    .flush_node_mask(cmp_flush_node_mask_w),
-    .accepted_prefix_valid(cmp_accepted_prefix_valid_w),
-    .accepted_prefix_req_id(cmp_accepted_prefix_req_id_w),
-    .accepted_prefix_depth(cmp_accepted_prefix_depth_w),
-    .accepted_prefix_node_id(cmp_accepted_prefix_node_id_w),
-    .live_branch_mask(cmp_live_branch_mask_w),
-    .prune_branch_mask(cmp_prune_branch_mask_w)
-);
-
-agu u_agu (
-    .clk(clk),
-    .rst_n(rst_n),
-    .tree_in_valid(
-        tree_parallel_mode_w ? 1'b0 : pred_accept_fire_w),
-    .tree_in_ready(agu_tree_in_ready_w),
-    .tree_in_req_id(lifecycle_req_id_r),
-    .tree_in_branch_id(
-        tree_parallel_mode_w ?
-            native_tree_main_pred_branch_id_w :
-            pred_branch_id_w),
-    .tree_in_node_id(
-        tree_parallel_mode_w ?
-            {{(`NODE_ID_W-`TREE_LEVEL_ID_W){1'b0}},
-             native_tree_main_pred_level_id_w} :
-            native_tree_main_pred_node_id_w),
-    .prefix_valid(prefix_valid),
-    .prefix_ready(prefix_ready),
-    .prefix_req_id(prefix_req_id),
-    .prefix_node_valid(prefix_node_valid),
-    .prefix_node_id(prefix_node_id),
-    .prefix_parent_node_id(prefix_parent_node_id),
-    .prefix_token_id(prefix_token_id),
-    .prefix_position_id(prefix_position_id),
-    .prefix_layer_id(prefix_layer_id),
-    .prefix_is_last(prefix_is_last),
-    .frontier_valid(frontier_valid),
-    .frontier_ready(frontier_ready),
-    .frontier_req_id(frontier_req_id),
-    .frontier_level_id(frontier_level_id),
-    .frontier_slot_valid(frontier_slot_valid),
-    .frontier_node_id(agu_frontier_node_id_w),
-    .frontier_parent_node_id(frontier_parent_node_id),
-    .frontier_token_id(frontier_token_id),
-    .frontier_position_id(frontier_position_id),
-    .prefetch_enq_ready(prefetch_enq_ready),
-    .cand_resp_valid(cand_resp_valid),
-    .cand_resp_grant(cand_resp_grant),
-    .cand_resp_req_id(cand_resp_req_id),
-    .cand_resp_sram_id(cand_resp_sram_id),
-    .cand_resp_bank_id(cand_resp_bank_id),
-    .cand_resp_subbank_start(cand_resp_subbank_start),
-    .cand_resp_group_len(cand_resp_group_len),
-    .alloc_resp_valid(alloc_resp_valid),
-    .alloc_resp_grant(alloc_resp_grant),
-    .alloc_resp_req_id(alloc_resp_req_id),
-    .alloc_resp_sram_id(alloc_resp_sram_id),
-    .alloc_resp_bank_id(alloc_resp_bank_id),
-    .alloc_resp_subbank_start(alloc_resp_subbank_start),
-    .alloc_resp_group_len(alloc_resp_group_len),
-    .flush_freeze(flush_valid),
+    .cmp_commit_valid(cmp_commit_valid_w),
+    .cmp_commit_branch_mask(cmp_commit_branch_mask_w),
+    .cmp_commit_node_mask(cmp_commit_node_mask_w),
+    .cmp_flush_valid(cmp_flush_valid_w),
+    .cmp_flush_branch_mask(cmp_flush_branch_mask_w),
+    .cmp_flush_node_mask(cmp_flush_node_mask_w),
+    .cmp_accepted_prefix_valid(cmp_accepted_prefix_valid_w),
+    .cmp_accepted_prefix_req_id(cmp_accepted_prefix_req_id_w),
+    .cmp_accepted_prefix_branch_id(cmp_accepted_prefix_branch_id_w),
+    .cmp_accepted_prefix_depth(cmp_accepted_prefix_depth_w),
+    .cmp_accepted_prefix_node_id(cmp_accepted_prefix_node_id_w),
+    .cmp_live_branch_mask(cmp_live_branch_mask_w),
+    .cmp_prune_branch_mask(cmp_prune_branch_mask_w),
+    .bank_commit_valid(bank_commit_valid),
+    .bank_commit_req_id(bank_commit_req_id),
+    .bank_commit_sram_id(bank_commit_sram_id),
+    .bank_commit_bank_id(bank_commit_bank_id),
+    .bank_commit_subbank_start(bank_commit_subbank_start),
+    .bank_commit_group_len(bank_commit_group_len),
+    .bank_commit_branch_mask(bank_commit_branch_mask),
+    .bank_commit_node_mask(bank_commit_node_mask),
+    .alloc_cand_bundle_valid(),
+    .alloc_cand_bundle_req_id(),
+    .alloc_cand_bundle_slot_valid(),
+    .alloc_cand_bundle_branch_id(),
+    .alloc_cand_bundle_node_id(),
+    .alloc_cand_bundle_size_subbank(),
+    .alloc_cand_bundle_shared(),
+    .alloc_cand_bundle_sram_id(),
+    .alloc_cand_bundle_bank_id(),
+    .alloc_cand_bundle_subbank_start(),
+    .alloc_cand_bundle_group_len(),
+    .flush_reclaim_valid(),
+    .flush_reclaim_sram_id(),
+    .flush_reclaim_bank_id(),
+    .flush_reclaim_subbank_start(),
+    .flush_reclaim_group_len(),
     .flush_drain_busy(free_list_flush_drain_busy),
-    .flush_ctrl_valid(flush_valid),
-    .flush_ctrl_req_id(lifecycle_req_id_r),
-    .flush_ctrl_branch_mask(flush_branch_mask),
-    .flush_ctrl_node_mask(flush_node_mask),
-    .branch_liveness_valid(branch_liveness_update_valid_w),
-    .branch_liveness_req_id(accepted_prefix_req_id),
-    .branch_liveness_live_mask(live_branch_mask),
-    .branch_liveness_prune_mask(prune_branch_mask),
-    .prefix_norm_valid(),
-    .prefix_norm_req_id(),
-    .prefix_norm_node_valid(),
-    .prefix_norm_node_id(),
-    .prefix_norm_parent_node_id(),
-    .prefix_norm_token_id(),
-    .prefix_norm_position_id(),
-    .prefix_norm_layer_id(),
-    .prefix_norm_is_last(),
-    .prefix_norm_is_shared(),
-    .frontier_norm_valid(),
-    .frontier_norm_req_id(),
-    .frontier_norm_level_id(),
-    .frontier_norm_slot_valid(),
-    .frontier_norm_node_id(),
-    .frontier_norm_parent_node_id(),
-    .frontier_norm_token_id(),
-    .frontier_norm_position_id(),
-    .frontier_norm_size_subbank(),
-    .frontier_norm_slot_shared(),
-    .alloc_cand_valid(alloc_cand_valid),
-    .alloc_cand_req_id(alloc_cand_req_id),
-    .alloc_cand_branch_id(alloc_cand_branch_id),
-    .alloc_cand_node_id(alloc_cand_node_id),
-    .alloc_cand_size_subbank(alloc_cand_size_subbank),
-    .alloc_cand_shared(alloc_cand_shared),
-    .alloc_cand_sram_id(alloc_cand_sram_id),
-    .alloc_cand_bank_id(alloc_cand_bank_id),
-    .alloc_cand_subbank_start(alloc_cand_subbank_start),
-    .alloc_cand_group_len(alloc_cand_group_len),
     .token_wr_valid(token_wr_valid),
     .token_wr_req_id(token_wr_req_id),
     .token_wr_token_id(token_wr_token_id),
@@ -2631,193 +2720,162 @@ agu u_agu (
     .token_wr_bank_id(token_wr_bank_id),
     .token_wr_subbank_start(token_wr_subbank_start),
     .token_wr_group_len(token_wr_group_len),
-    .prefetch_enq_valid(prefetch_enq_valid),
-    .prefetch_enq_req_id(prefetch_enq_req_id),
-    .prefetch_enq_branch_id(prefetch_enq_branch_id),
-    .prefetch_enq_node_id(prefetch_enq_node_id),
-    .prefetch_enq_layer_id(prefetch_enq_layer_id),
-    .prefetch_enq_size_subbank(prefetch_enq_size_subbank),
-    .prefetch_enq_shared(prefetch_enq_shared),
-    .prefetch_flush_valid(prefetch_flush_valid),
-    .prefetch_flush_req_id(prefetch_flush_req_id),
-    .prefetch_flush_branch_mask(prefetch_flush_branch_mask),
-    .prefetch_flush_node_mask(prefetch_flush_node_mask),
-    .free_list_flush_valid(free_list_flush_valid),
-    .free_list_flush_req_id(free_list_flush_req_id),
-    .free_list_flush_branch_mask(free_list_flush_branch_mask),
-    .free_list_flush_node_mask(free_list_flush_node_mask),
-    .token_flush_valid(token_flush_valid),
-    .token_flush_req_id(token_flush_req_id),
-    .token_flush_branch_mask(token_flush_branch_mask),
-    .token_flush_node_mask(token_flush_node_mask)
+    .token_wr_index(token_wr_index_w),
+    .token_lookup_valid(kv_lookup_valid),
+    .token_lookup_token_id(kv_lookup_token_id),
+    .token_lookup_position_id(kv_lookup_position_id),
+    .token_lookup_ready(),
+    .token_lookup_hit(),
+    .token_lookup_sram_id(),
+    .token_lookup_bank_id(),
+    .token_lookup_subbank_start(),
+    .token_lookup_group_len(),
+    .token_lookup_branch_mask(),
+    .token_lookup_is_shared(),
+    .token_lookup_entry_type(token_lookup_entry_type_w),
+    .token_lookup_entry_state(token_lookup_entry_state_w),
+    .paper_issue_bundle_ready(paper_issue_bundle_ready_w),
+    .paper_issue_bundle_valid(paper_issue_bundle_valid_w),
+    .paper_issue_bundle_req_id(paper_issue_bundle_req_id_w),
+    .paper_issue_bundle_slot_valid(paper_issue_bundle_slot_valid_w),
+    .paper_issue_bundle_slot_lookup_hit(paper_issue_bundle_slot_lookup_hit_w),
+    .paper_issue_bundle_token_id(paper_issue_bundle_token_id_w),
+    .paper_issue_bundle_position_id(paper_issue_bundle_position_id_w),
+    .paper_issue_bundle_node_id(paper_issue_bundle_node_id_w),
+    .paper_issue_bundle_parent_node_id(paper_issue_bundle_parent_node_id_w),
+    .paper_issue_bundle_branch_id(paper_issue_bundle_branch_id_w),
+    .paper_issue_bundle_level_id(paper_issue_bundle_level_id_w),
+    .paper_issue_bundle_slot_count(paper_issue_bundle_slot_count_w),
+    .paper_issue_bundle_prefix_len(paper_issue_bundle_prefix_len_w),
+    .paper_issue_bundle_slot_tree_mask_en(paper_issue_bundle_slot_tree_mask_en_w),
+    .paper_issue_bundle_slot_visible_mask(paper_issue_bundle_slot_visible_mask_w),
+    .paper_issue_bundle_private_depth(paper_issue_bundle_private_depth_w),
+    .paper_issue_bundle_sram_id(paper_issue_bundle_sram_id_w),
+    .paper_issue_bundle_bank_id(paper_issue_bundle_bank_id_w),
+    .paper_issue_bundle_subbank_start(paper_issue_bundle_subbank_start_w),
+    .paper_issue_bundle_group_len(paper_issue_bundle_group_len_w),
+    .paper_issue_bundle_branch_mask(paper_issue_bundle_branch_mask_w),
+    .paper_issue_bundle_is_shared(paper_issue_bundle_is_shared_w),
+    .paper_issue_bundle_entry_state(paper_issue_bundle_entry_state_w),
+    .paper_issue_bundle_entry_type(paper_issue_bundle_entry_type_w),
+    .paper_issue_bundle_embedding_base_addr(paper_issue_bundle_embedding_base_addr_w),
+    .paper_issue_bundle_hidden0_base_addr(paper_issue_bundle_hidden0_base_addr_w),
+    .paper_issue_bundle_hidden1_base_addr(paper_issue_bundle_hidden1_base_addr_w),
+    .paper_issue_bundle_final_base_addr(paper_issue_bundle_final_base_addr_w),
+    .paper_issue_bundle_weight_sram_base_addr(paper_issue_bundle_weight_sram_base_addr_w),
+    .paper_issue_bundle_kv_cache_base_addr(paper_issue_bundle_kv_cache_base_addr_w),
+    .paper_issue_bundle_draft_kv_base_addr(paper_issue_bundle_draft_kv_base_addr_w),
+    .paper_issue_bundle_hbm_weight_base_addr(paper_issue_bundle_hbm_weight_base_addr_w),
+    .paper_issue_bundle_final_norm_gamma_addr(paper_issue_bundle_final_norm_gamma_addr_w),
+    .paper_issue_bundle_lm_head_weight_base_addr(paper_issue_bundle_lm_head_weight_base_addr_w),
+    .token_commit_valid(token_commit_valid),
+    .token_commit_index(token_commit_index),
+    .token_commit_req_id(token_commit_req_id),
+    .token_commit_branch_mask(token_commit_branch_mask),
+    .token_commit_node_mask(token_commit_node_mask),
+    .token_entry_count(token_entry_count),
+    .token_error_flag(token_error_flag)
 );
 
-prefetch_queue u_prefetch_queue (
+// queue -> free_list 的 bundle ownership 已完全收口到 StrictTreeMaskPaperPath；
+// 顶层这里只保留从容器输出到 bank_state_table / token_register 的论文边界。
+
+
+StrictTreeMaskPaperMeshBackend u_strict_tree_mask_paper_mesh_backend (
     .clk(clk),
     .rst_n(rst_n),
-    .enq_valid(prefetch_enq_valid),
-    .enq_ready(prefetch_enq_ready),
-    .enq_req_id(prefetch_enq_req_id),
-    .enq_branch_id(prefetch_enq_branch_id),
-    .enq_node_id(prefetch_enq_node_id),
-    .enq_layer_id(prefetch_enq_layer_id),
-    .enq_size_subbank(prefetch_enq_size_subbank),
-    .enq_shared(prefetch_enq_shared),
-    .flush_valid(prefetch_flush_valid),
-    .flush_req_id(prefetch_flush_req_id),
-    .flush_branch_mask(prefetch_flush_branch_mask),
-    .flush_node_mask(prefetch_flush_node_mask),
-    .deq_valid(queue_deq_valid),
-    .deq_ready(queue_deq_ready),
-    .deq_req_id(queue_deq_req_id),
-    .deq_branch_id(queue_deq_branch_id),
-    .deq_node_id(queue_deq_node_id),
-    .deq_layer_id(queue_deq_layer_id),
-    .deq_size_subbank(queue_deq_size_subbank),
-    .deq_shared(queue_deq_shared)
+    .issue_bundle_valid(paper_issue_bundle_valid_w),
+    .issue_bundle_ready(paper_issue_bundle_ready_w),
+    .issue_bundle_req_id(paper_issue_bundle_req_id_w),
+    .issue_bundle_slot_valid(paper_issue_bundle_slot_valid_w),
+    .issue_bundle_slot_lookup_hit(paper_issue_bundle_slot_lookup_hit_w),
+    .issue_bundle_token_id(paper_issue_bundle_token_id_w),
+    .issue_bundle_position_id(paper_issue_bundle_position_id_w),
+    .issue_bundle_node_id(paper_issue_bundle_node_id_w),
+    .issue_bundle_parent_node_id(paper_issue_bundle_parent_node_id_w),
+    .issue_bundle_branch_id(paper_issue_bundle_branch_id_w),
+    .issue_bundle_level_id(paper_issue_bundle_level_id_w),
+    .issue_bundle_slot_count(paper_issue_bundle_slot_count_w),
+    .issue_bundle_prefix_len(paper_issue_bundle_prefix_len_w),
+    .issue_bundle_slot_tree_mask_en(paper_issue_bundle_slot_tree_mask_en_w),
+    .issue_bundle_slot_visible_mask(paper_issue_bundle_slot_visible_mask_w),
+    .issue_bundle_private_depth(paper_issue_bundle_private_depth_w),
+    .issue_bundle_sram_id(paper_issue_bundle_sram_id_w),
+    .issue_bundle_bank_id(paper_issue_bundle_bank_id_w),
+    .issue_bundle_subbank_start(paper_issue_bundle_subbank_start_w),
+    .issue_bundle_group_len(paper_issue_bundle_group_len_w),
+    .issue_bundle_branch_mask(paper_issue_bundle_branch_mask_w),
+    .issue_bundle_is_shared(paper_issue_bundle_is_shared_w),
+    .issue_bundle_entry_state(paper_issue_bundle_entry_state_w),
+    .issue_bundle_entry_type(paper_issue_bundle_entry_type_w),
+    .issue_bundle_embedding_base_addr(paper_issue_bundle_embedding_base_addr_w),
+    .issue_bundle_hidden0_base_addr(paper_issue_bundle_hidden0_base_addr_w),
+    .issue_bundle_hidden1_base_addr(paper_issue_bundle_hidden1_base_addr_w),
+    .issue_bundle_final_base_addr(paper_issue_bundle_final_base_addr_w),
+    .issue_bundle_weight_sram_base_addr(paper_issue_bundle_weight_sram_base_addr_w),
+    .issue_bundle_kv_cache_base_addr(paper_issue_bundle_kv_cache_base_addr_w),
+    .issue_bundle_draft_kv_base_addr(paper_issue_bundle_draft_kv_base_addr_w),
+    .issue_bundle_hbm_weight_base_addr(paper_issue_bundle_hbm_weight_base_addr_w),
+    .issue_bundle_final_norm_gamma_addr(paper_issue_bundle_final_norm_gamma_addr_w),
+    .issue_bundle_lm_head_weight_base_addr(paper_issue_bundle_lm_head_weight_base_addr_w),
+    .vec_req_valid(paper_mesh_vec_req_valid_w),
+    .vec_req_ready(paper_mesh_vec_req_ready_w),
+    .vec_req_write(paper_mesh_vec_req_write_w),
+    .vec_req_addr(paper_mesh_vec_req_addr_w),
+    .vec_req_wdata(paper_mesh_vec_req_wdata_w),
+    .vec_req_req_id(paper_mesh_vec_req_req_id_w),
+    .vec_req_pe_mask(paper_mesh_vec_req_pe_mask_w),
+    .vec_req_priority(paper_mesh_vec_req_priority_w),
+    .vec_req_bank_id(paper_mesh_vec_req_bank_id_w),
+    .vec_req_subbank_id(paper_mesh_vec_req_subbank_id_w),
+    .mc_resp_valid(mc_pe_valid_w),
+    .mc_resp_ready(paper_mesh_mc_resp_ready_w),
+    .mc_resp_rdata(mc_pe_rdata_w),
+    .mc_resp_req_id(mc_pe_req_id_w),
+    .mc_resp_pe_mask(mc_pe_mask_w),
+    .mc_resp_last(mc_pe_last_w),
+    .tile_result_valid(paper_mesh_tile_result_valid_w),
+    .tile_result_req_id(paper_mesh_tile_result_req_id_w),
+    .tile_result_slot_valid(paper_mesh_tile_result_slot_valid_w),
+    .tile_result_branch_id(paper_mesh_tile_result_branch_id_w),
+    .tile_result_private_depth(paper_mesh_tile_result_private_depth_w),
+    .tile_result_node_id(paper_mesh_tile_result_node_id_w),
+    .tile_result_parent_node_id(paper_mesh_tile_result_parent_node_id_w),
+    .tile_result_kind(paper_mesh_tile_result_kind_w),
+    .tile_result_tile_index(paper_mesh_tile_result_tile_index_w),
+    .tile_result_last(paper_mesh_tile_result_last_w),
+    .tile_result_data(paper_mesh_tile_result_data_w),
+    .busy(paper_mesh_busy_w)
 );
 
-free_list u_free_list (
+StrictTreeMaskPaperReadout u_strict_tree_mask_paper_readout (
     .clk(clk),
     .rst_n(rst_n),
-    .cand_req_valid(queue_deq_valid),
-    .cand_req_ready(queue_deq_ready),
-    .cand_req_req_id(queue_deq_req_id),
-    .cand_req_branch_id(queue_deq_branch_id),
-    .cand_req_node_id(queue_deq_node_id),
-    .cand_req_size_subbank(queue_deq_size_subbank),
-    .cand_req_shared(queue_deq_shared),
-    .cand_resp_valid(cand_resp_valid),
-    .cand_resp_grant(cand_resp_grant),
-    .cand_resp_req_id(cand_resp_req_id),
-    .cand_resp_sram_id(cand_resp_sram_id),
-    .cand_resp_bank_id(cand_resp_bank_id),
-    .cand_resp_subbank_start(cand_resp_subbank_start),
-    .cand_resp_group_len(cand_resp_group_len),
-    .alloc_cand_valid(alloc_cand_valid),
-    .alloc_cand_req_id(alloc_cand_req_id),
-    .alloc_cand_branch_id(alloc_cand_branch_id),
-    .alloc_cand_node_id(alloc_cand_node_id),
-    .alloc_cand_size_subbank(alloc_cand_size_subbank),
-    .alloc_cand_shared(alloc_cand_shared),
-    .alloc_cand_sram_id(alloc_cand_sram_id),
-    .alloc_cand_bank_id(alloc_cand_bank_id),
-    .alloc_cand_subbank_start(alloc_cand_subbank_start),
-    .alloc_cand_group_len(alloc_cand_group_len),
-    .flush_valid(free_list_flush_valid),
-    .flush_req_id(free_list_flush_req_id),
-    .flush_branch_mask(free_list_flush_branch_mask),
-    .flush_node_mask(free_list_flush_node_mask),
-    .flush_drain_busy(free_list_flush_drain_busy),
-    .flush_reclaim_valid(flush_reclaim_valid),
-    .flush_reclaim_sram_id(flush_reclaim_sram_id),
-    .flush_reclaim_bank_id(flush_reclaim_bank_id),
-    .flush_reclaim_subbank_start(flush_reclaim_subbank_start),
-    .flush_reclaim_group_len(flush_reclaim_group_len),
-    .release_valid(1'b0),
-    .release_sram_id({`SRAM_ID_W{1'b0}}),
-    .release_bank_id({`BANK_ID_W{1'b0}}),
-    .release_subbank_start({`SUBBANK_ID_W{1'b0}}),
-    .release_group_len({`KV_GROUP_LEN_W{1'b0}})
-);
-
-bank_state_table u_bank_state_table (
-    .clk(clk),
-    .rst_n(rst_n),
-    .cand_valid(alloc_cand_valid),
-    .cand_ready(),
-    .cand_req_id(alloc_cand_req_id),
-    .cand_branch_id(alloc_cand_branch_id),
-    .cand_node_id(alloc_cand_node_id),
-    .cand_size_subbank(alloc_cand_size_subbank),
-    .cand_shared(alloc_cand_shared),
-    .cand_sram_id(alloc_cand_sram_id),
-    .cand_bank_id(alloc_cand_bank_id),
-    .cand_subbank_start(alloc_cand_subbank_start),
-    .cand_group_len(alloc_cand_group_len),
-    .alloc_resp_valid(alloc_resp_valid),
-    .alloc_resp_grant(alloc_resp_grant),
-    .alloc_resp_req_id(alloc_resp_req_id),
-    .alloc_resp_sram_id(alloc_resp_sram_id),
-    .alloc_resp_bank_id(alloc_resp_bank_id),
-    .alloc_resp_subbank_start(alloc_resp_subbank_start),
-    .alloc_resp_group_len(alloc_resp_group_len),
-    .alloc_resp_occ_bitmap(alloc_resp_occ_bitmap),
-    .commit_valid(bank_commit_valid),
-    .commit_req_id(bank_commit_req_id),
-    .commit_sram_id(bank_commit_sram_id),
-    .commit_bank_id(bank_commit_bank_id),
-    .commit_subbank_start(bank_commit_subbank_start),
-    .commit_group_len(bank_commit_group_len),
-    .commit_branch_mask(bank_commit_branch_mask),
-    .commit_node_mask(bank_commit_node_mask),
-    .flush_valid(1'b0),
-    .flush_req_id({`REQ_ID_W{1'b0}}),
-    .flush_branch_mask({`BRANCH_MASK_W{1'b0}}),
-    .flush_node_mask({`NODE_MASK_W{1'b0}}),
-    .reclaim_valid(flush_reclaim_valid),
-    .reclaim_sram_id(flush_reclaim_sram_id),
-    .reclaim_bank_id(flush_reclaim_bank_id),
-    .reclaim_subbank_start(flush_reclaim_subbank_start),
-    .reclaim_group_len(flush_reclaim_group_len),
-    .query_valid(1'b0),
-    .query_sram_id({`SRAM_ID_W{1'b0}}),
-    .query_bank_id({`BANK_ID_W{1'b0}}),
-    .query_resp_valid(),
-    .query_resp_occ_bitmap(),
-    .query_resp_state(),
-    .query_resp_branch_mask(),
-    .query_resp_refcnt()
-);
-
-token_register u_token_register (
-    .clk(clk),
-    .rst_n(rst_n),
-    .wr_valid(token_wr_valid),
-    .wr_ready(),
-    .wr_index(token_wr_index_r),
-    .wr_req_id(token_wr_req_id),
-    .wr_token_id(token_wr_token_id),
-    .wr_position_id(token_wr_position_id),
-    .wr_node_id(token_wr_node_id),
-    .wr_branch_id(token_wr_branch_id),
-    .wr_sram_id(token_wr_sram_id),
-    .wr_bank_id(token_wr_bank_id),
-    .wr_subbank_start(token_wr_subbank_start),
-    .wr_group_len(token_wr_group_len),
-    .wr_branch_mask(token_wr_branch_mask),
-    .wr_is_shared(token_wr_is_shared),
-    .lookup_valid(kv_lookup_valid),
-    .lookup_ready(),
-    .lookup_req_id({`REQ_ID_W{1'b0}}),
-    .lookup_token_id(kv_lookup_token_id),
-    .lookup_position_id(kv_lookup_position_id),
-    .lookup_resp_valid(),
-    .lookup_resp_hit(),
-    .lookup_resp_req_id(),
-    .lookup_resp_sram_id(),
-    .lookup_resp_bank_id(),
-    .lookup_resp_subbank_start(),
-    .lookup_resp_group_len(),
-    .lookup_resp_branch_mask(),
-    .lookup_resp_is_shared(),
-    .lookup_resp_entry_type(kv_lookup_entry_type_w),
-    .lookup_resp_state(kv_lookup_entry_state_w),
-    .commit_valid(token_commit_valid),
-    .commit_index(token_commit_index),
-    .commit_req_id(token_commit_req_id),
-    .commit_branch_mask(token_commit_branch_mask),
-    .commit_node_mask(token_commit_node_mask),
-    .flush_valid(token_flush_valid),
-    .flush_req_id(token_flush_req_id),
-    .flush_branch_mask(token_flush_branch_mask),
-    .flush_node_mask(token_flush_node_mask),
-    .entry_count(token_entry_count),
-    .error_flag(token_error_flag)
+    .tile_result_valid(paper_mesh_tile_result_valid_w),
+    .tile_result_req_id(paper_mesh_tile_result_req_id_w),
+    .tile_result_slot_valid(paper_mesh_tile_result_slot_valid_w),
+    .tile_result_branch_id(paper_mesh_tile_result_branch_id_w),
+    .tile_result_private_depth(paper_mesh_tile_result_private_depth_w),
+    .tile_result_node_id(paper_mesh_tile_result_node_id_w),
+    .tile_result_parent_node_id(paper_mesh_tile_result_parent_node_id_w),
+    .tile_result_kind(paper_mesh_tile_result_kind_w),
+    .tile_result_tile_index(paper_mesh_tile_result_tile_index_w),
+    .tile_result_last(paper_mesh_tile_result_last_w),
+    .tile_result_data(paper_mesh_tile_result_data_w),
+    .readout_result_valid(paper_readout_result_valid_w),
+    .readout_result_req_id(paper_readout_result_req_id_w),
+    .readout_result_slot_valid(paper_readout_result_slot_valid_w),
+    .readout_result_real_token_id(paper_readout_result_real_token_id_w),
+    .readout_result_branch_id(paper_readout_result_branch_id_w),
+    .readout_result_private_depth(paper_readout_result_private_depth_w),
+    .readout_result_node_id(paper_readout_result_node_id_w),
+    .readout_result_parent_node_id(
+        paper_readout_result_parent_node_id_w),
+    .busy(paper_readout_busy_w)
 );
 
 tree_mask_generator #(
-    .VISIBLE_MASK_W(`TOY_MAX_POS_EMB),
+    .VISIBLE_MASK_W(`MODEL_MAX_POS_EMB),
     .SLOT_COUNT(WINDOW_BRANCH_SLOTS),
     .LEVEL_COUNT(`TREE_MAX_FRONTIER_LEVELS)
 ) u_tree_mask_generator (
@@ -2838,7 +2896,10 @@ tree_mask_generator #(
 tree_verify_dispatcher u_tree_verify_dispatcher (
     .clk(clk),
     .rst_n(rst_n),
-    .tree_req_valid(tree_parallel_req_valid_w),
+    .tree_req_valid(
+        strict_tree_paper_backend_active_w ?
+            1'b0 :
+            tree_parallel_req_valid_w),
     .tree_req_ready(tree_parallel_req_ready_w),
     .seed_node_id(tree_parallel_seed_node_id_w),
     .seed_token_id(tree_parallel_seed_token_id_w),
@@ -2894,7 +2955,10 @@ fp16_inference_top u_tree_parallel_batch_inference_top (
     .cfg_visible_mask({`TOY_MAX_POS_EMB{1'b0}}),
     .cfg_position(16'd0),
     .cfg_position_ovr(1'b0),
-    .batch_in_valid(tree_parallel_batch_valid_w),
+    .batch_in_valid(
+        strict_tree_paper_backend_active_w ?
+            1'b0 :
+            tree_parallel_batch_valid_w),
     .batch_in_ready(tree_parallel_batch_ready_w),
     .batch_in_count(tree_parallel_batch_count_w),
     .batch_in_token_ids(tree_parallel_batch_token_ids_w),
@@ -2979,7 +3043,7 @@ NativeTreeMainFrontend #(
     .SOURCE_ID_W(PRED_SOURCE_ID_W),
     .CONF_W(CONF_W),
     .WINDOW_BRANCH_SLOTS(WINDOW_BRANCH_SLOTS),
-    .VISIBLE_MASK_W(`TOY_MAX_POS_EMB)
+    .VISIBLE_MASK_W(`MODEL_MAX_POS_EMB)
 ) u_native_tree_main_frontend (
     .clk(clk),
     .rst_n(rst_n),
@@ -3329,16 +3393,16 @@ request_controller u_request_controller (
     .req_in_priority(rc_req_priority),
     .req_in_bank_id(rc_req_bank_id),
     .req_in_subbank_id(rc_req_subbank_id),
-    .vec_req_valid(tree_parallel_vec_req_valid_w),
-    .vec_req_ready(tree_parallel_vec_req_ready_w),
-    .vec_req_write(tree_parallel_vec_req_write_w),
-    .vec_req_addr(tree_parallel_vec_req_addr_w),
-    .vec_req_wdata(tree_parallel_vec_req_wdata_w),
-    .vec_req_req_id(tree_parallel_vec_req_req_id_w),
-    .vec_req_pe_mask(tree_parallel_vec_req_pe_mask_w),
-    .vec_req_priority(tree_parallel_vec_req_priority_w),
-    .vec_req_bank_id(tree_parallel_vec_req_bank_id_w),
-    .vec_req_subbank_id(tree_parallel_vec_req_subbank_id_w),
+    .vec_req_valid(rc_vec_req_valid_w),
+    .vec_req_ready(rc_vec_req_ready_w),
+    .vec_req_write(rc_vec_req_write_w),
+    .vec_req_addr(rc_vec_req_addr_w),
+    .vec_req_wdata(rc_vec_req_wdata_w),
+    .vec_req_req_id(rc_vec_req_req_id_w),
+    .vec_req_pe_mask(rc_vec_req_pe_mask_w),
+    .vec_req_priority(rc_vec_req_priority_w),
+    .vec_req_bank_id(rc_vec_req_bank_id_w),
+    .vec_req_subbank_id(rc_vec_req_subbank_id_w),
     .mem_req_valid(mem_req_valid),
     .mem_req_ready(mem_req_ready),
     .mem_req_write(mem_req_write),

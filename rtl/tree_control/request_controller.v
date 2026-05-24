@@ -11,17 +11,23 @@
  *    - 单路标量请求 `req_in_*`
  *    - 多路向量请求 `vec_req_*`
  *    统一整理成 `mem_req_*` 多 lane 请求，并把 `mem_resp_*` 再转换成统一响应。
- * 3. 在完整路径里，它位于：
- *    fp16_inference_top / TreeControl / kv_commit / prep
- *      -> request_controller
- *      -> sram_subsystem
- *      -> multicast_network
+ * 3. 在完整路径里，它要从两个视角理解：
+ *    - issue 视角：
+ *      fp16_inference_top / TreeControl / kv_commit / prep / PE arrays
+ *        -> request_controller
+ *        -> sram_subsystem
+ *    - return 视角：
+ *      sram_subsystem
+ *        -> request_controller
+ *        -> multicast_network
  * 4. 这个模块最重要的行为有四类：
  *    - 收集多个标量读请求，尽量在进入 SRAM 前做成一组 lane 请求；
  *    - 对同地址读做 merge，只发一次真实 SRAM 读；
  *    - 对“读命中前面同地址写”做 bypass，直接用写数据返回；
  *    - 维护响应阶段，把 bypass / merge / 真 SRAM 读返回统一整理给下游。
  * 5. 因此它既是“请求收集器”，也是“同地址去重/旁路器”，还是“响应重组器”。
+ * 6. 它不是 `token_register lookup` 的直接下游；token metadata 查找路径与
+ *    PE arrays 访存请求路径在论文里是分离的。
  */
 module request_controller (
     // 时钟与复位。

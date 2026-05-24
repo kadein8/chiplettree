@@ -38,6 +38,13 @@
 6. 不允许把 `request_controller` 当成 `token_register lookup` 的直接下游
 7. 不允许 `bank_state_table -> token_register`
 8. 不允许 SRAM internal flush
+9. 若按论文回流视角画图，必须写成
+   `SRAM -> request_controller(resp regroup) -> multicast_network -> PE arrays`
+10. 第 9 条只是响应回流位置说明，不改变第 4 条 ownership split
+11. strict 后端还必须显式保留 transformer 算子链层次：
+   `compute descriptor -> transformer operator chain
+   (embedding / decoder-layer stack / final norm + lm head)
+   -> readout/comparator`
 
 ## 第二阶段结构说明
 
@@ -90,3 +97,15 @@
    - 只覆盖 single-rank0、strict-serial 条件下的
      `partial-KV -> 当前 token 先完成 -> full-KV 补齐 -> 下一个 token full_ready 复用`
    - 当前不与 `12_` 的多路 admission 并发窗口总装 run 联合证明
+
+补充说明：
+
+1. `request_controller` 在论文语义里同时承担两件事：
+   - 前向把 PE/compute 请求 merge/arbitrate 后送入 `sram_subsystem`
+   - 回流把 SRAM 返回 beat 按保存的 `req_id/pe_mask` 重组，再送入 `multicast_network`
+2. `multicast_network` 不直接面向 `token_register lookup`，也不直接拥有 SRAM 物理请求；
+   它只消费 `request_controller` 重组后的响应。
+3. 当前 strict paper backend 的正式算子链容器是
+   `StrictTreeMaskPaperTransformerOperatorChain`：
+   - `PaperPeArrays16x128Mesh` 承接 embedding / layer-stack 对应的 raw hidden tile
+   - `StrictTreeMaskPaperLogitsPostprocess` 承接 final norm / lm head 对应的 formal logits tile

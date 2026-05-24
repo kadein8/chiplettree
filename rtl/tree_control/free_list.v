@@ -41,6 +41,19 @@ module free_list #(
     input  [`KV_GROUP_LEN_W-1:0] cand_req_size_subbank,
     input                        cand_req_shared,
 
+    // bundle_req_*：
+    // 1. 论文主路径要求 AGU 向后提供统一的多 slot 资源请求边界；
+    // 2. 当前这一步先把边界显式建立出来，并让 bundle 入口优先于旧标量入口；
+    // 3. 每个有效 slot 都在同一拍内独立搜索并落下自己的候选物理区间。
+    input                        bundle_req_valid,
+    output                       bundle_req_ready,
+    input  [`REQ_ID_W-1:0]       bundle_req_req_id,
+    input  [`TREE_FRONTIER_SLOTS-1:0] bundle_req_slot_valid,
+    input  [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] bundle_req_branch_id,
+    input  [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] bundle_req_node_id,
+    input  [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] bundle_req_size_subbank,
+    input  [`TREE_FRONTIER_SLOTS-1:0] bundle_req_shared,
+
     // cand_resp_*：
     // 返回本拍是否找到位置，以及位置在哪里。
     output                       cand_resp_valid,
@@ -50,6 +63,14 @@ module free_list #(
     output [`BANK_ID_W-1:0]      cand_resp_bank_id,
     output [`SUBBANK_ID_W-1:0]   cand_resp_subbank_start,
     output [`KV_GROUP_LEN_W-1:0] cand_resp_group_len,
+    output                       cand_resp_bundle_valid,
+    output [`REQ_ID_W-1:0]       cand_resp_bundle_req_id,
+    output [`TREE_FRONTIER_SLOTS-1:0] cand_resp_bundle_slot_valid,
+    output [`TREE_FRONTIER_SLOTS-1:0] cand_resp_bundle_grant,
+    output [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] cand_resp_bundle_sram_id,
+    output [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] cand_resp_bundle_bank_id,
+    output [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0] cand_resp_bundle_subbank_start,
+    output [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] cand_resp_bundle_group_len,
 
     // alloc_cand_*：
     // 对 bank_state_table 的并行通知，表明“哪一个节点占用了哪一段物理位置”。
@@ -63,6 +84,17 @@ module free_list #(
     output [`BANK_ID_W-1:0]      alloc_cand_bank_id,
     output [`SUBBANK_ID_W-1:0]   alloc_cand_subbank_start,
     output [`KV_GROUP_LEN_W-1:0] alloc_cand_group_len,
+    output                       alloc_cand_bundle_valid,
+    output [`REQ_ID_W-1:0]       alloc_cand_bundle_req_id,
+    output [`TREE_FRONTIER_SLOTS-1:0] alloc_cand_bundle_slot_valid,
+    output [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] alloc_cand_bundle_branch_id,
+    output [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] alloc_cand_bundle_node_id,
+    output [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] alloc_cand_bundle_size_subbank,
+    output [`TREE_FRONTIER_SLOTS-1:0] alloc_cand_bundle_shared,
+    output [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] alloc_cand_bundle_sram_id,
+    output [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] alloc_cand_bundle_bank_id,
+    output [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0] alloc_cand_bundle_subbank_start,
+    output [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] alloc_cand_bundle_group_len,
 
     // flush_*：
     // 比较器决定丢弃某些 branch/node 后，free_list 需要回收其占用空间。
@@ -131,6 +163,15 @@ reg [`SRAM_ID_W-1:0] cand_resp_sram_id_r;
 reg [`BANK_ID_W-1:0] cand_resp_bank_id_r;
 reg [`SUBBANK_ID_W-1:0] cand_resp_subbank_start_r;
 reg [`KV_GROUP_LEN_W-1:0] cand_resp_group_len_r;
+reg cand_resp_bundle_valid_r;
+reg [`REQ_ID_W-1:0] cand_resp_bundle_req_id_r;
+reg [`TREE_FRONTIER_SLOTS-1:0] cand_resp_bundle_slot_valid_r;
+reg [`TREE_FRONTIER_SLOTS-1:0] cand_resp_bundle_grant_r;
+reg [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] cand_resp_bundle_sram_id_r;
+reg [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] cand_resp_bundle_bank_id_r;
+reg [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0]
+    cand_resp_bundle_subbank_start_r;
+reg [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] cand_resp_bundle_group_len_r;
 reg alloc_cand_valid_r;
 reg [`REQ_ID_W-1:0] alloc_cand_req_id_r;
 reg [`BRANCH_ID_W-1:0] alloc_cand_branch_id_r;
@@ -141,6 +182,20 @@ reg [`SRAM_ID_W-1:0] alloc_cand_sram_id_r;
 reg [`BANK_ID_W-1:0] alloc_cand_bank_id_r;
 reg [`SUBBANK_ID_W-1:0] alloc_cand_subbank_start_r;
 reg [`KV_GROUP_LEN_W-1:0] alloc_cand_group_len_r;
+reg alloc_cand_bundle_valid_r;
+reg [`REQ_ID_W-1:0] alloc_cand_bundle_req_id_r;
+reg [`TREE_FRONTIER_SLOTS-1:0] alloc_cand_bundle_slot_valid_r;
+reg [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] alloc_cand_bundle_branch_id_r;
+reg [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] alloc_cand_bundle_node_id_r;
+reg [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0]
+    alloc_cand_bundle_size_subbank_r;
+reg [`TREE_FRONTIER_SLOTS-1:0] alloc_cand_bundle_shared_r;
+reg [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] alloc_cand_bundle_sram_id_r;
+reg [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] alloc_cand_bundle_bank_id_r;
+reg [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0]
+    alloc_cand_bundle_subbank_start_r;
+reg [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0]
+    alloc_cand_bundle_group_len_r;
 reg flush_reclaim_valid_r;
 reg [`SRAM_ID_W-1:0] flush_reclaim_sram_id_r;
 reg [`BANK_ID_W-1:0] flush_reclaim_bank_id_r;
@@ -208,6 +263,23 @@ reg [`KV_GROUP_LEN_W-1:0] pending_reclaim_group_len_comb;
 integer pending_reclaim_flat_idx_comb;
 integer pending_scan_flat_i;
 integer pending_scan_idx_i;
+integer bundle_slot_i;
+reg active_cand_req_valid_comb;
+reg [`REQ_ID_W-1:0] active_cand_req_req_id_comb;
+reg [`BRANCH_ID_W-1:0] active_cand_req_branch_id_comb;
+reg [`NODE_ID_W-1:0] active_cand_req_node_id_comb;
+reg [`KV_GROUP_LEN_W-1:0] active_cand_req_size_subbank_comb;
+reg active_cand_req_shared_comb;
+reg bundle_resp_claimed_comb;
+reg bundle_slot_grant_comb;
+reg bundle_slot_reuse_comb;
+reg bundle_search_found_comb;
+reg bundle_search_reuse_comb;
+reg [`SRAM_ID_W-1:0] bundle_search_sram_id_comb;
+reg [`BANK_ID_W-1:0] bundle_search_bank_id_comb;
+reg [`SUBBANK_ID_W-1:0] bundle_search_subbank_start_comb;
+reg [`KV_GROUP_LEN_W-1:0] bundle_search_group_len_comb;
+reg [`BRANCH_MASK_W-1:0] bundle_slot_branch_onehot_comb;
 
 // 把 branch_id 转成 one-hot branch mask。
 function [`BRANCH_MASK_W-1:0] branch_onehot;
@@ -260,7 +332,8 @@ endfunction
 // 输入输出连线：
 // cand_req_ready 固定为 1，表示 free_list 本身不做上游反压，
 // 真正找不到位置时通过 cand_resp_grant=0 表示失败。
-assign cand_req_ready = 1'b1;
+assign cand_req_ready = !bundle_req_valid;
+assign bundle_req_ready = 1'b1;
 assign cand_resp_valid = cand_resp_valid_r;
 assign cand_resp_grant = cand_resp_grant_r;
 assign cand_resp_req_id = cand_resp_req_id_r;
@@ -268,6 +341,18 @@ assign cand_resp_sram_id = cand_resp_sram_id_r;
 assign cand_resp_bank_id = cand_resp_bank_id_r;
 assign cand_resp_subbank_start = cand_resp_subbank_start_r;
 assign cand_resp_group_len = cand_resp_group_len_r;
+// cand_resp_bundle_*：
+// 这是论文主路径正式使用的并行候选响应边界，每个有效 slot 独立返回 grant/地址。
+assign cand_resp_bundle_valid = cand_resp_bundle_valid_r;
+assign cand_resp_bundle_req_id = cand_resp_bundle_req_id_r;
+assign cand_resp_bundle_slot_valid =
+    cand_resp_bundle_slot_valid_r;
+assign cand_resp_bundle_grant = cand_resp_bundle_grant_r;
+assign cand_resp_bundle_sram_id = cand_resp_bundle_sram_id_r;
+assign cand_resp_bundle_bank_id = cand_resp_bundle_bank_id_r;
+assign cand_resp_bundle_subbank_start =
+    cand_resp_bundle_subbank_start_r;
+assign cand_resp_bundle_group_len = cand_resp_bundle_group_len_r;
 assign alloc_cand_valid = alloc_cand_valid_r;
 assign alloc_cand_req_id = alloc_cand_req_id_r;
 assign alloc_cand_branch_id = alloc_cand_branch_id_r;
@@ -278,12 +363,37 @@ assign alloc_cand_sram_id = alloc_cand_sram_id_r;
 assign alloc_cand_bank_id = alloc_cand_bank_id_r;
 assign alloc_cand_subbank_start = alloc_cand_subbank_start_r;
 assign alloc_cand_group_len = alloc_cand_group_len_r;
+// alloc_cand_bundle_*：
+// 这是 free_list -> bank_state_table 的正式并行分配通知边界，仅对 grant 成功的 slot 拉高。
+assign alloc_cand_bundle_valid = alloc_cand_bundle_valid_r;
+assign alloc_cand_bundle_req_id = alloc_cand_bundle_req_id_r;
+assign alloc_cand_bundle_slot_valid =
+    alloc_cand_bundle_slot_valid_r;
+assign alloc_cand_bundle_branch_id = alloc_cand_bundle_branch_id_r;
+assign alloc_cand_bundle_node_id = alloc_cand_bundle_node_id_r;
+assign alloc_cand_bundle_size_subbank =
+    alloc_cand_bundle_size_subbank_r;
+assign alloc_cand_bundle_shared = alloc_cand_bundle_shared_r;
+assign alloc_cand_bundle_sram_id = alloc_cand_bundle_sram_id_r;
+assign alloc_cand_bundle_bank_id = alloc_cand_bundle_bank_id_r;
+assign alloc_cand_bundle_subbank_start =
+    alloc_cand_bundle_subbank_start_r;
+assign alloc_cand_bundle_group_len = alloc_cand_bundle_group_len_r;
 assign flush_drain_busy = pending_reclaim_found_comb;
 assign flush_reclaim_valid = flush_reclaim_valid_r;
 assign flush_reclaim_sram_id = flush_reclaim_sram_id_r;
 assign flush_reclaim_bank_id = flush_reclaim_bank_id_r;
 assign flush_reclaim_subbank_start = flush_reclaim_subbank_start_r;
 assign flush_reclaim_group_len = flush_reclaim_group_len_r;
+
+always @* begin
+    active_cand_req_valid_comb = cand_req_valid && !bundle_req_valid;
+    active_cand_req_req_id_comb = cand_req_req_id;
+    active_cand_req_branch_id_comb = cand_req_branch_id;
+    active_cand_req_node_id_comb = cand_req_node_id;
+    active_cand_req_size_subbank_comb = cand_req_size_subbank;
+    active_cand_req_shared_comb = cand_req_shared;
+end
 
 // 候选搜索组合逻辑：
 // 1. 若启用 shared-prefix-freeze，先尝试复用同一 req/node 的 shared 旧区域。
@@ -295,19 +405,19 @@ always @* begin
     search_sram_id = {`SRAM_ID_W{1'b0}};
     search_bank_id = {`BANK_ID_W{1'b0}};
     search_subbank_start = {`SUBBANK_ID_W{1'b0}};
-    search_group_len = cand_req_size_subbank;
+    search_group_len = active_cand_req_size_subbank_comb;
 
-    req_size_i = cand_req_size_subbank;
+    req_size_i = active_cand_req_size_subbank_comb;
     cursor_flat_i = (cursor_sram * `SRAM_BANK_NUM) + cursor_bank;
     branch_idx_i = 0;
-    if (cand_req_branch_id < `BRANCH_NUM) begin
-        branch_idx_i = cand_req_branch_id;
+    if (active_cand_req_branch_id_comb < `BRANCH_NUM) begin
+        branch_idx_i = active_cand_req_branch_id_comb;
     end
 
     if ((req_size_i > 0) && (req_size_i <= `SUBBANK_NUM_PER_BANK)) begin
         // 第一优先级：shared 前缀复用。
         // 若同一个 req/node 的 shared 区域已经分配过，就直接重用，避免重复占位。
-        if (ENABLE_SHARED_PREFIX_FREEZE && cand_req_shared) begin
+        if (ENABLE_SHARED_PREFIX_FREEZE && active_cand_req_shared_comb) begin
             for (bank_idx_i = 0; bank_idx_i < TOTAL_BANKS; bank_idx_i = bank_idx_i + 1) begin
                 for (start_pos_i = 0;
                      start_pos_i <= (`SUBBANK_NUM_PER_BANK - req_size_i);
@@ -315,22 +425,22 @@ always @* begin
                     if (!search_found &&
                         !free_bitmap[bank_idx_i][start_pos_i] &&
                         entry_shared[bank_idx_i][start_pos_i] &&
-                        (entry_req_id[bank_idx_i][start_pos_i] == cand_req_req_id) &&
-                        (entry_node_id[bank_idx_i][start_pos_i] == cand_req_node_id) &&
+                        (entry_req_id[bank_idx_i][start_pos_i] == active_cand_req_req_id_comb) &&
+                        (entry_node_id[bank_idx_i][start_pos_i] == active_cand_req_node_id_comb) &&
                         ((start_pos_i == 0) ||
                          free_bitmap[bank_idx_i][start_pos_i - 1] ||
                          !entry_shared[bank_idx_i][start_pos_i - 1] ||
-                         (entry_req_id[bank_idx_i][start_pos_i - 1] != cand_req_req_id) ||
-                         (entry_node_id[bank_idx_i][start_pos_i - 1] != cand_req_node_id))) begin
+                         (entry_req_id[bank_idx_i][start_pos_i - 1] != active_cand_req_req_id_comb) ||
+                         (entry_node_id[bank_idx_i][start_pos_i - 1] != active_cand_req_node_id_comb))) begin
                         range_free = 1'b1;
                         for (bit_idx_i = 0; bit_idx_i < req_size_i; bit_idx_i = bit_idx_i + 1) begin
                             // “复用”要求整段都属于同一个 shared 节点，不能只是空闲。
                             if (free_bitmap[bank_idx_i][start_pos_i + bit_idx_i] ||
                                 !entry_shared[bank_idx_i][start_pos_i + bit_idx_i] ||
                                 (entry_req_id[bank_idx_i][start_pos_i + bit_idx_i] !=
-                                 cand_req_req_id) ||
+                                 active_cand_req_req_id_comb) ||
                                 (entry_node_id[bank_idx_i][start_pos_i + bit_idx_i] !=
-                                 cand_req_node_id)) begin
+                                 active_cand_req_node_id_comb)) begin
                                 range_free = 1'b0;
                             end
                         end
@@ -341,7 +451,7 @@ always @* begin
                             search_sram_id = bank_idx_i / `SRAM_BANK_NUM;
                             search_bank_id = bank_idx_i % `SRAM_BANK_NUM;
                             search_subbank_start = start_pos_i[`SUBBANK_ID_W-1:0];
-                            search_group_len = cand_req_size_subbank;
+                            search_group_len = active_cand_req_size_subbank_comb;
                         end
                     end
                 end
@@ -350,7 +460,7 @@ always @* begin
 
         if (!search_found) begin
             if ((ENABLE_TOPOLOGY_AWARE_MAPPING || ENABLE_SHARED_PREFIX_FREEZE) &&
-                cand_req_shared) begin
+                active_cand_req_shared_comb) begin
                 // shared 节点：优先在 shared bank 域内轮转搜索。
                 shared_cursor_logical_i =
                     (shared_cursor_sram * SHARED_BANKS_PER_SRAM) +
@@ -384,12 +494,12 @@ always @* begin
                             search_sram_id = bank_idx_i / `SRAM_BANK_NUM;
                             search_bank_id = bank_idx_i % `SRAM_BANK_NUM;
                             search_subbank_start = start_pos_i[`SUBBANK_ID_W-1:0];
-                            search_group_len = cand_req_size_subbank;
+                            search_group_len = active_cand_req_size_subbank_comb;
                         end
                     end
                 end
             end else if ((ENABLE_TOPOLOGY_AWARE_MAPPING || ENABLE_BRANCH_ISOLATION) &&
-                         !cand_req_shared) begin
+                         !active_cand_req_shared_comb) begin
                 // 私有节点：若启用 topology-aware / branch-isolation，则只在本分支私有 bank 域搜索。
                 branch_base_bank_i = private_base_bank(branch_idx_i);
                 private_cursor_logical_i =
@@ -424,7 +534,7 @@ always @* begin
                             search_sram_id = bank_idx_i / `SRAM_BANK_NUM;
                             search_bank_id = bank_idx_i % `SRAM_BANK_NUM;
                             search_subbank_start = start_pos_i[`SUBBANK_ID_W-1:0];
-                            search_group_len = cand_req_size_subbank;
+                            search_group_len = active_cand_req_size_subbank_comb;
                         end
                     end
                 end
@@ -453,7 +563,7 @@ always @* begin
                             search_sram_id = bank_idx_i / `SRAM_BANK_NUM;
                             search_bank_id = bank_idx_i % `SRAM_BANK_NUM;
                             search_subbank_start = start_pos_i[`SUBBANK_ID_W-1:0];
-                            search_group_len = cand_req_size_subbank;
+                            search_group_len = active_cand_req_size_subbank_comb;
                         end
                     end
                 end
@@ -536,6 +646,18 @@ always @(posedge clk or negedge rst_n) begin
         cand_resp_bank_id_r <= {`BANK_ID_W{1'b0}};
         cand_resp_subbank_start_r <= {`SUBBANK_ID_W{1'b0}};
         cand_resp_group_len_r <= {`KV_GROUP_LEN_W{1'b0}};
+        cand_resp_bundle_valid_r <= 1'b0;
+        cand_resp_bundle_req_id_r <= {`REQ_ID_W{1'b0}};
+        cand_resp_bundle_slot_valid_r <= {`TREE_FRONTIER_SLOTS{1'b0}};
+        cand_resp_bundle_grant_r <= {`TREE_FRONTIER_SLOTS{1'b0}};
+        cand_resp_bundle_sram_id_r <=
+            {(`TREE_FRONTIER_SLOTS*`SRAM_ID_W){1'b0}};
+        cand_resp_bundle_bank_id_r <=
+            {(`TREE_FRONTIER_SLOTS*`BANK_ID_W){1'b0}};
+        cand_resp_bundle_subbank_start_r <=
+            {(`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W){1'b0}};
+        cand_resp_bundle_group_len_r <=
+            {(`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W){1'b0}};
         alloc_cand_valid_r <= 1'b0;
         alloc_cand_req_id_r <= {`REQ_ID_W{1'b0}};
         alloc_cand_branch_id_r <= {`BRANCH_ID_W{1'b0}};
@@ -546,6 +668,24 @@ always @(posedge clk or negedge rst_n) begin
         alloc_cand_bank_id_r <= {`BANK_ID_W{1'b0}};
         alloc_cand_subbank_start_r <= {`SUBBANK_ID_W{1'b0}};
         alloc_cand_group_len_r <= {`KV_GROUP_LEN_W{1'b0}};
+        alloc_cand_bundle_valid_r <= 1'b0;
+        alloc_cand_bundle_req_id_r <= {`REQ_ID_W{1'b0}};
+        alloc_cand_bundle_slot_valid_r <= {`TREE_FRONTIER_SLOTS{1'b0}};
+        alloc_cand_bundle_branch_id_r <=
+            {(`TREE_FRONTIER_SLOTS*`BRANCH_ID_W){1'b0}};
+        alloc_cand_bundle_node_id_r <=
+            {(`TREE_FRONTIER_SLOTS*`NODE_ID_W){1'b0}};
+        alloc_cand_bundle_size_subbank_r <=
+            {(`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W){1'b0}};
+        alloc_cand_bundle_shared_r <= {`TREE_FRONTIER_SLOTS{1'b0}};
+        alloc_cand_bundle_sram_id_r <=
+            {(`TREE_FRONTIER_SLOTS*`SRAM_ID_W){1'b0}};
+        alloc_cand_bundle_bank_id_r <=
+            {(`TREE_FRONTIER_SLOTS*`BANK_ID_W){1'b0}};
+        alloc_cand_bundle_subbank_start_r <=
+            {(`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W){1'b0}};
+        alloc_cand_bundle_group_len_r <=
+            {(`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W){1'b0}};
         flush_reclaim_valid_r <= 1'b0;
         flush_reclaim_sram_id_r <= {`SRAM_ID_W{1'b0}};
         flush_reclaim_bank_id_r <= {`BANK_ID_W{1'b0}};
@@ -554,7 +694,37 @@ always @(posedge clk or negedge rst_n) begin
     end else begin
         // 单拍响应默认清零。
         cand_resp_valid_r <= 1'b0;
+        cand_resp_bundle_valid_r <= 1'b0;
+        cand_resp_bundle_req_id_r <= {`REQ_ID_W{1'b0}};
+        cand_resp_bundle_slot_valid_r <= {`TREE_FRONTIER_SLOTS{1'b0}};
+        cand_resp_bundle_grant_r <= {`TREE_FRONTIER_SLOTS{1'b0}};
+        cand_resp_bundle_sram_id_r <=
+            {(`TREE_FRONTIER_SLOTS*`SRAM_ID_W){1'b0}};
+        cand_resp_bundle_bank_id_r <=
+            {(`TREE_FRONTIER_SLOTS*`BANK_ID_W){1'b0}};
+        cand_resp_bundle_subbank_start_r <=
+            {(`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W){1'b0}};
+        cand_resp_bundle_group_len_r <=
+            {(`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W){1'b0}};
         alloc_cand_valid_r <= 1'b0;
+        alloc_cand_bundle_valid_r <= 1'b0;
+        alloc_cand_bundle_req_id_r <= {`REQ_ID_W{1'b0}};
+        alloc_cand_bundle_slot_valid_r <= {`TREE_FRONTIER_SLOTS{1'b0}};
+        alloc_cand_bundle_branch_id_r <=
+            {(`TREE_FRONTIER_SLOTS*`BRANCH_ID_W){1'b0}};
+        alloc_cand_bundle_node_id_r <=
+            {(`TREE_FRONTIER_SLOTS*`NODE_ID_W){1'b0}};
+        alloc_cand_bundle_size_subbank_r <=
+            {(`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W){1'b0}};
+        alloc_cand_bundle_shared_r <= {`TREE_FRONTIER_SLOTS{1'b0}};
+        alloc_cand_bundle_sram_id_r <=
+            {(`TREE_FRONTIER_SLOTS*`SRAM_ID_W){1'b0}};
+        alloc_cand_bundle_bank_id_r <=
+            {(`TREE_FRONTIER_SLOTS*`BANK_ID_W){1'b0}};
+        alloc_cand_bundle_subbank_start_r <=
+            {(`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W){1'b0}};
+        alloc_cand_bundle_group_len_r <=
+            {(`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W){1'b0}};
         flush_reclaim_valid_r <= 1'b0;
         flush_reclaim_sram_id_r <= {`SRAM_ID_W{1'b0}};
         flush_reclaim_bank_id_r <= {`BANK_ID_W{1'b0}};
@@ -688,55 +858,466 @@ always @(posedge clk or negedge rst_n) begin
                 {`KV_GROUP_LEN_W{1'b0}};
         end
 
-        if (cand_req_valid && cand_req_ready) begin
+        if (bundle_req_valid) begin
+            cand_resp_bundle_valid_r <= 1'b1;
+            cand_resp_bundle_req_id_r <= bundle_req_req_id;
+            cand_resp_bundle_slot_valid_r <= bundle_req_slot_valid;
+            alloc_cand_bundle_req_id_r <= bundle_req_req_id;
+            bundle_resp_claimed_comb = 1'b0;
+
+            for (bundle_slot_i = 0;
+                 bundle_slot_i < `TREE_FRONTIER_SLOTS;
+                 bundle_slot_i = bundle_slot_i + 1) begin
+                if (bundle_req_slot_valid[bundle_slot_i]) begin
+                    bundle_slot_grant_comb = 1'b0;
+                    bundle_slot_reuse_comb = 1'b0;
+                    bundle_search_found_comb = 1'b0;
+                    bundle_search_reuse_comb = 1'b0;
+                    bundle_search_sram_id_comb = {`SRAM_ID_W{1'b0}};
+                    bundle_search_bank_id_comb = {`BANK_ID_W{1'b0}};
+                    bundle_search_subbank_start_comb = {`SUBBANK_ID_W{1'b0}};
+                    bundle_search_group_len_comb =
+                        bundle_req_size_subbank[
+                            (bundle_slot_i*`KV_GROUP_LEN_W) +:
+                            `KV_GROUP_LEN_W];
+                    bundle_slot_branch_onehot_comb = {`BRANCH_MASK_W{1'b0}};
+                    req_size_i =
+                        bundle_req_size_subbank[
+                            (bundle_slot_i*`KV_GROUP_LEN_W) +:
+                            `KV_GROUP_LEN_W];
+                    branch_idx_i = 0;
+
+                    if (bundle_req_branch_id[
+                            (bundle_slot_i*`BRANCH_ID_W) +:
+                            `BRANCH_ID_W] < `BRANCH_NUM) begin
+                        branch_idx_i =
+                            bundle_req_branch_id[
+                                (bundle_slot_i*`BRANCH_ID_W) +:
+                                `BRANCH_ID_W];
+                        bundle_slot_branch_onehot_comb[branch_idx_i] = 1'b1;
+                    end
+
+                    if ((req_size_i > 0) &&
+                        (req_size_i <= `SUBBANK_NUM_PER_BANK)) begin
+                        if (ENABLE_SHARED_PREFIX_FREEZE &&
+                            bundle_req_shared[bundle_slot_i]) begin
+                            for (bank_idx_i = 0;
+                                 bank_idx_i < TOTAL_BANKS;
+                                 bank_idx_i = bank_idx_i + 1) begin
+                                for (start_pos_i = 0;
+                                     start_pos_i <= (`SUBBANK_NUM_PER_BANK - req_size_i);
+                                     start_pos_i = start_pos_i + 1) begin
+                                    if (!bundle_search_found_comb &&
+                                        !free_bitmap[bank_idx_i][start_pos_i] &&
+                                        entry_shared[bank_idx_i][start_pos_i] &&
+                                        (entry_req_id[bank_idx_i][start_pos_i] ==
+                                         bundle_req_req_id) &&
+                                        (entry_node_id[bank_idx_i][start_pos_i] ==
+                                         bundle_req_node_id[
+                                             (bundle_slot_i*`NODE_ID_W) +:
+                                             `NODE_ID_W]) &&
+                                        ((start_pos_i == 0) ||
+                                         free_bitmap[bank_idx_i][start_pos_i - 1] ||
+                                         !entry_shared[bank_idx_i][start_pos_i - 1] ||
+                                         (entry_req_id[bank_idx_i][start_pos_i - 1] !=
+                                          bundle_req_req_id) ||
+                                         (entry_node_id[bank_idx_i][start_pos_i - 1] !=
+                                          bundle_req_node_id[
+                                              (bundle_slot_i*`NODE_ID_W) +:
+                                              `NODE_ID_W]))) begin
+                                        range_free = 1'b1;
+                                        for (bit_idx_i = 0;
+                                             bit_idx_i < req_size_i;
+                                             bit_idx_i = bit_idx_i + 1) begin
+                                            if (free_bitmap[bank_idx_i][start_pos_i + bit_idx_i] ||
+                                                !entry_shared[bank_idx_i][start_pos_i + bit_idx_i] ||
+                                                (entry_req_id[bank_idx_i][start_pos_i + bit_idx_i] !=
+                                                 bundle_req_req_id) ||
+                                                (entry_node_id[bank_idx_i][start_pos_i + bit_idx_i] !=
+                                                 bundle_req_node_id[
+                                                     (bundle_slot_i*`NODE_ID_W) +:
+                                                     `NODE_ID_W])) begin
+                                                range_free = 1'b0;
+                                            end
+                                        end
+
+                                        if (range_free) begin
+                                            bundle_search_found_comb = 1'b1;
+                                            bundle_search_reuse_comb = 1'b1;
+                                            bundle_search_sram_id_comb =
+                                                bank_idx_i / `SRAM_BANK_NUM;
+                                            bundle_search_bank_id_comb =
+                                                bank_idx_i % `SRAM_BANK_NUM;
+                                            bundle_search_subbank_start_comb =
+                                                start_pos_i[`SUBBANK_ID_W-1:0];
+                                        end
+                                    end
+                                end
+                            end
+                        end
+
+                        if (!bundle_search_found_comb) begin
+                            if ((ENABLE_TOPOLOGY_AWARE_MAPPING ||
+                                 ENABLE_SHARED_PREFIX_FREEZE) &&
+                                bundle_req_shared[bundle_slot_i]) begin
+                                shared_cursor_logical_i =
+                                    (shared_cursor_sram * SHARED_BANKS_PER_SRAM) +
+                                    shared_cursor_bank;
+                                for (bank_offset_i = 0;
+                                     bank_offset_i < TOTAL_SHARED_BANKS;
+                                     bank_offset_i = bank_offset_i + 1) begin
+                                    logical_bank_idx_i =
+                                        (shared_cursor_logical_i + bank_offset_i) %
+                                        TOTAL_SHARED_BANKS;
+                                    bank_idx_i =
+                                        shared_logical_to_flat(logical_bank_idx_i);
+                                    if (bank_offset_i == 0) begin
+                                        start_base_i = shared_cursor_subbank;
+                                    end else begin
+                                        start_base_i = 0;
+                                    end
+
+                                    for (start_pos_i = start_base_i;
+                                         start_pos_i <= (`SUBBANK_NUM_PER_BANK - req_size_i);
+                                         start_pos_i = start_pos_i + 1) begin
+                                        range_free = 1'b1;
+                                        for (bit_idx_i = 0;
+                                             bit_idx_i < req_size_i;
+                                             bit_idx_i = bit_idx_i + 1) begin
+                                            if (!free_bitmap[bank_idx_i][start_pos_i + bit_idx_i]) begin
+                                                range_free = 1'b0;
+                                            end
+                                        end
+
+                                        if (!bundle_search_found_comb && range_free) begin
+                                            bundle_search_found_comb = 1'b1;
+                                            bundle_search_sram_id_comb =
+                                                bank_idx_i / `SRAM_BANK_NUM;
+                                            bundle_search_bank_id_comb =
+                                                bank_idx_i % `SRAM_BANK_NUM;
+                                            bundle_search_subbank_start_comb =
+                                                start_pos_i[`SUBBANK_ID_W-1:0];
+                                        end
+                                    end
+                                end
+                            end else if ((ENABLE_TOPOLOGY_AWARE_MAPPING ||
+                                          ENABLE_BRANCH_ISOLATION) &&
+                                         !bundle_req_shared[bundle_slot_i]) begin
+                                branch_base_bank_i = private_base_bank(branch_idx_i);
+                                private_cursor_logical_i =
+                                    (private_cursor_sram[branch_idx_i] *
+                                     PRIVATE_BANKS_PER_BRANCH) +
+                                    (private_cursor_bank[branch_idx_i] -
+                                     branch_base_bank_i);
+                                for (bank_offset_i = 0;
+                                     bank_offset_i < TOTAL_PRIVATE_BANKS_PER_BRANCH;
+                                     bank_offset_i = bank_offset_i + 1) begin
+                                    logical_bank_idx_i =
+                                        (private_cursor_logical_i + bank_offset_i) %
+                                        TOTAL_PRIVATE_BANKS_PER_BRANCH;
+                                    bank_idx_i =
+                                        private_logical_to_flat(
+                                            branch_idx_i,
+                                            logical_bank_idx_i
+                                        );
+                                    if (bank_offset_i == 0) begin
+                                        start_base_i =
+                                            private_cursor_subbank[branch_idx_i];
+                                    end else begin
+                                        start_base_i = 0;
+                                    end
+
+                                    for (start_pos_i = start_base_i;
+                                         start_pos_i <= (`SUBBANK_NUM_PER_BANK - req_size_i);
+                                         start_pos_i = start_pos_i + 1) begin
+                                        range_free = 1'b1;
+                                        for (bit_idx_i = 0;
+                                             bit_idx_i < req_size_i;
+                                             bit_idx_i = bit_idx_i + 1) begin
+                                            if (!free_bitmap[bank_idx_i][start_pos_i + bit_idx_i]) begin
+                                                range_free = 1'b0;
+                                            end
+                                        end
+
+                                        if (!bundle_search_found_comb && range_free) begin
+                                            bundle_search_found_comb = 1'b1;
+                                            bundle_search_sram_id_comb =
+                                                bank_idx_i / `SRAM_BANK_NUM;
+                                            bundle_search_bank_id_comb =
+                                                bank_idx_i % `SRAM_BANK_NUM;
+                                            bundle_search_subbank_start_comb =
+                                                start_pos_i[`SUBBANK_ID_W-1:0];
+                                        end
+                                    end
+                                end
+                            end else begin
+                                cursor_flat_i =
+                                    (cursor_sram * `SRAM_BANK_NUM) + cursor_bank;
+                                for (bank_offset_i = 0;
+                                     bank_offset_i < TOTAL_BANKS;
+                                     bank_offset_i = bank_offset_i + 1) begin
+                                    bank_idx_i =
+                                        (cursor_flat_i + bank_offset_i) % TOTAL_BANKS;
+                                    if (bank_offset_i == 0) begin
+                                        start_base_i = cursor_subbank;
+                                    end else begin
+                                        start_base_i = 0;
+                                    end
+
+                                    for (start_pos_i = start_base_i;
+                                         start_pos_i <= (`SUBBANK_NUM_PER_BANK - req_size_i);
+                                         start_pos_i = start_pos_i + 1) begin
+                                        range_free = 1'b1;
+                                        for (bit_idx_i = 0;
+                                             bit_idx_i < req_size_i;
+                                             bit_idx_i = bit_idx_i + 1) begin
+                                            if (!free_bitmap[bank_idx_i][start_pos_i + bit_idx_i]) begin
+                                                range_free = 1'b0;
+                                            end
+                                        end
+
+                                        if (!bundle_search_found_comb && range_free) begin
+                                            bundle_search_found_comb = 1'b1;
+                                            bundle_search_sram_id_comb =
+                                                bank_idx_i / `SRAM_BANK_NUM;
+                                            bundle_search_bank_id_comb =
+                                                bank_idx_i % `SRAM_BANK_NUM;
+                                            bundle_search_subbank_start_comb =
+                                                start_pos_i[`SUBBANK_ID_W-1:0];
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+
+                    bundle_slot_grant_comb = bundle_search_found_comb;
+                    bundle_slot_reuse_comb = bundle_search_reuse_comb;
+                    cand_resp_bundle_grant_r[bundle_slot_i] <=
+                        bundle_slot_grant_comb;
+                    cand_resp_bundle_group_len_r[
+                        (bundle_slot_i*`KV_GROUP_LEN_W) +:
+                        `KV_GROUP_LEN_W] <= bundle_search_group_len_comb;
+                    if (bundle_slot_grant_comb) begin
+                        cand_resp_bundle_sram_id_r[
+                            (bundle_slot_i*`SRAM_ID_W) +: `SRAM_ID_W] <=
+                            bundle_search_sram_id_comb;
+                        cand_resp_bundle_bank_id_r[
+                            (bundle_slot_i*`BANK_ID_W) +: `BANK_ID_W] <=
+                            bundle_search_bank_id_comb;
+                        cand_resp_bundle_subbank_start_r[
+                            (bundle_slot_i*`SUBBANK_ID_W) +:
+                            `SUBBANK_ID_W] <= bundle_search_subbank_start_comb;
+                    end
+
+                    if (!bundle_resp_claimed_comb) begin
+                        cand_resp_valid_r <= 1'b1;
+                        cand_resp_grant_r <= bundle_slot_grant_comb;
+                        cand_resp_req_id_r <= bundle_req_req_id;
+                        cand_resp_sram_id_r <= bundle_search_sram_id_comb;
+                        cand_resp_bank_id_r <= bundle_search_bank_id_comb;
+                        cand_resp_subbank_start_r <=
+                            bundle_search_subbank_start_comb;
+                        cand_resp_group_len_r <= bundle_search_group_len_comb;
+                        alloc_cand_valid_r <= bundle_slot_grant_comb;
+                        alloc_cand_req_id_r <= bundle_req_req_id;
+                        alloc_cand_branch_id_r <=
+                            bundle_req_branch_id[
+                                (bundle_slot_i*`BRANCH_ID_W) +:
+                                `BRANCH_ID_W];
+                        alloc_cand_node_id_r <=
+                            bundle_req_node_id[
+                                (bundle_slot_i*`NODE_ID_W) +: `NODE_ID_W];
+                        alloc_cand_size_subbank_r <= bundle_search_group_len_comb;
+                        alloc_cand_shared_r <= bundle_req_shared[bundle_slot_i];
+                        alloc_cand_sram_id_r <= bundle_search_sram_id_comb;
+                        alloc_cand_bank_id_r <= bundle_search_bank_id_comb;
+                        alloc_cand_subbank_start_r <=
+                            bundle_search_subbank_start_comb;
+                        alloc_cand_group_len_r <= bundle_search_group_len_comb;
+                        bundle_resp_claimed_comb = 1'b1;
+                    end
+
+                    if (bundle_slot_grant_comb) begin
+                        alloc_cand_bundle_valid_r <= 1'b1;
+                        alloc_cand_bundle_slot_valid_r[bundle_slot_i] <= 1'b1;
+                        alloc_cand_bundle_branch_id_r[
+                            (bundle_slot_i*`BRANCH_ID_W) +: `BRANCH_ID_W] <=
+                            bundle_req_branch_id[
+                                (bundle_slot_i*`BRANCH_ID_W) +:
+                                `BRANCH_ID_W];
+                        alloc_cand_bundle_node_id_r[
+                            (bundle_slot_i*`NODE_ID_W) +: `NODE_ID_W] <=
+                            bundle_req_node_id[
+                                (bundle_slot_i*`NODE_ID_W) +: `NODE_ID_W];
+                        alloc_cand_bundle_size_subbank_r[
+                            (bundle_slot_i*`KV_GROUP_LEN_W) +:
+                            `KV_GROUP_LEN_W] <= bundle_search_group_len_comb;
+                        alloc_cand_bundle_shared_r[bundle_slot_i] <=
+                            bundle_req_shared[bundle_slot_i];
+                        alloc_cand_bundle_sram_id_r[
+                            (bundle_slot_i*`SRAM_ID_W) +: `SRAM_ID_W] <=
+                            bundle_search_sram_id_comb;
+                        alloc_cand_bundle_bank_id_r[
+                            (bundle_slot_i*`BANK_ID_W) +: `BANK_ID_W] <=
+                            bundle_search_bank_id_comb;
+                        alloc_cand_bundle_subbank_start_r[
+                            (bundle_slot_i*`SUBBANK_ID_W) +:
+                            `SUBBANK_ID_W] <= bundle_search_subbank_start_comb;
+                        alloc_cand_bundle_group_len_r[
+                            (bundle_slot_i*`KV_GROUP_LEN_W) +:
+                            `KV_GROUP_LEN_W] <= bundle_search_group_len_comb;
+
+                        search_flat_i =
+                            (bundle_search_sram_id_comb * `SRAM_BANK_NUM) +
+                            bundle_search_bank_id_comb;
+                        for (clear_i = 0;
+                             clear_i < bundle_search_group_len_comb;
+                             clear_i = clear_i + 1) begin
+                            free_bitmap[search_flat_i][
+                                bundle_search_subbank_start_comb + clear_i] = 1'b0;
+                            entry_req_id[search_flat_i][
+                                bundle_search_subbank_start_comb + clear_i] =
+                                bundle_req_req_id;
+                            entry_branch_id[search_flat_i][
+                                bundle_search_subbank_start_comb + clear_i] =
+                                bundle_req_branch_id[
+                                    (bundle_slot_i*`BRANCH_ID_W) +:
+                                    `BRANCH_ID_W];
+                            entry_branch_mask[search_flat_i][
+                                bundle_search_subbank_start_comb + clear_i] =
+                                ((bundle_req_shared[bundle_slot_i] &&
+                                  ENABLE_SHARED_PREFIX_FREEZE) ?
+                                    (bundle_slot_reuse_comb ?
+                                        (entry_branch_mask[search_flat_i][
+                                             bundle_search_subbank_start_comb +
+                                             clear_i] |
+                                         bundle_slot_branch_onehot_comb) :
+                                        bundle_slot_branch_onehot_comb) :
+                                    bundle_slot_branch_onehot_comb);
+                            entry_node_id[search_flat_i][
+                                bundle_search_subbank_start_comb + clear_i] =
+                                bundle_req_node_id[
+                                    (bundle_slot_i*`NODE_ID_W) +:
+                                    `NODE_ID_W];
+                            entry_shared[search_flat_i][
+                                bundle_search_subbank_start_comb + clear_i] =
+                                bundle_req_shared[bundle_slot_i];
+                        end
+
+                        if (!bundle_slot_reuse_comb) begin
+                            next_flat_i = search_flat_i;
+                            next_pos_i =
+                                bundle_search_subbank_start_comb +
+                                bundle_search_group_len_comb;
+                            if (next_pos_i >= `SUBBANK_NUM_PER_BANK) begin
+                                next_pos_i = 0;
+                                if ((ENABLE_TOPOLOGY_AWARE_MAPPING ||
+                                     ENABLE_SHARED_PREFIX_FREEZE) &&
+                                    bundle_req_shared[bundle_slot_i]) begin
+                                    next_logical_i =
+                                        ((bundle_search_sram_id_comb *
+                                          SHARED_BANKS_PER_SRAM) +
+                                         bundle_search_bank_id_comb + 1) %
+                                        TOTAL_SHARED_BANKS;
+                                    next_flat_i =
+                                        shared_logical_to_flat(next_logical_i);
+                                end else if ((ENABLE_TOPOLOGY_AWARE_MAPPING ||
+                                              ENABLE_BRANCH_ISOLATION) &&
+                                             !bundle_req_shared[bundle_slot_i]) begin
+                                    next_logical_i =
+                                        ((bundle_search_sram_id_comb *
+                                          PRIVATE_BANKS_PER_BRANCH) +
+                                         (bundle_search_bank_id_comb -
+                                          private_base_bank(branch_idx_i)) + 1) %
+                                        TOTAL_PRIVATE_BANKS_PER_BRANCH;
+                                    next_flat_i =
+                                        private_logical_to_flat(
+                                            branch_idx_i,
+                                            next_logical_i
+                                        );
+                                end else begin
+                                    next_flat_i = (search_flat_i + 1) % TOTAL_BANKS;
+                                end
+                            end
+
+                            if ((ENABLE_TOPOLOGY_AWARE_MAPPING ||
+                                 ENABLE_SHARED_PREFIX_FREEZE) &&
+                                bundle_req_shared[bundle_slot_i]) begin
+                                shared_cursor_sram = next_flat_i / `SRAM_BANK_NUM;
+                                shared_cursor_bank = next_flat_i % `SRAM_BANK_NUM;
+                                shared_cursor_subbank =
+                                    next_pos_i[`SUBBANK_ID_W-1:0];
+                            end else if ((ENABLE_TOPOLOGY_AWARE_MAPPING ||
+                                          ENABLE_BRANCH_ISOLATION) &&
+                                         !bundle_req_shared[bundle_slot_i]) begin
+                                private_cursor_sram[branch_idx_i] =
+                                    next_flat_i / `SRAM_BANK_NUM;
+                                private_cursor_bank[branch_idx_i] =
+                                    next_flat_i % `SRAM_BANK_NUM;
+                                private_cursor_subbank[branch_idx_i] =
+                                    next_pos_i[`SUBBANK_ID_W-1:0];
+                            end else begin
+                                cursor_sram = next_flat_i / `SRAM_BANK_NUM;
+                                cursor_bank = next_flat_i % `SRAM_BANK_NUM;
+                                cursor_subbank = next_pos_i[`SUBBANK_ID_W-1:0];
+                            end
+                        end
+                    end
+                end
+            end
+        end
+
+        if (active_cand_req_valid_comb &&
+            (!bundle_req_valid || bundle_req_ready)) begin
             // 对当前 cand_req 返回搜索结果，并同步产生 alloc_cand_* 通知。
             cand_resp_valid_r <= 1'b1;
             cand_resp_grant_r <= search_found;
-            cand_resp_req_id_r <= cand_req_req_id;
+            cand_resp_req_id_r <= active_cand_req_req_id_comb;
             cand_resp_sram_id_r <= search_sram_id;
             cand_resp_bank_id_r <= search_bank_id;
             cand_resp_subbank_start_r <= search_subbank_start;
-            cand_resp_group_len_r <= cand_req_size_subbank;
+            cand_resp_group_len_r <= active_cand_req_size_subbank_comb;
             alloc_cand_valid_r <= search_found;
-            alloc_cand_req_id_r <= cand_req_req_id;
-            alloc_cand_branch_id_r <= cand_req_branch_id;
-            alloc_cand_node_id_r <= cand_req_node_id;
-            alloc_cand_size_subbank_r <= cand_req_size_subbank;
-            alloc_cand_shared_r <= cand_req_shared;
+            alloc_cand_req_id_r <= active_cand_req_req_id_comb;
+            alloc_cand_branch_id_r <= active_cand_req_branch_id_comb;
+            alloc_cand_node_id_r <= active_cand_req_node_id_comb;
+            alloc_cand_size_subbank_r <= active_cand_req_size_subbank_comb;
+            alloc_cand_shared_r <= active_cand_req_shared_comb;
             alloc_cand_sram_id_r <= search_sram_id;
             alloc_cand_bank_id_r <= search_bank_id;
             alloc_cand_subbank_start_r <= search_subbank_start;
-            alloc_cand_group_len_r <= cand_req_size_subbank;
+            alloc_cand_group_len_r <= active_cand_req_size_subbank_comb;
 
             if (search_found) begin
                 // 真正命中时，把连续区间标成占用，并写入 entry 元数据。
                 search_flat_i = (search_sram_id * `SRAM_BANK_NUM) + search_bank_id;
-                for (clear_i = 0; clear_i < cand_req_size_subbank; clear_i = clear_i + 1) begin
+                for (clear_i = 0; clear_i < active_cand_req_size_subbank_comb; clear_i = clear_i + 1) begin
                     free_bitmap[search_flat_i][search_subbank_start + clear_i] <= 1'b0;
-                    entry_req_id[search_flat_i][search_subbank_start + clear_i] <= cand_req_req_id;
-                    entry_branch_id[search_flat_i][search_subbank_start + clear_i] <= cand_req_branch_id;
+                    entry_req_id[search_flat_i][search_subbank_start + clear_i] <= active_cand_req_req_id_comb;
+                    entry_branch_id[search_flat_i][search_subbank_start + clear_i] <= active_cand_req_branch_id_comb;
                     entry_branch_mask[search_flat_i]
                                      [search_subbank_start + clear_i] <=
-                        ((cand_req_shared && ENABLE_SHARED_PREFIX_FREEZE) ?
+                        ((active_cand_req_shared_comb && ENABLE_SHARED_PREFIX_FREEZE) ?
                             (search_reuse ?
                                 (entry_branch_mask[search_flat_i]
                                                   [search_subbank_start + clear_i] |
-                                 branch_onehot(cand_req_branch_id)) :
-                                branch_onehot(cand_req_branch_id)) :
-                            branch_onehot(cand_req_branch_id));
-                    entry_node_id[search_flat_i][search_subbank_start + clear_i] <= cand_req_node_id;
-                    entry_shared[search_flat_i][search_subbank_start + clear_i] <= cand_req_shared;
+                                 branch_onehot(active_cand_req_branch_id_comb)) :
+                                branch_onehot(active_cand_req_branch_id_comb)) :
+                            branch_onehot(active_cand_req_branch_id_comb));
+                    entry_node_id[search_flat_i][search_subbank_start + clear_i] <= active_cand_req_node_id_comb;
+                    entry_shared[search_flat_i][search_subbank_start + clear_i] <= active_cand_req_shared_comb;
                 end
 
                 if (!search_reuse) begin
                     // 只有新分配而非复用时，才推进轮转游标。
                     next_flat_i = search_flat_i;
-                    next_pos_i = search_subbank_start + cand_req_size_subbank;
+                    next_pos_i = search_subbank_start + active_cand_req_size_subbank_comb;
                     if (next_pos_i >= `SUBBANK_NUM_PER_BANK) begin
                         // 当前 bank 放不下更多连续空间时，游标跳到下一个逻辑 bank。
                         next_pos_i = 0;
                         if ((ENABLE_TOPOLOGY_AWARE_MAPPING || ENABLE_SHARED_PREFIX_FREEZE) &&
-                            cand_req_shared) begin
+                            active_cand_req_shared_comb) begin
                             next_logical_i =
                                 ((search_sram_id * SHARED_BANKS_PER_SRAM) +
                                  search_bank_id + 1) %
@@ -744,7 +1325,7 @@ always @(posedge clk or negedge rst_n) begin
                             next_flat_i = shared_logical_to_flat(next_logical_i);
                         end else if ((ENABLE_TOPOLOGY_AWARE_MAPPING ||
                                       ENABLE_BRANCH_ISOLATION) &&
-                                     !cand_req_shared) begin
+                                     !active_cand_req_shared_comb) begin
                             next_logical_i =
                                 ((search_sram_id * PRIVATE_BANKS_PER_BRANCH) +
                                  (search_bank_id - private_base_bank(branch_idx_i)) +
@@ -758,14 +1339,14 @@ always @(posedge clk or negedge rst_n) begin
                     end
 
                     if ((ENABLE_TOPOLOGY_AWARE_MAPPING || ENABLE_SHARED_PREFIX_FREEZE) &&
-                        cand_req_shared) begin
+                        active_cand_req_shared_comb) begin
                         // 更新 shared 域游标。
                         shared_cursor_sram <= next_flat_i / `SRAM_BANK_NUM;
                         shared_cursor_bank <= next_flat_i % `SRAM_BANK_NUM;
                         shared_cursor_subbank <= next_pos_i[`SUBBANK_ID_W-1:0];
                     end else if ((ENABLE_TOPOLOGY_AWARE_MAPPING ||
                                   ENABLE_BRANCH_ISOLATION) &&
-                                 !cand_req_shared) begin
+                                 !active_cand_req_shared_comb) begin
                         // 更新当前 branch 的私有域游标。
                         private_cursor_sram[branch_idx_i] <=
                             next_flat_i / `SRAM_BANK_NUM;

@@ -328,11 +328,17 @@ always @(posedge clk or negedge rst_n) begin
                 // 只有在空闲态且上游完成握手时，才把整棵树一次性锁进本模块。
                 if (req_valid && req_ready) begin
                     req_id_r <= req_id;
+
+                    //prefix
                     prefix_slot_valid_r <= src_prefix_slot_valid;
                     prefix_node_id_r <= src_prefix_node_id;
                     prefix_token_id_r <= src_prefix_token_id;
                     prefix_position_id_r <= src_prefix_position_id;
+
+                    //commit
                     committed_len_r <= src_committed_len;
+
+                    //frontier
                     frontier_level_valid_r <= src_frontier_level_valid;
                     frontier_slot_valid_r <= src_frontier_slot_valid;
                     frontier_node_id_r <= src_frontier_node_id;

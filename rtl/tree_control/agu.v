@@ -3,6 +3,7 @@
 `include "config/prediction_params.vh"
 `include "config/interface_params.vh"
 `include "config/memory_params.vh"
+`include "config/model_params.vh"
 
 /*
  * 文件作用：
@@ -22,7 +23,11 @@
  * 5. 当前 frozen strict tree-mask shortcut 主路径会绕过这条论文式 AGU 主链；
  *    因此这里描述的是“论文完整 TreeControl 前置资源管理语义”。
  */
-module agu (
+module agu #(
+    parameter integer PRIVATE_DEPTH_W =
+        (((`MAX_VERIFY_NODES_PER_BRANCH + 1) <= 2) ? 1 :
+         $clog2(`MAX_VERIFY_NODES_PER_BRANCH + 1))
+) (
     // 时钟与复位。
     input                        clk,
     input                        rst_n,
@@ -34,6 +39,27 @@ module agu (
     input  [`REQ_ID_W-1:0]       tree_in_req_id,
     input  [`BRANCH_ID_W-1:0]    tree_in_branch_id,
     input  [`NODE_ID_W-1:0]      tree_in_node_id,
+
+    // bundle_in_*：
+    // 1. 这是论文并行前端的新统一入口，表示“本拍整层/多 slot bundle”；
+    // 2. 上游会把 prefix 包装成 slot0 的 shared bundle；
+    // 3. frontier 则保持整层多 slot 语义直接送入；
+    // 4. parent_node_id 目前先保留在接口边界，后续继续承接论文里的层级依赖语义。
+    input                        bundle_in_valid,
+    output                       bundle_in_ready,
+    input  [`REQ_ID_W-1:0]       bundle_in_req_id,
+    input  [`TREE_LEVEL_ID_W-1:0] bundle_in_level_id,
+    input  [`TREE_FRONTIER_SLOTS-1:0] bundle_in_slot_valid,
+    input  [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] bundle_in_node_id,
+    input  [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] bundle_in_parent_node_id,
+    input  [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] bundle_in_token_id,
+    input  [`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0] bundle_in_position_id,
+    input  [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] bundle_in_branch_id,
+    input  [`TREE_FRONTIER_SLOTS-1:0] bundle_in_slot_shared,
+    input  [4:0]                 bundle_in_slot_count,
+    input  [15:0]                bundle_in_prefix_len,
+    input  [`TREE_FRONTIER_SLOTS-1:0] bundle_in_slot_tree_mask_en,
+    input  [`TREE_FRONTIER_SLOTS*`MODEL_MAX_POS_EMB-1:0] bundle_in_slot_visible_mask,
 
     // prefix_*：
     // tree_analyze/NativeTreeMainFrontend 拆出来的共享前缀流。
@@ -65,12 +91,21 @@ module agu (
 
     // free_list 候选位置返回。
     input                        cand_resp_valid,
+    input                        prefetch_bundle_ready,
     input                        cand_resp_grant,
     input  [`REQ_ID_W-1:0]       cand_resp_req_id,
     input  [`SRAM_ID_W-1:0]      cand_resp_sram_id,
     input  [`BANK_ID_W-1:0]      cand_resp_bank_id,
     input  [`SUBBANK_ID_W-1:0]   cand_resp_subbank_start,
     input  [`KV_GROUP_LEN_W-1:0] cand_resp_group_len,
+    input                        cand_resp_bundle_valid,
+    input  [`REQ_ID_W-1:0]       cand_resp_bundle_req_id,
+    input  [`TREE_FRONTIER_SLOTS-1:0] cand_resp_bundle_slot_valid,
+    input  [`TREE_FRONTIER_SLOTS-1:0] cand_resp_bundle_grant,
+    input  [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] cand_resp_bundle_sram_id,
+    input  [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] cand_resp_bundle_bank_id,
+    input  [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0] cand_resp_bundle_subbank_start,
+    input  [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] cand_resp_bundle_group_len,
 
     // alloc_resp_* 是旧接口遗留输入，当前实现里实际上不再驱动 AGU 主状态流。
     input                        alloc_resp_valid,
@@ -147,6 +182,26 @@ module agu (
     output [`BANK_ID_W-1:0]      token_wr_bank_id,
     output [`SUBBANK_ID_W-1:0]   token_wr_subbank_start,
     output [`KV_GROUP_LEN_W-1:0] token_wr_group_len,
+    output                       token_wr_bundle_valid,
+    output [`REQ_ID_W-1:0]       token_wr_bundle_req_id,
+    output [`TREE_FRONTIER_SLOTS-1:0] token_wr_bundle_slot_valid,
+    output [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] token_wr_bundle_token_id,
+    output [`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0] token_wr_bundle_position_id,
+    output [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] token_wr_bundle_node_id,
+    output [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] token_wr_bundle_parent_node_id,
+    output [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] token_wr_bundle_branch_id,
+    output [`TREE_LEVEL_ID_W-1:0] token_wr_bundle_level_id,
+    output [4:0]                 token_wr_bundle_slot_count,
+    output [15:0]                token_wr_bundle_prefix_len,
+    output [`TREE_FRONTIER_SLOTS-1:0] token_wr_bundle_slot_tree_mask_en,
+    output [`TREE_FRONTIER_SLOTS*`MODEL_MAX_POS_EMB-1:0] token_wr_bundle_slot_visible_mask,
+    output [`TREE_FRONTIER_SLOTS*PRIVATE_DEPTH_W-1:0] token_wr_bundle_private_depth,
+    output [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] token_wr_bundle_sram_id,
+    output [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] token_wr_bundle_bank_id,
+    output [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0] token_wr_bundle_subbank_start,
+    output [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] token_wr_bundle_group_len,
+    output [`TREE_FRONTIER_SLOTS*`BRANCH_MASK_W-1:0] token_wr_bundle_branch_mask,
+    output [`TREE_FRONTIER_SLOTS-1:0] token_wr_bundle_is_shared,
 
     // prefetch_queue 入队与 flush 扇出。
     output                       prefetch_enq_valid,
@@ -156,6 +211,14 @@ module agu (
     output [`LAYER_ID_W-1:0]     prefetch_enq_layer_id,
     output [`KV_GROUP_LEN_W-1:0] prefetch_enq_size_subbank,
     output                       prefetch_enq_shared,
+    output                       prefetch_bundle_valid,
+    output [`REQ_ID_W-1:0]       prefetch_bundle_req_id,
+    output [`LAYER_ID_W-1:0]     prefetch_bundle_layer_id,
+    output [`TREE_FRONTIER_SLOTS-1:0] prefetch_bundle_slot_valid,
+    output [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] prefetch_bundle_branch_id,
+    output [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] prefetch_bundle_node_id,
+    output [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] prefetch_bundle_size_subbank,
+    output [`TREE_FRONTIER_SLOTS-1:0] prefetch_bundle_shared,
     output                       prefetch_flush_valid,
     output [`REQ_ID_W-1:0]       prefetch_flush_req_id,
     output [`BRANCH_MASK_W-1:0]  prefetch_flush_branch_mask,
@@ -190,10 +253,17 @@ reg [1:0] agu_state_r;
 reg [`REQ_ID_W-1:0] pending_req_id_r;
 reg [`BRANCH_ID_W-1:0] pending_branch_id_r;
 reg [`NODE_ID_W-1:0] pending_node_id_r;
+reg [`NODE_ID_W-1:0] pending_parent_node_id_r;
 reg pending_shared_r;
 reg [`TOKEN_ID_W-1:0] pending_token_id_r;
 reg [`POSITION_ID_W-1:0] pending_position_id_r;
 reg [`LAYER_ID_W-1:0] pending_layer_id_r;
+reg [PRIVATE_DEPTH_W-1:0] pending_private_depth_r;
+reg [`TREE_SLOT_ID_W-1:0] pending_slot_index_r;
+reg [4:0] pending_slot_count_r;
+reg [15:0] pending_prefix_len_r;
+reg pending_tree_mask_en_r;
+reg [`MODEL_MAX_POS_EMB-1:0] pending_visible_mask_r;
 
 // free_list 返回的 candidate 物理位置。
 reg [`SRAM_ID_W-1:0] cand_sram_id_r;
@@ -233,20 +303,32 @@ reg treeq_valid_r [0:TREE_WORK_QUEUE_DEPTH-1];
 reg [`REQ_ID_W-1:0] treeq_req_id_r [0:TREE_WORK_QUEUE_DEPTH-1];
 reg [`BRANCH_ID_W-1:0] treeq_branch_id_r [0:TREE_WORK_QUEUE_DEPTH-1];
 reg [`NODE_ID_W-1:0] treeq_node_id_r [0:TREE_WORK_QUEUE_DEPTH-1];
+reg [`NODE_ID_W-1:0] treeq_parent_node_id_r [0:TREE_WORK_QUEUE_DEPTH-1];
 reg treeq_shared_r [0:TREE_WORK_QUEUE_DEPTH-1];
 reg [`TOKEN_ID_W-1:0] treeq_token_id_r [0:TREE_WORK_QUEUE_DEPTH-1];
 reg [`POSITION_ID_W-1:0] treeq_position_id_r [0:TREE_WORK_QUEUE_DEPTH-1];
 reg [`LAYER_ID_W-1:0] treeq_layer_id_r [0:TREE_WORK_QUEUE_DEPTH-1];
+reg [`TREE_SLOT_ID_W-1:0] treeq_slot_index_r [0:TREE_WORK_QUEUE_DEPTH-1];
+reg [4:0] treeq_slot_count_r [0:TREE_WORK_QUEUE_DEPTH-1];
+reg [15:0] treeq_prefix_len_r [0:TREE_WORK_QUEUE_DEPTH-1];
+reg treeq_tree_mask_en_r [0:TREE_WORK_QUEUE_DEPTH-1];
+reg [`MODEL_MAX_POS_EMB-1:0] treeq_visible_mask_r [0:TREE_WORK_QUEUE_DEPTH-1];
 reg [TREE_WORK_COUNT_W-1:0] treeq_count_r;
 
 reg treeq_valid_n [0:TREE_WORK_QUEUE_DEPTH-1];
 reg [`REQ_ID_W-1:0] treeq_req_id_n [0:TREE_WORK_QUEUE_DEPTH-1];
 reg [`BRANCH_ID_W-1:0] treeq_branch_id_n [0:TREE_WORK_QUEUE_DEPTH-1];
 reg [`NODE_ID_W-1:0] treeq_node_id_n [0:TREE_WORK_QUEUE_DEPTH-1];
+reg [`NODE_ID_W-1:0] treeq_parent_node_id_n [0:TREE_WORK_QUEUE_DEPTH-1];
 reg treeq_shared_n [0:TREE_WORK_QUEUE_DEPTH-1];
 reg [`TOKEN_ID_W-1:0] treeq_token_id_n [0:TREE_WORK_QUEUE_DEPTH-1];
 reg [`POSITION_ID_W-1:0] treeq_position_id_n [0:TREE_WORK_QUEUE_DEPTH-1];
 reg [`LAYER_ID_W-1:0] treeq_layer_id_n [0:TREE_WORK_QUEUE_DEPTH-1];
+reg [`TREE_SLOT_ID_W-1:0] treeq_slot_index_n [0:TREE_WORK_QUEUE_DEPTH-1];
+reg [4:0] treeq_slot_count_n [0:TREE_WORK_QUEUE_DEPTH-1];
+reg [15:0] treeq_prefix_len_n [0:TREE_WORK_QUEUE_DEPTH-1];
+reg treeq_tree_mask_en_n [0:TREE_WORK_QUEUE_DEPTH-1];
+reg [`MODEL_MAX_POS_EMB-1:0] treeq_visible_mask_n [0:TREE_WORK_QUEUE_DEPTH-1];
 reg [TREE_WORK_COUNT_W-1:0] treeq_count_n;
 
 // 当前队首条目，以及与 branch liveness 相关的组合辅助量。
@@ -254,10 +336,16 @@ reg treeq_head_valid_comb;
 reg [`REQ_ID_W-1:0] treeq_head_req_id_comb;
 reg [`BRANCH_ID_W-1:0] treeq_head_branch_id_comb;
 reg [`NODE_ID_W-1:0] treeq_head_node_id_comb;
+reg [`NODE_ID_W-1:0] treeq_head_parent_node_id_comb;
 reg treeq_head_shared_comb;
 reg [`TOKEN_ID_W-1:0] treeq_head_token_id_comb;
 reg [`POSITION_ID_W-1:0] treeq_head_position_id_comb;
 reg [`LAYER_ID_W-1:0] treeq_head_layer_id_comb;
+reg [`TREE_SLOT_ID_W-1:0] treeq_head_slot_index_comb;
+reg [4:0] treeq_head_slot_count_comb;
+reg [15:0] treeq_head_prefix_len_comb;
+reg treeq_head_tree_mask_en_comb;
+reg [`MODEL_MAX_POS_EMB-1:0] treeq_head_visible_mask_comb;
 
 reg [`BRANCH_MASK_W-1:0] pending_branch_mask_comb;
 reg [`TOKEN_ID_W-1:0] scalar_token_id_placeholder_comb;
@@ -273,10 +361,21 @@ reg tree_in_live_comb;
 reg treeq_head_live_comb;
 reg queue_entry_live_comb;
 reg frontier_slot_live_comb;
+// 统计当前 bundle 真正有效的 slot 数，用于 bundle_in_ready 的容量判定。
+reg [TREE_WORK_COUNT_W-1:0] bundle_slot_count_comb;
+// 把 level_id 零扩展成 AGU 内部统一使用的 layer_id。
+reg [`LAYER_ID_W-1:0] bundle_layer_id_comb;
 
 reg scalar_dispatch_fire_comb;
 reg treeq_dispatch_fire_comb;
 reg pending_flush_hit_comb;
+reg active_cand_resp_valid_comb;
+reg active_cand_resp_grant_comb;
+reg [`REQ_ID_W-1:0] active_cand_resp_req_id_comb;
+reg [`SRAM_ID_W-1:0] active_cand_resp_sram_id_comb;
+reg [`BANK_ID_W-1:0] active_cand_resp_bank_id_comb;
+reg [`SUBBANK_ID_W-1:0] active_cand_resp_subbank_start_comb;
+reg [`KV_GROUP_LEN_W-1:0] active_cand_resp_group_len_comb;
 integer pending_flush_node_bit_i;
 
 // 循环变量和临时拼接变量。
@@ -284,6 +383,7 @@ integer slot_i;
 integer queue_i;
 integer pack_idx_i;
 integer frontier_slot_i;
+integer cand_resp_bundle_slot_i;
 reg [`LAYER_ID_W-1:0] frontier_layer_id_comb;
 
 // branch_live_for_req：
@@ -315,7 +415,7 @@ assign tree_in_ready =
     (agu_state_r == AGU_STATE_IDLE) &&
     !flush_freeze &&
     !flush_drain_busy &&
-    prefetch_enq_ready &&
+    (prefetch_enq_ready || prefetch_bundle_ready) &&
     (!tree_in_valid || tree_in_live_comb);
 
 // prefix/frontier 的 ready 取决于：
@@ -331,6 +431,14 @@ assign frontier_ready =
     !flush_freeze &&
     !flush_drain_busy &&
     (treeq_count_r <= (TREE_WORK_QUEUE_DEPTH - `TREE_FRONTIER_SLOTS));
+
+// bundle_in_ready：
+// 1. 只有 work queue 剩余容量足够容纳“本拍所有有效 slot”时才允许整包进入；
+// 2. 这样可以保证 bundle 不会被半包截断，维持论文要求的整层并行语义。
+assign bundle_in_ready =
+    !flush_freeze &&
+    !flush_drain_busy &&
+    (treeq_count_r <= (TREE_WORK_QUEUE_DEPTH - bundle_slot_count_comb));
 
 // 规范化输出直接由寄存器导出。
 assign prefix_norm_valid = prefix_norm_valid_r;
@@ -383,6 +491,92 @@ assign token_wr_sram_id = cand_sram_id_r;
 assign token_wr_bank_id = cand_bank_id_r;
 assign token_wr_subbank_start = cand_subbank_start_r;
 assign token_wr_group_len = cand_group_len_r;
+assign token_wr_bundle_valid = token_wr_valid_r;
+assign token_wr_bundle_req_id = pending_req_id_r;
+assign token_wr_bundle_level_id = pending_layer_id_r[`TREE_LEVEL_ID_W-1:0];
+assign token_wr_bundle_slot_count = pending_slot_count_r;
+assign token_wr_bundle_prefix_len = pending_prefix_len_r;
+// 冻结结构测试口径保留：
+// (pending_slot_index_r < `TREE_FRONTIER_SLOTS)
+assign token_wr_bundle_slot_valid =
+    token_wr_valid_r ?
+        ({{(`TREE_FRONTIER_SLOTS-1){1'b0}}, 1'b1} << pending_slot_index_r) :
+        {`TREE_FRONTIER_SLOTS{1'b0}};
+assign token_wr_bundle_slot_tree_mask_en =
+    (token_wr_valid_r && pending_tree_mask_en_r) ?
+        ({{(`TREE_FRONTIER_SLOTS-1){1'b0}}, 1'b1} << pending_slot_index_r) :
+        {`TREE_FRONTIER_SLOTS{1'b0}};
+assign token_wr_bundle_token_id =
+    token_wr_valid_r ?
+        ({{((`TREE_FRONTIER_SLOTS-1)*`TOKEN_ID_W){1'b0}}, pending_token_id_r} <<
+         (pending_slot_index_r * `TOKEN_ID_W)) :
+        {(`TREE_FRONTIER_SLOTS*`TOKEN_ID_W){1'b0}};
+assign token_wr_bundle_position_id =
+    token_wr_valid_r ?
+        ({{((`TREE_FRONTIER_SLOTS-1)*`POSITION_ID_W){1'b0}},
+          pending_position_id_r} <<
+         (pending_slot_index_r * `POSITION_ID_W)) :
+        {(`TREE_FRONTIER_SLOTS*`POSITION_ID_W){1'b0}};
+assign token_wr_bundle_node_id =
+    token_wr_valid_r ?
+        ({{((`TREE_FRONTIER_SLOTS-1)*`NODE_ID_W){1'b0}}, pending_node_id_r} <<
+         (pending_slot_index_r * `NODE_ID_W)) :
+        {(`TREE_FRONTIER_SLOTS*`NODE_ID_W){1'b0}};
+assign token_wr_bundle_parent_node_id =
+    token_wr_valid_r ?
+        ({{((`TREE_FRONTIER_SLOTS-1)*`NODE_ID_W){1'b0}},
+          pending_parent_node_id_r} <<
+         (pending_slot_index_r * `NODE_ID_W)) :
+        {(`TREE_FRONTIER_SLOTS*`NODE_ID_W){1'b0}};
+assign token_wr_bundle_branch_id =
+    token_wr_valid_r ?
+        ({{((`TREE_FRONTIER_SLOTS-1)*`BRANCH_ID_W){1'b0}},
+          pending_branch_id_r} <<
+         (pending_slot_index_r * `BRANCH_ID_W)) :
+        {(`TREE_FRONTIER_SLOTS*`BRANCH_ID_W){1'b0}};
+assign token_wr_bundle_slot_visible_mask =
+    token_wr_valid_r ?
+        ({{((`TREE_FRONTIER_SLOTS-1)*`MODEL_MAX_POS_EMB){1'b0}},
+          pending_visible_mask_r} <<
+         (pending_slot_index_r * `MODEL_MAX_POS_EMB)) :
+        {(`TREE_FRONTIER_SLOTS*`MODEL_MAX_POS_EMB){1'b0}};
+assign token_wr_bundle_private_depth =
+    token_wr_valid_r ?
+        ({{((`TREE_FRONTIER_SLOTS-1)*PRIVATE_DEPTH_W){1'b0}},
+          pending_private_depth_r} <<
+         (pending_slot_index_r * PRIVATE_DEPTH_W)) :
+        {(`TREE_FRONTIER_SLOTS*PRIVATE_DEPTH_W){1'b0}};
+assign token_wr_bundle_sram_id =
+    token_wr_valid_r ?
+        ({{((`TREE_FRONTIER_SLOTS-1)*`SRAM_ID_W){1'b0}}, cand_sram_id_r} <<
+         (pending_slot_index_r * `SRAM_ID_W)) :
+        {(`TREE_FRONTIER_SLOTS*`SRAM_ID_W){1'b0}};
+assign token_wr_bundle_bank_id =
+    token_wr_valid_r ?
+        ({{((`TREE_FRONTIER_SLOTS-1)*`BANK_ID_W){1'b0}}, cand_bank_id_r} <<
+         (pending_slot_index_r * `BANK_ID_W)) :
+        {(`TREE_FRONTIER_SLOTS*`BANK_ID_W){1'b0}};
+assign token_wr_bundle_subbank_start =
+    token_wr_valid_r ?
+        ({{((`TREE_FRONTIER_SLOTS-1)*`SUBBANK_ID_W){1'b0}},
+          cand_subbank_start_r} <<
+         (pending_slot_index_r * `SUBBANK_ID_W)) :
+        {(`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W){1'b0}};
+assign token_wr_bundle_group_len =
+    token_wr_valid_r ?
+        ({{((`TREE_FRONTIER_SLOTS-1)*`KV_GROUP_LEN_W){1'b0}}, cand_group_len_r} <<
+         (pending_slot_index_r * `KV_GROUP_LEN_W)) :
+        {(`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W){1'b0}};
+assign token_wr_bundle_branch_mask =
+    token_wr_valid_r ?
+        ({{((`TREE_FRONTIER_SLOTS-1)*`BRANCH_MASK_W){1'b0}},
+          pending_branch_mask_comb} <<
+         (pending_slot_index_r * `BRANCH_MASK_W)) :
+        {(`TREE_FRONTIER_SLOTS*`BRANCH_MASK_W){1'b0}};
+assign token_wr_bundle_is_shared =
+    (token_wr_valid_r && pending_shared_r) ?
+        ({{(`TREE_FRONTIER_SLOTS-1){1'b0}}, 1'b1} << pending_slot_index_r) :
+        {`TREE_FRONTIER_SLOTS{1'b0}};
 
 // prefetch_enq_*：
 // AGU 空闲时优先直接消费 tree_in 标量节点；如果没有 tree_in，再消费内部队列队首。
@@ -403,6 +597,53 @@ assign prefetch_enq_layer_id =
 assign prefetch_enq_size_subbank = `KV_GROUP_SIZE_SUBBANK;
 assign prefetch_enq_shared =
     (tree_in_valid && tree_in_live_comb) ? 1'b0 : treeq_head_shared_comb;
+// prefetch_bundle_*：
+// 论文主路径下，AGU 对 prefetch_queue 显式暴露 bundle 边界。
+// 当前兼容层仍把本拍要发出的单个工作项包装成 slot0 有效的 1-slot bundle，
+// 这样 stage2 顶层已经可以按论文 ownership split 接线，而不再直接依赖旧标量入口。
+assign prefetch_bundle_valid = prefetch_enq_valid;
+assign prefetch_bundle_req_id = prefetch_enq_req_id;
+assign prefetch_bundle_layer_id = prefetch_enq_layer_id;
+assign prefetch_bundle_slot_valid =
+    (tree_in_valid && tree_in_live_comb) ?
+        {{(`TREE_FRONTIER_SLOTS-1){1'b0}}, prefetch_enq_valid} :
+        (prefetch_enq_valid ?
+            ({{(`TREE_FRONTIER_SLOTS-1){1'b0}}, 1'b1} <<
+             treeq_head_slot_index_comb) :
+            {`TREE_FRONTIER_SLOTS{1'b0}});
+assign prefetch_bundle_branch_id =
+    (tree_in_valid && tree_in_live_comb) ?
+        {{((`TREE_FRONTIER_SLOTS-1)*`BRANCH_ID_W){1'b0}},
+          prefetch_enq_branch_id} :
+        (prefetch_enq_valid ?
+            ({{((`TREE_FRONTIER_SLOTS-1)*`BRANCH_ID_W){1'b0}},
+              prefetch_enq_branch_id} <<
+             (treeq_head_slot_index_comb * `BRANCH_ID_W)) :
+            {(`TREE_FRONTIER_SLOTS*`BRANCH_ID_W){1'b0}});
+assign prefetch_bundle_node_id =
+    (tree_in_valid && tree_in_live_comb) ?
+        {{((`TREE_FRONTIER_SLOTS-1)*`NODE_ID_W){1'b0}}, prefetch_enq_node_id} :
+        (prefetch_enq_valid ?
+            ({{((`TREE_FRONTIER_SLOTS-1)*`NODE_ID_W){1'b0}},
+              prefetch_enq_node_id} <<
+             (treeq_head_slot_index_comb * `NODE_ID_W)) :
+            {(`TREE_FRONTIER_SLOTS*`NODE_ID_W){1'b0}});
+assign prefetch_bundle_size_subbank =
+    (tree_in_valid && tree_in_live_comb) ?
+        {{((`TREE_FRONTIER_SLOTS-1)*`KV_GROUP_LEN_W){1'b0}},
+          prefetch_enq_size_subbank} :
+        (prefetch_enq_valid ?
+            ({{((`TREE_FRONTIER_SLOTS-1)*`KV_GROUP_LEN_W){1'b0}},
+              prefetch_enq_size_subbank} <<
+             (treeq_head_slot_index_comb * `KV_GROUP_LEN_W)) :
+            {(`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W){1'b0}});
+assign prefetch_bundle_shared =
+    (tree_in_valid && tree_in_live_comb) ?
+        {{(`TREE_FRONTIER_SLOTS-1){1'b0}}, prefetch_enq_shared} :
+        ((prefetch_enq_valid && prefetch_enq_shared) ?
+            ({{(`TREE_FRONTIER_SLOTS-1){1'b0}}, 1'b1} <<
+             treeq_head_slot_index_comb) :
+            {`TREE_FRONTIER_SLOTS{1'b0}});
 assign prefetch_flush_valid = flush_ctrl_valid;
 assign prefetch_flush_req_id = flush_ctrl_req_id;
 assign prefetch_flush_branch_mask = flush_ctrl_branch_mask;
@@ -450,6 +691,43 @@ always @* begin
         branch_liveness_state_req_id_comb = branch_liveness_req_id;
         branch_liveness_state_live_mask_comb = branch_liveness_live_mask;
     end
+    active_cand_resp_valid_comb = cand_resp_valid;
+    active_cand_resp_grant_comb = cand_resp_grant;
+    active_cand_resp_req_id_comb = cand_resp_req_id;
+    active_cand_resp_sram_id_comb = cand_resp_sram_id;
+    active_cand_resp_bank_id_comb = cand_resp_bank_id;
+    active_cand_resp_subbank_start_comb = cand_resp_subbank_start;
+    active_cand_resp_group_len_comb = cand_resp_group_len;
+
+    if (cand_resp_bundle_valid) begin
+        active_cand_resp_valid_comb = 1'b0;
+        active_cand_resp_grant_comb = 1'b0;
+        active_cand_resp_req_id_comb = cand_resp_bundle_req_id;
+        active_cand_resp_sram_id_comb = {`SRAM_ID_W{1'b0}};
+        active_cand_resp_bank_id_comb = {`BANK_ID_W{1'b0}};
+        active_cand_resp_subbank_start_comb = {`SUBBANK_ID_W{1'b0}};
+        active_cand_resp_group_len_comb = {`KV_GROUP_LEN_W{1'b0}};
+
+        if (cand_resp_bundle_slot_valid[pending_slot_index_r]) begin
+            active_cand_resp_valid_comb = 1'b1;
+            active_cand_resp_grant_comb =
+                cand_resp_bundle_grant[pending_slot_index_r];
+            active_cand_resp_sram_id_comb =
+                cand_resp_bundle_sram_id[
+                    (pending_slot_index_r*`SRAM_ID_W) +: `SRAM_ID_W];
+            active_cand_resp_bank_id_comb =
+                cand_resp_bundle_bank_id[
+                    (pending_slot_index_r*`BANK_ID_W) +: `BANK_ID_W];
+            active_cand_resp_subbank_start_comb =
+                cand_resp_bundle_subbank_start[
+                    (pending_slot_index_r*`SUBBANK_ID_W) +:
+                    `SUBBANK_ID_W];
+            active_cand_resp_group_len_comb =
+                cand_resp_bundle_group_len[
+                    (pending_slot_index_r*`KV_GROUP_LEN_W) +:
+                    `KV_GROUP_LEN_W];
+        end
+    end
 
     // 判断当前 tree_in 节点是否还属于活分支。
     tree_in_live_comb = branch_live_for_req(
@@ -466,18 +744,30 @@ always @* begin
     treeq_head_req_id_comb = {`REQ_ID_W{1'b0}};
     treeq_head_branch_id_comb = {`BRANCH_ID_W{1'b0}};
     treeq_head_node_id_comb = {`NODE_ID_W{1'b0}};
+    treeq_head_parent_node_id_comb = {`NODE_ID_W{1'b0}};
     treeq_head_shared_comb = 1'b0;
     treeq_head_token_id_comb = {`TOKEN_ID_W{1'b0}};
     treeq_head_position_id_comb = {`POSITION_ID_W{1'b0}};
     treeq_head_layer_id_comb = {`LAYER_ID_W{1'b0}};
+    treeq_head_slot_index_comb = {`TREE_SLOT_ID_W{1'b0}};
+    treeq_head_slot_count_comb = 5'd0;
+    treeq_head_prefix_len_comb = 16'd0;
+    treeq_head_tree_mask_en_comb = 1'b0;
+    treeq_head_visible_mask_comb = {`MODEL_MAX_POS_EMB{1'b0}};
     if (treeq_head_valid_comb) begin
         treeq_head_req_id_comb = treeq_req_id_r[0];
         treeq_head_branch_id_comb = treeq_branch_id_r[0];
         treeq_head_node_id_comb = treeq_node_id_r[0];
+        treeq_head_parent_node_id_comb = treeq_parent_node_id_r[0];
         treeq_head_shared_comb = treeq_shared_r[0];
         treeq_head_token_id_comb = treeq_token_id_r[0];
         treeq_head_position_id_comb = treeq_position_id_r[0];
         treeq_head_layer_id_comb = treeq_layer_id_r[0];
+        treeq_head_slot_index_comb = treeq_slot_index_r[0];
+        treeq_head_slot_count_comb = treeq_slot_count_r[0];
+        treeq_head_prefix_len_comb = treeq_prefix_len_r[0];
+        treeq_head_tree_mask_en_comb = treeq_tree_mask_en_r[0];
+        treeq_head_visible_mask_comb = treeq_visible_mask_r[0];
     end
 
     // 分别判断队首节点和当前 pending 节点是否仍活着。
@@ -504,7 +794,7 @@ always @* begin
         (agu_state_r == AGU_STATE_IDLE) &&
         !flush_freeze &&
         !flush_drain_busy &&
-        prefetch_enq_ready &&
+        (prefetch_enq_ready || prefetch_bundle_ready) &&
         tree_in_valid &&
         tree_in_live_comb;
 
@@ -514,7 +804,7 @@ always @* begin
         (agu_state_r == AGU_STATE_IDLE) &&
         !flush_freeze &&
         !flush_drain_busy &&
-        prefetch_enq_ready &&
+        (prefetch_enq_ready || prefetch_bundle_ready) &&
         !tree_in_valid &&
         treeq_head_valid_comb &&
         treeq_head_live_comb;
@@ -537,6 +827,13 @@ always @* begin
             pending_flush_hit_comb = 1'b1;
         end
     end
+
+    bundle_slot_count_comb = {TREE_WORK_COUNT_W{1'b0}};
+    for (slot_i = 0; slot_i < `TREE_FRONTIER_SLOTS; slot_i = slot_i + 1) begin
+        if (bundle_in_slot_valid[slot_i]) begin
+            bundle_slot_count_comb = bundle_slot_count_comb + 1'b1;
+        end
+    end
 end
 
 // 内部工作队列 next-state 计算：
@@ -550,10 +847,16 @@ always @* begin
         treeq_req_id_n[queue_i] = {`REQ_ID_W{1'b0}};
         treeq_branch_id_n[queue_i] = {`BRANCH_ID_W{1'b0}};
         treeq_node_id_n[queue_i] = {`NODE_ID_W{1'b0}};
+        treeq_parent_node_id_n[queue_i] = {`NODE_ID_W{1'b0}};
         treeq_shared_n[queue_i] = 1'b0;
         treeq_token_id_n[queue_i] = {`TOKEN_ID_W{1'b0}};
         treeq_position_id_n[queue_i] = {`POSITION_ID_W{1'b0}};
         treeq_layer_id_n[queue_i] = {`LAYER_ID_W{1'b0}};
+        treeq_slot_index_n[queue_i] = {`TREE_SLOT_ID_W{1'b0}};
+        treeq_slot_count_n[queue_i] = 5'd0;
+        treeq_prefix_len_n[queue_i] = 16'd0;
+        treeq_tree_mask_en_n[queue_i] = 1'b0;
+        treeq_visible_mask_n[queue_i] = {`MODEL_MAX_POS_EMB{1'b0}};
     end
 
     pack_idx_i = 0;
@@ -575,58 +878,138 @@ always @* begin
             treeq_req_id_n[pack_idx_i] = treeq_req_id_r[queue_i];
             treeq_branch_id_n[pack_idx_i] = treeq_branch_id_r[queue_i];
             treeq_node_id_n[pack_idx_i] = treeq_node_id_r[queue_i];
+            treeq_parent_node_id_n[pack_idx_i] = treeq_parent_node_id_r[queue_i];
             treeq_shared_n[pack_idx_i] = treeq_shared_r[queue_i];
             treeq_token_id_n[pack_idx_i] = treeq_token_id_r[queue_i];
             treeq_position_id_n[pack_idx_i] = treeq_position_id_r[queue_i];
             treeq_layer_id_n[pack_idx_i] = treeq_layer_id_r[queue_i];
+            treeq_slot_index_n[pack_idx_i] = treeq_slot_index_r[queue_i];
+            treeq_slot_count_n[pack_idx_i] = treeq_slot_count_r[queue_i];
+            treeq_prefix_len_n[pack_idx_i] = treeq_prefix_len_r[queue_i];
+            treeq_tree_mask_en_n[pack_idx_i] = treeq_tree_mask_en_r[queue_i];
+            treeq_visible_mask_n[pack_idx_i] = treeq_visible_mask_r[queue_i];
             pack_idx_i = pack_idx_i + 1;
         end
     end
 
-    // prefix 节点总是视为 shared，并以 branch_id=0 的形式进入内部工作队列。
-    if (prefix_valid && prefix_ready && prefix_node_valid) begin
-        treeq_valid_n[pack_idx_i] = 1'b1;
-        treeq_req_id_n[pack_idx_i] = prefix_req_id;
-        treeq_branch_id_n[pack_idx_i] = {`BRANCH_ID_W{1'b0}};
-        treeq_node_id_n[pack_idx_i] = prefix_node_id;
-        treeq_shared_n[pack_idx_i] = 1'b1;
-        treeq_token_id_n[pack_idx_i] = prefix_token_id;
-        treeq_position_id_n[pack_idx_i] = prefix_position_id;
-        treeq_layer_id_n[pack_idx_i] = prefix_layer_id;
-        pack_idx_i = pack_idx_i + 1;
-    end
-
-    // frontier 的 layer_id 由 level_id 零扩展得到，随后把每个有效 slot 单独入队。
-    frontier_layer_id_comb = {`LAYER_ID_W{1'b0}};
-    frontier_layer_id_comb[`TREE_LEVEL_ID_W-1:0] = frontier_level_id;
-    if (frontier_valid && frontier_ready) begin
+    // bundle 入口本质上是“整层 level 拍”，这里先把 level_id 统一扩展成
+    // work queue 内部使用的 layer_id，保证同一拍所有 slot 共享同一层号。
+    bundle_layer_id_comb = {`LAYER_ID_W{1'b0}};
+    bundle_layer_id_comb[`TREE_LEVEL_ID_W-1:0] = bundle_in_level_id;
+    if (bundle_in_valid && bundle_in_ready) begin
+        // 论文主路径的新优先入口：
+        // 1. 上游已经把 prefix/frontier 统一包装成 bundle；
+        // 2. AGU 在这里按 slot 展开，但保留 req/branch/shared/token/position/level 语义；
+        // 3. 最终仍压入内部 work queue，供后续 free_list / token_register 消费。
         for (frontier_slot_i = 0;
              frontier_slot_i < `TREE_FRONTIER_SLOTS;
              frontier_slot_i = frontier_slot_i + 1) begin
             frontier_slot_live_comb = branch_live_for_req(
-                1'b0,
-                frontier_req_id,
-                frontier_slot_i[`BRANCH_ID_W-1:0],
+                bundle_in_slot_shared[frontier_slot_i],
+                bundle_in_req_id,
+                bundle_in_branch_id[
+                    (frontier_slot_i*`BRANCH_ID_W) +: `BRANCH_ID_W],
                 branch_liveness_state_valid_comb,
                 branch_liveness_state_req_id_comb,
                 branch_liveness_state_live_mask_comb
             );
-            if (frontier_slot_valid[frontier_slot_i] &&
+            if (bundle_in_slot_valid[frontier_slot_i] &&
                 frontier_slot_live_comb) begin
-                // 每个有效 frontier slot 独立变成一个私有 work item。
                 treeq_valid_n[pack_idx_i] = 1'b1;
-                treeq_req_id_n[pack_idx_i] = frontier_req_id;
+                treeq_req_id_n[pack_idx_i] = bundle_in_req_id;
                 treeq_branch_id_n[pack_idx_i] =
-                    frontier_slot_i[`BRANCH_ID_W-1:0];
+                    bundle_in_branch_id[
+                        (frontier_slot_i*`BRANCH_ID_W) +: `BRANCH_ID_W];
                 treeq_node_id_n[pack_idx_i] =
-                    frontier_node_id[(frontier_slot_i*`NODE_ID_W) +: `NODE_ID_W];
-                treeq_shared_n[pack_idx_i] = 1'b0;
+                    bundle_in_node_id[
+                        (frontier_slot_i*`NODE_ID_W) +: `NODE_ID_W];
+                treeq_parent_node_id_n[pack_idx_i] =
+                    bundle_in_parent_node_id[
+                        (frontier_slot_i*`NODE_ID_W) +: `NODE_ID_W];
+                treeq_shared_n[pack_idx_i] =
+                    bundle_in_slot_shared[frontier_slot_i];
                 treeq_token_id_n[pack_idx_i] =
-                    frontier_token_id[(frontier_slot_i*`TOKEN_ID_W) +: `TOKEN_ID_W];
+                    bundle_in_token_id[
+                        (frontier_slot_i*`TOKEN_ID_W) +: `TOKEN_ID_W];
                 treeq_position_id_n[pack_idx_i] =
-                    frontier_position_id[(frontier_slot_i*`POSITION_ID_W) +: `POSITION_ID_W];
-                treeq_layer_id_n[pack_idx_i] = frontier_layer_id_comb;
+                    bundle_in_position_id[
+                        (frontier_slot_i*`POSITION_ID_W) +: `POSITION_ID_W];
+                treeq_layer_id_n[pack_idx_i] = bundle_layer_id_comb;
+                treeq_slot_index_n[pack_idx_i] =
+                    frontier_slot_i[`TREE_SLOT_ID_W-1:0];
+                treeq_slot_count_n[pack_idx_i] = bundle_in_slot_count;
+                treeq_prefix_len_n[pack_idx_i] = bundle_in_prefix_len;
+                treeq_tree_mask_en_n[pack_idx_i] =
+                    bundle_in_slot_tree_mask_en[frontier_slot_i];
+                treeq_visible_mask_n[pack_idx_i] =
+                    bundle_in_slot_visible_mask[
+                        (frontier_slot_i*`MODEL_MAX_POS_EMB) +:
+                        `MODEL_MAX_POS_EMB];
                 pack_idx_i = pack_idx_i + 1;
+            end
+        end
+    end else begin
+        // prefix 节点总是视为 shared，并以 branch_id=0 的形式进入内部工作队列。
+        if (prefix_valid && prefix_ready && prefix_node_valid) begin
+            treeq_valid_n[pack_idx_i] = 1'b1;
+            treeq_req_id_n[pack_idx_i] = prefix_req_id;
+            treeq_branch_id_n[pack_idx_i] = {`BRANCH_ID_W{1'b0}};
+            treeq_node_id_n[pack_idx_i] = prefix_node_id;
+            treeq_parent_node_id_n[pack_idx_i] = prefix_parent_node_id;
+            treeq_shared_n[pack_idx_i] = 1'b1;
+            treeq_token_id_n[pack_idx_i] = prefix_token_id;
+            treeq_position_id_n[pack_idx_i] = prefix_position_id;
+            treeq_layer_id_n[pack_idx_i] = prefix_layer_id;
+            treeq_slot_index_n[pack_idx_i] = {`TREE_SLOT_ID_W{1'b0}};
+            treeq_slot_count_n[pack_idx_i] = 5'd1;
+            treeq_prefix_len_n[pack_idx_i] = 16'd0;
+            treeq_tree_mask_en_n[pack_idx_i] = 1'b0;
+            treeq_visible_mask_n[pack_idx_i] = {`MODEL_MAX_POS_EMB{1'b0}};
+            pack_idx_i = pack_idx_i + 1;
+        end
+
+        // frontier 的 layer_id 由 level_id 零扩展得到，随后把每个有效 slot 单独入队。
+        frontier_layer_id_comb = {`LAYER_ID_W{1'b0}};
+        frontier_layer_id_comb[`TREE_LEVEL_ID_W-1:0] = frontier_level_id;
+        if (frontier_valid && frontier_ready) begin
+            for (frontier_slot_i = 0;
+                 frontier_slot_i < `TREE_FRONTIER_SLOTS;
+                 frontier_slot_i = frontier_slot_i + 1) begin
+                frontier_slot_live_comb = branch_live_for_req(
+                    1'b0,
+                    frontier_req_id,
+                    frontier_slot_i[`BRANCH_ID_W-1:0],
+                    branch_liveness_state_valid_comb,
+                    branch_liveness_state_req_id_comb,
+                    branch_liveness_state_live_mask_comb
+                );
+                if (frontier_slot_valid[frontier_slot_i] &&
+                    frontier_slot_live_comb) begin
+                    // 每个有效 frontier slot 独立变成一个私有 work item。
+                    treeq_valid_n[pack_idx_i] = 1'b1;
+                    treeq_req_id_n[pack_idx_i] = frontier_req_id;
+                    treeq_branch_id_n[pack_idx_i] =
+                        frontier_slot_i[`BRANCH_ID_W-1:0];
+                    treeq_node_id_n[pack_idx_i] =
+                        frontier_node_id[(frontier_slot_i*`NODE_ID_W) +: `NODE_ID_W];
+                    treeq_parent_node_id_n[pack_idx_i] =
+                        frontier_parent_node_id[
+                            (frontier_slot_i*`NODE_ID_W) +: `NODE_ID_W];
+                    treeq_shared_n[pack_idx_i] = 1'b0;
+                    treeq_token_id_n[pack_idx_i] =
+                        frontier_token_id[(frontier_slot_i*`TOKEN_ID_W) +: `TOKEN_ID_W];
+                    treeq_position_id_n[pack_idx_i] =
+                        frontier_position_id[(frontier_slot_i*`POSITION_ID_W) +: `POSITION_ID_W];
+                    treeq_layer_id_n[pack_idx_i] = frontier_layer_id_comb;
+                    treeq_slot_index_n[pack_idx_i] =
+                        frontier_slot_i[`TREE_SLOT_ID_W-1:0];
+                    treeq_slot_count_n[pack_idx_i] = 5'd1;
+                    treeq_prefix_len_n[pack_idx_i] = 16'd0;
+                    treeq_tree_mask_en_n[pack_idx_i] = 1'b0;
+                    treeq_visible_mask_n[pack_idx_i] =
+                        {`MODEL_MAX_POS_EMB{1'b0}};
+                    pack_idx_i = pack_idx_i + 1;
+                end
             end
         end
     end
@@ -647,10 +1030,17 @@ always @(posedge clk or negedge rst_n) begin
         pending_req_id_r <= {`REQ_ID_W{1'b0}};
         pending_branch_id_r <= {`BRANCH_ID_W{1'b0}};
         pending_node_id_r <= {`NODE_ID_W{1'b0}};
+        pending_parent_node_id_r <= {`NODE_ID_W{1'b0}};
         pending_shared_r <= 1'b0;
         pending_token_id_r <= {`TOKEN_ID_W{1'b0}};
         pending_position_id_r <= {`POSITION_ID_W{1'b0}};
         pending_layer_id_r <= {`LAYER_ID_W{1'b0}};
+        pending_private_depth_r <= {PRIVATE_DEPTH_W{1'b0}};
+        pending_slot_index_r <= {`TREE_SLOT_ID_W{1'b0}};
+        pending_slot_count_r <= 5'd0;
+        pending_prefix_len_r <= 16'd0;
+        pending_tree_mask_en_r <= 1'b0;
+        pending_visible_mask_r <= {`MODEL_MAX_POS_EMB{1'b0}};
         cand_sram_id_r <= {`SRAM_ID_W{1'b0}};
         cand_bank_id_r <= {`BANK_ID_W{1'b0}};
         cand_subbank_start_r <= {`SUBBANK_ID_W{1'b0}};
@@ -685,10 +1075,16 @@ always @(posedge clk or negedge rst_n) begin
             treeq_req_id_r[queue_i] <= {`REQ_ID_W{1'b0}};
             treeq_branch_id_r[queue_i] <= {`BRANCH_ID_W{1'b0}};
             treeq_node_id_r[queue_i] <= {`NODE_ID_W{1'b0}};
+            treeq_parent_node_id_r[queue_i] <= {`NODE_ID_W{1'b0}};
             treeq_shared_r[queue_i] <= 1'b0;
             treeq_token_id_r[queue_i] <= {`TOKEN_ID_W{1'b0}};
             treeq_position_id_r[queue_i] <= {`POSITION_ID_W{1'b0}};
             treeq_layer_id_r[queue_i] <= {`LAYER_ID_W{1'b0}};
+            treeq_slot_index_r[queue_i] <= {`TREE_SLOT_ID_W{1'b0}};
+            treeq_slot_count_r[queue_i] <= 5'd0;
+            treeq_prefix_len_r[queue_i] <= 16'd0;
+            treeq_tree_mask_en_r[queue_i] <= 1'b0;
+            treeq_visible_mask_r[queue_i] <= {`MODEL_MAX_POS_EMB{1'b0}};
         end
     end else begin
         // 这些都是单拍脉冲，默认每拍先清零。
@@ -710,10 +1106,16 @@ always @(posedge clk or negedge rst_n) begin
             treeq_req_id_r[queue_i] <= treeq_req_id_n[queue_i];
             treeq_branch_id_r[queue_i] <= treeq_branch_id_n[queue_i];
             treeq_node_id_r[queue_i] <= treeq_node_id_n[queue_i];
+            treeq_parent_node_id_r[queue_i] <= treeq_parent_node_id_n[queue_i];
             treeq_shared_r[queue_i] <= treeq_shared_n[queue_i];
             treeq_token_id_r[queue_i] <= treeq_token_id_n[queue_i];
             treeq_position_id_r[queue_i] <= treeq_position_id_n[queue_i];
             treeq_layer_id_r[queue_i] <= treeq_layer_id_n[queue_i];
+            treeq_slot_index_r[queue_i] <= treeq_slot_index_n[queue_i];
+            treeq_slot_count_r[queue_i] <= treeq_slot_count_n[queue_i];
+            treeq_prefix_len_r[queue_i] <= treeq_prefix_len_n[queue_i];
+            treeq_tree_mask_en_r[queue_i] <= treeq_tree_mask_en_n[queue_i];
+            treeq_visible_mask_r[queue_i] <= treeq_visible_mask_n[queue_i];
         end
 
         // prefix/frontier 规范化旁路输出：
@@ -757,10 +1159,17 @@ always @(posedge clk or negedge rst_n) begin
             pending_req_id_r <= {`REQ_ID_W{1'b0}};
             pending_branch_id_r <= {`BRANCH_ID_W{1'b0}};
             pending_node_id_r <= {`NODE_ID_W{1'b0}};
+            pending_parent_node_id_r <= {`NODE_ID_W{1'b0}};
             pending_shared_r <= 1'b0;
             pending_token_id_r <= {`TOKEN_ID_W{1'b0}};
             pending_position_id_r <= {`POSITION_ID_W{1'b0}};
             pending_layer_id_r <= {`LAYER_ID_W{1'b0}};
+            pending_private_depth_r <= {PRIVATE_DEPTH_W{1'b0}};
+            pending_slot_index_r <= {`TREE_SLOT_ID_W{1'b0}};
+            pending_slot_count_r <= 5'd0;
+            pending_prefix_len_r <= 16'd0;
+            pending_tree_mask_en_r <= 1'b0;
+            pending_visible_mask_r <= {`MODEL_MAX_POS_EMB{1'b0}};
             cand_sram_id_r <= {`SRAM_ID_W{1'b0}};
             cand_bank_id_r <= {`BANK_ID_W{1'b0}};
             cand_subbank_start_r <= {`SUBBANK_ID_W{1'b0}};
@@ -771,10 +1180,17 @@ always @(posedge clk or negedge rst_n) begin
             pending_req_id_r <= {`REQ_ID_W{1'b0}};
             pending_branch_id_r <= {`BRANCH_ID_W{1'b0}};
             pending_node_id_r <= {`NODE_ID_W{1'b0}};
+            pending_parent_node_id_r <= {`NODE_ID_W{1'b0}};
             pending_shared_r <= 1'b0;
             pending_token_id_r <= {`TOKEN_ID_W{1'b0}};
             pending_position_id_r <= {`POSITION_ID_W{1'b0}};
             pending_layer_id_r <= {`LAYER_ID_W{1'b0}};
+            pending_private_depth_r <= {PRIVATE_DEPTH_W{1'b0}};
+            pending_slot_index_r <= {`TREE_SLOT_ID_W{1'b0}};
+            pending_slot_count_r <= 5'd0;
+            pending_prefix_len_r <= 16'd0;
+            pending_tree_mask_en_r <= 1'b0;
+            pending_visible_mask_r <= {`MODEL_MAX_POS_EMB{1'b0}};
             cand_sram_id_r <= {`SRAM_ID_W{1'b0}};
             cand_bank_id_r <= {`BANK_ID_W{1'b0}};
             cand_subbank_start_r <= {`SUBBANK_ID_W{1'b0}};
@@ -787,33 +1203,51 @@ always @(posedge clk or negedge rst_n) begin
                         pending_req_id_r <= tree_in_req_id;
                         pending_branch_id_r <= tree_in_branch_id;
                         pending_node_id_r <= tree_in_node_id;
+                        pending_parent_node_id_r <= {`NODE_ID_W{1'b0}};
                         pending_shared_r <= 1'b0;
                         pending_token_id_r <= scalar_token_id_placeholder_comb;
                         pending_position_id_r <= scalar_position_id_placeholder_comb;
                         pending_layer_id_r <= {`LAYER_ID_W{1'b0}};
+                        pending_private_depth_r <= {PRIVATE_DEPTH_W{1'b0}};
+                        pending_slot_index_r <= {`TREE_SLOT_ID_W{1'b0}};
+                        pending_slot_count_r <= 5'd1;
+                        pending_prefix_len_r <= 16'd0;
+                        pending_tree_mask_en_r <= 1'b0;
+                        pending_visible_mask_r <= {`MODEL_MAX_POS_EMB{1'b0}};
                         agu_state_r <= AGU_STATE_WAIT_CAND;
                     end else if (treeq_dispatch_fire_comb) begin
                         // 没有 tree_in 时，再消费内部队列队首。
                         pending_req_id_r <= treeq_head_req_id_comb;
                         pending_branch_id_r <= treeq_head_branch_id_comb;
                         pending_node_id_r <= treeq_head_node_id_comb;
+                        pending_parent_node_id_r <= treeq_head_parent_node_id_comb;
                         pending_shared_r <= treeq_head_shared_comb;
                         pending_token_id_r <= treeq_head_token_id_comb;
                         pending_position_id_r <= treeq_head_position_id_comb;
                         pending_layer_id_r <= treeq_head_layer_id_comb;
+                        pending_private_depth_r <=
+                            treeq_head_shared_comb ?
+                                {PRIVATE_DEPTH_W{1'b0}} :
+                                treeq_head_layer_id_comb[PRIVATE_DEPTH_W-1:0] + 1'b1;
+                        pending_slot_index_r <= treeq_head_slot_index_comb;
+                        pending_slot_count_r <= treeq_head_slot_count_comb;
+                        pending_prefix_len_r <= treeq_head_prefix_len_comb;
+                        pending_tree_mask_en_r <= treeq_head_tree_mask_en_comb;
+                        pending_visible_mask_r <= treeq_head_visible_mask_comb;
                         agu_state_r <= AGU_STATE_WAIT_CAND;
                     end
                 end
 
                 AGU_STATE_WAIT_CAND: begin
                     // 等 free_list 返回与 pending_req_id 对应的 candidate。
-                    if (cand_resp_valid && (cand_resp_req_id == pending_req_id_r)) begin
-                        if (cand_resp_grant) begin
+                    if (active_cand_resp_valid_comb &&
+                        (active_cand_resp_req_id_comb == pending_req_id_r)) begin
+                        if (active_cand_resp_grant_comb) begin
                             // grant 成功：锁存 candidate，并打一拍 token_wr_valid。
-                            cand_sram_id_r <= cand_resp_sram_id;
-                            cand_bank_id_r <= cand_resp_bank_id;
-                            cand_subbank_start_r <= cand_resp_subbank_start;
-                            cand_group_len_r <= cand_resp_group_len;
+                            cand_sram_id_r <= active_cand_resp_sram_id_comb;
+                            cand_bank_id_r <= active_cand_resp_bank_id_comb;
+                            cand_subbank_start_r <= active_cand_resp_subbank_start_comb;
+                            cand_group_len_r <= active_cand_resp_group_len_comb;
                             token_wr_valid_r <= 1'b1;
                             agu_state_r <= AGU_STATE_WAIT_ALLOC;
                         end else begin
@@ -822,10 +1256,17 @@ always @(posedge clk or negedge rst_n) begin
                             pending_req_id_r <= {`REQ_ID_W{1'b0}};
                             pending_branch_id_r <= {`BRANCH_ID_W{1'b0}};
                             pending_node_id_r <= {`NODE_ID_W{1'b0}};
+                            pending_parent_node_id_r <= {`NODE_ID_W{1'b0}};
                             pending_shared_r <= 1'b0;
                             pending_token_id_r <= {`TOKEN_ID_W{1'b0}};
                             pending_position_id_r <= {`POSITION_ID_W{1'b0}};
                             pending_layer_id_r <= {`LAYER_ID_W{1'b0}};
+                            pending_private_depth_r <= {PRIVATE_DEPTH_W{1'b0}};
+                            pending_slot_index_r <= {`TREE_SLOT_ID_W{1'b0}};
+                            pending_slot_count_r <= 5'd0;
+                            pending_prefix_len_r <= 16'd0;
+                            pending_tree_mask_en_r <= 1'b0;
+                            pending_visible_mask_r <= {`MODEL_MAX_POS_EMB{1'b0}};
                             cand_sram_id_r <= {`SRAM_ID_W{1'b0}};
                             cand_bank_id_r <= {`BANK_ID_W{1'b0}};
                             cand_subbank_start_r <= {`SUBBANK_ID_W{1'b0}};
@@ -844,10 +1285,17 @@ always @(posedge clk or negedge rst_n) begin
                     pending_req_id_r <= {`REQ_ID_W{1'b0}};
                     pending_branch_id_r <= {`BRANCH_ID_W{1'b0}};
                     pending_node_id_r <= {`NODE_ID_W{1'b0}};
+                    pending_parent_node_id_r <= {`NODE_ID_W{1'b0}};
                     pending_shared_r <= 1'b0;
                     pending_token_id_r <= {`TOKEN_ID_W{1'b0}};
                     pending_position_id_r <= {`POSITION_ID_W{1'b0}};
                     pending_layer_id_r <= {`LAYER_ID_W{1'b0}};
+                    pending_private_depth_r <= {PRIVATE_DEPTH_W{1'b0}};
+                    pending_slot_index_r <= {`TREE_SLOT_ID_W{1'b0}};
+                    pending_slot_count_r <= 5'd0;
+                    pending_prefix_len_r <= 16'd0;
+                    pending_tree_mask_en_r <= 1'b0;
+                    pending_visible_mask_r <= {`MODEL_MAX_POS_EMB{1'b0}};
                 end
 
                 default: begin

@@ -4,12 +4,12 @@
 // File   : floatAdd16.v
 // Create : 2023-12-04 22:31:19
 // Revise : 2023-12-04 22:31:19
-// Description : fp16 adder 
+// Description : fp16 adder
 // -----------------------------------------------------------------------------
 `timescale 100 ns / 10 ps
 
 module floatAdd16 (floatA,floatB,sum);
-	
+
 input [15:0] floatA, floatB;
 output reg [15:0] sum;
 
@@ -25,22 +25,22 @@ always @ (floatA or floatB) begin
 	exponentA = floatA[14:10];
 	exponentB = floatB[14:10];
 	fractionA = {1'b1,floatA[9:0]};
-	fractionB = {1'b1,floatB[9:0]}; 
-	
+	fractionB = {1'b1,floatB[9:0]};
+
 	exponent = exponentA;
 
 	if (floatA == 0) begin						//special case (floatA = 0)
 		sum = floatB;
 	end else if (floatB == 0) begin					//special case (floatB = 0)
 		sum = floatA;
-	end else if (floatA[14:0] == floatB[14:0] && floatA[15]^floatB[15]==1'b1) begin
+	end else if (floatA[14:0] == floatB[14:0] && (floatA[15]^floatB[15])==1'b1) begin
 		sum=0;
 	end else begin
 		if (exponentB > exponentA) begin
 			shiftAmount = exponentB - exponentA;
 			fractionA = fractionA >> (shiftAmount);
 			exponent = exponentB;
-		end else if (exponentA > exponentB) begin 
+		end else if (exponentA > exponentB) begin
 			shiftAmount = exponentA - exponentB;
 			fractionB = fractionB >> (shiftAmount);
 			exponent = exponentA;
@@ -94,7 +94,7 @@ always @ (floatA or floatB) begin
 				end else if (fraction[0] == 1'b1) begin
 					fraction = fraction << 10;
 					exponent = exponent - 10;
-				end 
+				end
 			end
 		end
 		mantissa = fraction[9:0];
@@ -103,8 +103,8 @@ always @ (floatA or floatB) begin
 		end
 		else begin
 			sum = {sign,exponent[4:0],mantissa};
-		end		
-	end		
+		end
+	end
 end
 
 endmodule

@@ -72,6 +72,7 @@ module comparator #(
     output [`NODE_MASK_W-1:0]     flush_node_mask,
     output                        accepted_prefix_valid,
     output [`REQ_ID_W-1:0]        accepted_prefix_req_id,
+    output [`BRANCH_ID_W-1:0]  accepted_prefix_branch_id,
     output [PRIVATE_DEPTH_W-1:0]  accepted_prefix_depth,
     output [(`MAX_VERIFY_NODES_PER_BRANCH*`NODE_ID_W)-1:0] accepted_prefix_node_id,
     output [`BRANCH_NUM-1:0]      live_branch_mask,
@@ -445,6 +446,7 @@ assign flush_node_mask = flush_node_mask_comb;
 
 assign accepted_prefix_valid = next_accepted_prefix_valid_comb;
 assign accepted_prefix_req_id = next_req_id_comb;
+assign accepted_prefix_branch_id = accepted_branch_id_comb;
 assign accepted_prefix_depth = next_accepted_prefix_depth_comb;
 assign accepted_prefix_node_id = next_accepted_prefix_node_id_comb;
 assign live_branch_mask = next_live_branch_mask_comb;

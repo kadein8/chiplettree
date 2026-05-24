@@ -20,15 +20,18 @@ def test_control_chip_uses_request_controller_vec_path():
     assert "`define MEM_REQ_LANES            `TREE_VERIFY_PE_LANES" in iface
     assert "`define NODE_ID_W                5" in iface
     assert "tree_verify_dispatcher u_tree_verify_dispatcher" in text
-    assert ".tree_req_valid(tree_parallel_req_valid_w)" in text
+    assert "strict_tree_paper_backend_active_w" in text
     assert ".batch_out_valid(tree_parallel_batch_valid_w)" in text
-    assert ".vec_req_valid(tree_parallel_vec_req_valid_w)" in text
-    assert ".vec_req_ready(tree_parallel_vec_req_ready_w)" in text
-    assert ".vec_req_write(tree_parallel_vec_req_write_w)" in text
-    assert ".vec_req_addr(tree_parallel_vec_req_addr_w)" in text
-    assert ".vec_req_wdata(tree_parallel_vec_req_wdata_w)" in text
-    assert ".vec_req_req_id(tree_parallel_vec_req_req_id_w)" in text
-    assert ".vec_req_pe_mask(tree_parallel_vec_req_pe_mask_w)" in text
+    assert "wire [`MEM_REQ_LANES-1:0] rc_vec_req_valid_w;" in text
+    assert "wire [`MEM_REQ_LANES-1:0] paper_mesh_vec_req_valid_w;" in text
+    assert "assign rc_vec_req_valid_w =" in text
+    assert ".vec_req_valid(rc_vec_req_valid_w)" in text
+    assert ".vec_req_ready(rc_vec_req_ready_w)" in text
+    assert ".vec_req_write(rc_vec_req_write_w)" in text
+    assert ".vec_req_addr(rc_vec_req_addr_w)" in text
+    assert ".vec_req_wdata(rc_vec_req_wdata_w)" in text
+    assert ".vec_req_req_id(rc_vec_req_req_id_w)" in text
+    assert ".vec_req_pe_mask(rc_vec_req_pe_mask_w)" in text
     assert "assign rc_main_req_pe_mask_w = 16'h0001;" not in text
     assert "assign rc_main_req_pe_mask_w = {{(`PE_MASK_W-1){1'b0}}, 1'b1};" in text
     assert ".vec_req_valid({`MEM_REQ_LANES{1'b0}})" not in text
@@ -48,6 +51,1265 @@ def test_control_chip_uses_request_controller_vec_path():
     )
     assert "multicast_network u_multicast_network" in text
     assert "request_controller u_request_controller" in text
+
+
+def test_stage2_top_instantiates_strict_tree_mask_paper_path_container():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    assert '`include "tree_control/StrictTreeMaskPaperPath.v"' in text
+    assert "StrictTreeMaskPaperPath u_strict_tree_mask_paper_path" in text
+
+
+def test_stage2_top_instantiates_strict_tree_mask_paper_mesh_backend():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    backend = read("code/rtl/tree_control/StrictTreeMaskPaperMeshBackend.v")
+    assert "module StrictTreeMaskPaperMeshBackend" in backend
+    assert '`include "tree_control/StrictTreeMaskPaperMeshBackend.v"' in text
+    assert "StrictTreeMaskPaperMeshBackend u_strict_tree_mask_paper_mesh_backend" in text
+
+
+def test_stage2_top_instantiates_strict_tree_mask_paper_readout():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    readout = read("code/rtl/tree_control/StrictTreeMaskPaperReadout.v")
+    assert "module StrictTreeMaskPaperReadout" in readout
+    assert '`include "tree_control/StrictTreeMaskPaperReadout.v"' in text
+    assert "StrictTreeMaskPaperReadout u_strict_tree_mask_paper_readout" in text
+
+
+def test_strict_tree_mask_paper_mesh_backend_instantiates_logits_postprocess():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperMeshBackend.v")
+    chain = read("code/rtl/tree_control/StrictTreeMaskPaperTransformerOperatorChain.v")
+    postprocess = read("code/rtl/tree_control/StrictTreeMaskPaperLogitsPostprocess.v")
+    assert "module StrictTreeMaskPaperTransformerOperatorChain" in chain
+    assert '`include "tree_control/StrictTreeMaskPaperTransformerOperatorChain.v"' in text
+    assert "StrictTreeMaskPaperTransformerOperatorChain #(" in text
+    assert "u_strict_tree_mask_paper_transformer_operator_chain" in text
+    assert "module StrictTreeMaskPaperLogitsPostprocess" in postprocess
+    assert '`include "tree_control/StrictTreeMaskPaperLogitsPostprocess.v"' in chain
+    assert "StrictTreeMaskPaperLogitsPostprocess #(" in chain
+    assert "u_strict_tree_mask_paper_logits_postprocess" in chain
+
+
+def test_strict_tree_mask_paper_transformer_operator_chain_wraps_mesh_and_postprocess():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperTransformerOperatorChain.v")
+    mesh = read("code/rtl/tree_control/PaperPeArrays16x128Mesh.v")
+    postprocess = read("code/rtl/tree_control/StrictTreeMaskPaperLogitsPostprocess.v")
+    assert "module StrictTreeMaskPaperTransformerOperatorChain" in text
+    assert "decoder-layer stack" in text
+    assert "final-norm+lm-head" in text
+    assert "PaperPeArrays16x128Mesh #(" in text
+    assert "u_paper_pe_arrays_16x128_mesh" in text
+    assert "StrictTreeMaskPaperLogitsPostprocess #(" in text
+    assert "u_strict_tree_mask_paper_logits_postprocess" in text
+    assert "module PaperPeArrays16x128Mesh" in mesh
+    assert "module StrictTreeMaskPaperLogitsPostprocess" in postprocess
+
+
+def test_paper_pe_mesh_exports_raw_hidden_tile_boundary_not_raw_logits_tile():
+    text = read("code/rtl/tree_control/PaperPeArrays16x128Mesh.v")
+    assert "localparam [1:0] TILE_KIND_HIDDEN = 2'd0;" in text
+    assert "localparam [1:0] TILE_KIND_LOGITS = 2'd1;" in text
+    assert "tile_result_kind_r <= TILE_KIND_HIDDEN;" in text
+    assert "tile_result_kind_r <= TILE_KIND_LOGITS;" not in text
+
+
+def test_postprocess_owns_hidden_to_logits_tile_boundary_translation():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperLogitsPostprocess.v")
+    assert "localparam [1:0] TILE_KIND_HIDDEN = 2'd0;" in text
+    assert "localparam [1:0] TILE_KIND_LOGITS = 2'd1;" in text
+    assert (
+        "assign tile_result_kind =\n"
+        "    (mesh_tile_kind == TILE_KIND_HIDDEN) ?\n"
+        "        TILE_KIND_LOGITS : mesh_tile_kind;" in text
+    )
+
+
+def test_postprocess_exports_internal_memory_landing_zone_for_hidden_to_logits_kernel():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperLogitsPostprocess.v")
+    assert "input      [`SRAM_ADDR_W-1:0]      final_norm_gamma_addr," in text
+    assert "input      [`SRAM_ADDR_W-1:0]      lm_head_weight_base_addr," in text
+    assert "output                            mem_active," in text
+    assert "output     [`MEM_REQ_LANES-1:0]   vec_req_valid," in text
+    assert "input      [`MEM_REQ_LANES-1:0]   vec_req_ready," in text
+    assert "output     [`PE_MASK_W-1:0]       mc_resp_ready," in text
+    assert "assign mem_active = 1'b0;" in text
+
+
+def test_postprocess_starts_hidden_capture_state_before_real_logits_kernel():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperLogitsPostprocess.v")
+    assert "localparam integer FP16_ELEMS_PER_BEAT =" in text
+    assert "localparam integer MODEL_HIDDEN_BEATS =" in text
+    assert "reg hidden_capture_active_r;" in text
+    assert "reg [`REQ_ID_W-1:0] hidden_capture_req_id_r;" in text
+    assert "reg [`BRANCH_NUM-1:0] hidden_expected_mask_r;" in text
+    assert "reg [`BRANCH_NUM-1:0] hidden_done_mask_r;" in text
+    assert (
+        "reg [(`BRANCH_NUM*MODEL_HIDDEN_BEATS*`SRAM_RDATA_W)-1:0]\n"
+        "    hidden_tile_store_r;" in text
+    )
+    assert "if (mesh_tile_valid && (mesh_tile_kind == TILE_KIND_HIDDEN)) begin" in text
+
+
+def test_mesh_backend_keeps_top_interface_stable_but_adds_postprocess_memory_ownership():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperTransformerOperatorChain.v")
+    assert "wire paper_postprocess_mem_active_w;" in text
+    assert "wire [`MEM_REQ_LANES-1:0] paper_postprocess_vec_req_valid_w;" in text
+    assert "wire [`PE_MASK_W-1:0] paper_postprocess_mc_resp_ready_w;" in text
+    assert ".final_norm_gamma_addr(issue_bundle_final_norm_gamma_addr)" in text
+    assert ".lm_head_weight_base_addr(issue_bundle_lm_head_weight_base_addr)" in text
+    assert ".mem_active(paper_postprocess_mem_active_w)" in text
+    assert (
+        "assign vec_req_valid =\n"
+        "    paper_postprocess_mem_active_w ?\n"
+        "        paper_postprocess_vec_req_valid_w :\n"
+        "        paper_mesh_vec_req_valid_w;" in text
+    )
+    assert (
+        "assign mc_resp_ready =\n"
+        "    paper_postprocess_mem_active_w ?\n"
+        "        paper_postprocess_mc_resp_ready_w :\n"
+        "        paper_mesh_mc_resp_ready_w;" in text
+    )
+
+
+def test_rule_freezes_parameterized_model_agnostic_paper_backend_constraints():
+    text = read("code/rtl/rule.md")
+    assert "## 5.1" in text
+    assert "MODEL_DMODEL" in text
+    assert "MAC_NUM_PER_PE" in text
+    assert "metadata" in text
+
+
+def test_rule_freezes_scheme2_tile_result_boundary_and_outer_readout():
+    text = read("code/rtl/rule.md")
+    assert "strict backend" in text
+    assert "PE arrays / mesh backend" in text
+    assert "token comparator" in text
+    assert "`PaperPeArrays16x128Mesh`" in text
+
+
+def test_model_params_define_generic_strict_paper_profile_and_layout():
+    text = read("code/rtl/config/model_params.vh")
+    assert "`define MODEL_DMODEL" in text
+    assert "`define MODEL_HEAD_DIM" in text
+    assert "`define MODEL_HEAD_NUM" in text
+    assert "`define MODEL_MAX_POS_EMB" in text
+    assert "`define PE_NUM" in text
+    assert "`define MAC_NUM_PER_PE" in text
+    assert "`define STRICT_PAPER_PE_ROWS" in text
+    assert "`define STRICT_PAPER_PE_COLS" in text
+    assert "`define MODEL_EMB_BASE" in text
+    assert "`define MODEL_WORK_HIDDEN0_BASE" in text
+    assert "`define MODEL_WORK_HIDDEN1_BASE" in text
+    assert "`define MODEL_WORK_FINAL_BASE" in text
+    assert "`define MODEL_WEIGHT_SRAM_BASE" in text
+    assert "`define MODEL_HBM_WEIGHT_BASE" in text
+    assert "`define MODEL_FINAL_NORM_GAMMA_ADDR" in text
+    assert "`define MODEL_LM_HEAD_WEIGHT_BASE" in text
+
+
+def test_strict_paper_resource_tables_no_longer_stop_on_multi_slot_bundle_conflicts():
+    free_list = read("code/rtl/tree_control/free_list.v")
+    bank_state = read("code/rtl/tree_control/bank_state_table.v")
+    token_reg = read("code/rtl/tree_control/token_register.v")
+
+    assert "bundle_req_multi_slot_conflict_comb" not in free_list
+    assert "cand_bundle_multi_slot_conflict_comb" not in bank_state
+    assert "wr_bundle_multi_slot_conflict_comb" not in token_reg
+
+    assert "鍙帴鍙?0/1 涓湁鏁?slot" not in free_list
+    assert "鍙帴鍙?0/1 涓湁鏁?slot" not in bank_state
+    assert "鍙帴鍙?0/1 涓湁鏁?slot" not in token_reg
+
+    assert "assign bundle_req_ready = 1'b1;" in free_list
+    assert "assign cand_bundle_ready = 1'b1;" in bank_state
+    assert "assign wr_bundle_ready = 1'b1;" in token_reg
+
+
+def test_free_list_bundle_outputs_are_no_longer_slot0_scalar_wrappers():
+    text = read("code/rtl/tree_control/free_list.v")
+
+    assert "reg cand_resp_bundle_valid_r;" in text
+    assert "reg [`REQ_ID_W-1:0] cand_resp_bundle_req_id_r;" in text
+    assert (
+        "reg [`TREE_FRONTIER_SLOTS-1:0] cand_resp_bundle_slot_valid_r;" in text
+    )
+    assert "reg [`TREE_FRONTIER_SLOTS-1:0] cand_resp_bundle_grant_r;" in text
+    assert "reg alloc_cand_bundle_valid_r;" in text
+    assert "reg [`REQ_ID_W-1:0] alloc_cand_bundle_req_id_r;" in text
+    assert (
+        "reg [`TREE_FRONTIER_SLOTS-1:0] alloc_cand_bundle_slot_valid_r;" in text
+    )
+
+    assert "assign cand_resp_bundle_valid = cand_resp_bundle_valid_r;" in text
+    assert (
+        "assign cand_resp_bundle_slot_valid =\n"
+        "    cand_resp_bundle_slot_valid_r;" in text
+    )
+    assert "assign alloc_cand_bundle_valid = alloc_cand_bundle_valid_r;" in text
+    assert (
+        "assign alloc_cand_bundle_slot_valid =\n"
+        "    alloc_cand_bundle_slot_valid_r;" in text
+    )
+
+    assert "褰撳墠鍏煎灞傛妸 free_list 閫変腑鐨勫崟涓?candidate 鍝嶅簲鍖呰鎴?slot0" not in text
+    assert "slot0 鏈夋晥鐨?1-slot bundle" not in text
+    assert "{{(`TREE_FRONTIER_SLOTS-1){1'b0}}, cand_resp_valid_r}" not in text
+    assert "{{(`TREE_FRONTIER_SLOTS-1){1'b0}}, alloc_cand_valid_r}" not in text
+
+
+def test_prefetch_queue_no_longer_selects_first_slot_or_wraps_slot0_bundle():
+    text = read("code/rtl/tree_control/prefetch_queue.v")
+
+    assert "鍏堝彇鏈€灏?slot 缂栧彿" not in text
+    assert "slot0 鏈夋晥鐨?1-slot bundle" not in text
+    assert "bundle_slot_sel_i" not in text
+    assert "active_enq_valid_comb" not in text
+
+    assert (
+        "reg [`TREE_FRONTIER_SLOTS-1:0] entry_slot_valid_r [0:`PREFETCH_Q_DEPTH-1];"
+        in text
+    )
+    assert (
+        "reg [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0]\n"
+        "    entry_branch_id_r [0:`PREFETCH_Q_DEPTH-1];" in text
+    )
+    assert (
+        "reg [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0]\n"
+        "    entry_node_id_r [0:`PREFETCH_Q_DEPTH-1];" in text
+    )
+    assert (
+        "reg [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0]\n"
+        "    entry_size_subbank_r [0:`PREFETCH_Q_DEPTH-1];" in text
+    )
+    assert (
+        "reg [`TREE_FRONTIER_SLOTS-1:0] entry_shared_r [0:`PREFETCH_Q_DEPTH-1];"
+        in text
+    )
+
+    assert "assign bundle_deq_slot_valid = deq_slot_valid_comb;" in text
+    assert "assign bundle_deq_branch_id = deq_branch_id_comb;" in text
+    assert "assign bundle_deq_node_id = deq_node_id_comb;" in text
+    assert "assign bundle_deq_size_subbank = deq_size_subbank_comb;" in text
+    assert "assign bundle_deq_shared = deq_shared_comb;" in text
+
+
+def test_stage2_top_routes_paper_issue_bundle_into_strict_mesh_backend():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    assert ".paper_issue_bundle_ready(1'b1)" not in text
+    assert ".paper_issue_bundle_ready(paper_issue_bundle_ready_w)" in text
+    assert ".paper_issue_bundle_valid(paper_issue_bundle_valid_w)" in text
+    assert ".paper_issue_bundle_req_id(paper_issue_bundle_req_id_w)" in text
+    assert ".paper_issue_bundle_token_id(paper_issue_bundle_token_id_w)" in text
+    assert ".paper_issue_bundle_position_id(paper_issue_bundle_position_id_w)" in text
+    assert ".paper_issue_bundle_node_id(paper_issue_bundle_node_id_w)" in text
+    assert ".paper_issue_bundle_branch_id(paper_issue_bundle_branch_id_w)" in text
+    assert ".paper_issue_bundle_sram_id(paper_issue_bundle_sram_id_w)" in text
+    assert ".paper_issue_bundle_bank_id(paper_issue_bundle_bank_id_w)" in text
+    assert ".paper_issue_bundle_subbank_start(" in text
+    assert ".paper_issue_bundle_group_len(paper_issue_bundle_group_len_w)" in text
+    assert ".paper_issue_bundle_branch_mask(paper_issue_bundle_branch_mask_w)" in text
+    assert ".paper_issue_bundle_is_shared(paper_issue_bundle_is_shared_w)" in text
+    assert ".paper_issue_bundle_entry_state(paper_issue_bundle_entry_state_w)" in text
+    assert ".paper_issue_bundle_entry_type(paper_issue_bundle_entry_type_w)" in text
+
+
+def test_stage2_top_routes_formal_compute_descriptor_into_strict_mesh_backend():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    assert "wire [`TREE_LEVEL_ID_W-1:0] paper_issue_bundle_level_id_w;" in text
+    assert "wire [4:0] paper_issue_bundle_slot_count_w;" in text
+    assert "wire [15:0] paper_issue_bundle_prefix_len_w;" in text
+    assert (
+        "wire [`TREE_FRONTIER_SLOTS-1:0] paper_issue_bundle_slot_tree_mask_en_w;"
+        in text
+    )
+    assert (
+        "wire [`TREE_FRONTIER_SLOTS*`MODEL_MAX_POS_EMB-1:0]\n"
+        "    paper_issue_bundle_slot_visible_mask_w;" in text
+    )
+    assert (
+        "wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_embedding_base_addr_w;"
+        in text
+    )
+    assert (
+        "wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_hidden0_base_addr_w;"
+        in text
+    )
+    assert (
+        "wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_hidden1_base_addr_w;"
+        in text
+    )
+    assert "wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_final_base_addr_w;" in text
+    assert (
+        "wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_weight_sram_base_addr_w;"
+        in text
+    )
+    assert (
+        "wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_kv_cache_base_addr_w;"
+        in text
+    )
+    assert (
+        "wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_draft_kv_base_addr_w;"
+        in text
+    )
+    assert (
+        "wire [`HBM_ADDR_W-1:0] paper_issue_bundle_hbm_weight_base_addr_w;"
+        in text
+    )
+    assert (
+        "wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_final_norm_gamma_addr_w;"
+        in text
+    )
+    assert (
+        "wire [`SRAM_ADDR_W-1:0] paper_issue_bundle_lm_head_weight_base_addr_w;"
+        in text
+    )
+    assert ".paper_issue_bundle_level_id(paper_issue_bundle_level_id_w)" in text
+    assert ".paper_issue_bundle_slot_count(paper_issue_bundle_slot_count_w)" in text
+    assert ".paper_issue_bundle_prefix_len(paper_issue_bundle_prefix_len_w)" in text
+    assert (
+        ".paper_issue_bundle_slot_tree_mask_en("
+        "paper_issue_bundle_slot_tree_mask_en_w)" in text
+    )
+    assert (
+        ".paper_issue_bundle_slot_visible_mask("
+        "paper_issue_bundle_slot_visible_mask_w)" in text
+    )
+    assert (
+        ".paper_issue_bundle_embedding_base_addr("
+        "paper_issue_bundle_embedding_base_addr_w)" in text
+    )
+    assert (
+        ".paper_issue_bundle_hidden0_base_addr("
+        "paper_issue_bundle_hidden0_base_addr_w)" in text
+    )
+    assert (
+        ".paper_issue_bundle_hidden1_base_addr("
+        "paper_issue_bundle_hidden1_base_addr_w)" in text
+    )
+    assert (
+        ".paper_issue_bundle_final_base_addr("
+        "paper_issue_bundle_final_base_addr_w)" in text
+    )
+    assert (
+        ".paper_issue_bundle_weight_sram_base_addr("
+        "paper_issue_bundle_weight_sram_base_addr_w)" in text
+    )
+    assert (
+        ".paper_issue_bundle_kv_cache_base_addr("
+        "paper_issue_bundle_kv_cache_base_addr_w)" in text
+    )
+    assert (
+        ".paper_issue_bundle_draft_kv_base_addr("
+        "paper_issue_bundle_draft_kv_base_addr_w)" in text
+    )
+    assert (
+        ".paper_issue_bundle_hbm_weight_base_addr("
+        "paper_issue_bundle_hbm_weight_base_addr_w)" in text
+    )
+    assert (
+        ".paper_issue_bundle_final_norm_gamma_addr("
+        "paper_issue_bundle_final_norm_gamma_addr_w)" in text
+    )
+    assert (
+        ".paper_issue_bundle_lm_head_weight_base_addr("
+        "paper_issue_bundle_lm_head_weight_base_addr_w)" in text
+    )
+
+
+def test_strict_tree_mask_paper_mesh_backend_accepts_formal_compute_descriptor_boundary():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperMeshBackend.v")
+    assert "input      [`TREE_LEVEL_ID_W-1:0]  issue_bundle_level_id," in text
+    assert "input      [4:0]                  issue_bundle_slot_count," in text
+    assert "input      [15:0]                 issue_bundle_prefix_len," in text
+    assert (
+        "input      [`TREE_FRONTIER_SLOTS-1:0] issue_bundle_slot_tree_mask_en,"
+        in text
+    )
+    assert (
+        "input      [`TREE_FRONTIER_SLOTS*`MODEL_MAX_POS_EMB-1:0]\n"
+        "               issue_bundle_slot_visible_mask," in text
+    )
+    assert (
+        "input      [`SRAM_ADDR_W-1:0]      issue_bundle_embedding_base_addr,"
+        in text
+    )
+    assert (
+        "input      [`SRAM_ADDR_W-1:0]      issue_bundle_hidden0_base_addr,"
+        in text
+    )
+    assert (
+        "input      [`SRAM_ADDR_W-1:0]      issue_bundle_hidden1_base_addr,"
+        in text
+    )
+    assert (
+        "input      [`SRAM_ADDR_W-1:0]      issue_bundle_final_base_addr,"
+        in text
+    )
+    assert (
+        "input      [`SRAM_ADDR_W-1:0]      issue_bundle_weight_sram_base_addr,"
+        in text
+    )
+    assert (
+        "input      [`SRAM_ADDR_W-1:0]      issue_bundle_kv_cache_base_addr,"
+        in text
+    )
+    assert (
+        "input      [`SRAM_ADDR_W-1:0]      issue_bundle_draft_kv_base_addr,"
+        in text
+    )
+    assert (
+        "input      [`HBM_ADDR_W-1:0]       issue_bundle_hbm_weight_base_addr,"
+        in text
+    )
+    assert (
+        "input      [`SRAM_ADDR_W-1:0]      issue_bundle_final_norm_gamma_addr,"
+        in text
+    )
+    assert (
+        "input      [`SRAM_ADDR_W-1:0]      issue_bundle_lm_head_weight_base_addr,"
+        in text
+    )
+    assert "output                            tile_result_valid," in text
+    assert "output     [`REQ_ID_W-1:0]        tile_result_req_id," in text
+    assert "output     [`BRANCH_NUM-1:0]      tile_result_slot_valid," in text
+    assert "output     [`BRANCH_NUM*`BRANCH_ID_W-1:0] tile_result_branch_id," in text
+    assert "output     [DEPTH_PACK_W-1:0]     tile_result_private_depth," in text
+    assert "output     [`BRANCH_NUM*`NODE_ID_W-1:0] tile_result_node_id," in text
+    assert "output     [`BRANCH_NUM*`NODE_ID_W-1:0] tile_result_parent_node_id," in text
+    assert "output     [1:0]                  tile_result_kind," in text
+    assert "output     [15:0]                 tile_result_tile_index," in text
+    assert "output     [`BRANCH_NUM-1:0]      tile_result_last," in text
+    assert "output     [`BRANCH_NUM*`SRAM_RDATA_W-1:0] tile_result_data," in text
+    assert "output     [`BRANCH_NUM*`TOKEN_ID_W-1:0] result_real_token_id," not in text
+    assert "output     [`BRANCH_NUM-1:0]      result_accept," not in text
+
+
+def test_strict_tree_mask_paper_mesh_backend_instantiates_paper_pe_arrays():
+    backend = read("code/rtl/tree_control/StrictTreeMaskPaperMeshBackend.v")
+    chain = read("code/rtl/tree_control/StrictTreeMaskPaperTransformerOperatorChain.v")
+    pearrays = read("code/rtl/tree_control/PaperPeArrays16x128Mesh.v")
+    assert '`include "tree_control/StrictTreeMaskPaperTransformerOperatorChain.v"' in backend
+    assert 'include "tree_control/PaperPeArrays16x128Mesh.v"' in chain
+    assert "PaperPeArrays16x128Mesh #(" in chain
+    assert ".PE_ROWS(`STRICT_PAPER_PE_ROWS)" in chain
+    assert ".PE_COLS(`STRICT_PAPER_PE_COLS)" in chain
+    assert ".MACS_PER_PE(`MAC_NUM_PER_PE)" in chain
+    assert "u_paper_pe_arrays_16x128_mesh" in chain
+    assert "module PaperPeArrays16x128Mesh #(" in pearrays
+    assert "parameter integer PE_ROWS = 4" in pearrays
+    assert "parameter integer PE_COLS = 4" in pearrays
+    assert "parameter integer MACS_PER_PE = 128" in pearrays
+    assert "localparam integer PE_TOTAL = (PE_ROWS * PE_COLS);" in pearrays
+    assert "reg [2:0] mesh_phase_r;" in pearrays
+    assert "reg phase_inflight_r;" in pearrays
+    assert "reg [`PE_MASK_W-1:0] phase_resp_mask_r;" in pearrays
+    assert "phase_cell_valid_c" in pearrays
+    assert "phase_slot_idx_flat_c" in pearrays
+    assert "phase_local_col_flat_c" in pearrays
+    assert "slot_wave_row = slot_i + {{29{1'b0}}, mesh_phase_r};" in pearrays
+    assert "slot_wave_row = slot_wave_row - col_i;" in pearrays
+    assert "row_pe_mask_flat_w" not in pearrays
+    assert "make_row_pe_mask" not in pearrays
+
+
+def test_paper_pe_mesh_exports_tile_result_boundary_not_token_compare_boundary():
+    text = read("code/rtl/tree_control/PaperPeArrays16x128Mesh.v")
+    assert "output                            tile_result_valid," in text
+    assert "output     [`REQ_ID_W-1:0]        tile_result_req_id," in text
+    assert "output     [`BRANCH_NUM-1:0]      tile_result_slot_valid," in text
+    assert "output     [`BRANCH_NUM*`BRANCH_ID_W-1:0] tile_result_branch_id," in text
+    assert "output     [DEPTH_PACK_W-1:0]     tile_result_private_depth," in text
+    assert "output     [`BRANCH_NUM*`NODE_ID_W-1:0] tile_result_node_id," in text
+    assert "output     [`BRANCH_NUM*`NODE_ID_W-1:0] tile_result_parent_node_id," in text
+    assert "output     [1:0]                  tile_result_kind," in text
+    assert "output     [15:0]                 tile_result_tile_index," in text
+    assert "output     [`BRANCH_NUM-1:0]      tile_result_last," in text
+    assert "output     [`BRANCH_NUM*`SRAM_RDATA_W-1:0] tile_result_data," in text
+    assert "reg [`BRANCH_NUM*`SRAM_RDATA_W-1:0] tile_result_data_r;" in text
+    assert "reg [`TOKEN_ID_W-1:0] resp_real_token_comb;" not in text
+    assert "reg [`BRANCH_NUM-1:0] result_accept_r;" not in text
+
+
+def test_paper_pe_mesh_tracks_tile_beats_and_serializes_phase3_tile_stream():
+    text = read("code/rtl/tree_control/PaperPeArrays16x128Mesh.v")
+    assert "localparam integer MODEL_MAC_TILE_BEAT_W =" in text
+    assert "reg [MODEL_MAC_TILE_BEAT_W-1:0] mesh_tile_beat_r;" in text
+    assert "reg phase_output_pending_r;" in text
+    assert "reg [PE_COL_W-1:0] phase_output_col_cursor_r;" in text
+    assert "cell_addr_comb = phase_tile_base_addr_comb +" in text
+    assert "mesh_tile_beat_r;" in text
+
+
+def test_issue_scheduler_uses_parameterized_layout_macros_for_compute_descriptor():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperIssueScheduler.v")
+    assert "localparam [`SRAM_ADDR_W-1:0] PAPER_EMBEDDING_BASE_ADDR" not in text
+    assert "localparam [`SRAM_ADDR_W-1:0] PAPER_HIDDEN0_BASE_ADDR" not in text
+    assert "localparam [`SRAM_ADDR_W-1:0] PAPER_HIDDEN1_BASE_ADDR" not in text
+    assert "localparam [`SRAM_ADDR_W-1:0] PAPER_FINAL_BASE_ADDR" not in text
+    assert "assign issue_bundle_embedding_base_addr = `MODEL_EMB_BASE;" in text
+    assert "assign issue_bundle_hidden0_base_addr = `MODEL_WORK_HIDDEN0_BASE;" in text
+    assert "assign issue_bundle_hidden1_base_addr = `MODEL_WORK_HIDDEN1_BASE;" in text
+    assert "assign issue_bundle_final_base_addr = `MODEL_WORK_FINAL_BASE;" in text
+    assert "assign issue_bundle_weight_sram_base_addr = `MODEL_WEIGHT_SRAM_BASE;" in text
+    assert "assign issue_bundle_kv_cache_base_addr = `KV_COMMITTED_BASE;" in text
+    assert "assign issue_bundle_draft_kv_base_addr = `KV_DRAFT_BASE_MIN;" in text
+    assert "assign issue_bundle_hbm_weight_base_addr = `MODEL_HBM_WEIGHT_BASE;" in text
+    assert "assign issue_bundle_final_norm_gamma_addr = `MODEL_FINAL_NORM_GAMMA_ADDR;" in text
+    assert "assign issue_bundle_lm_head_weight_base_addr = `MODEL_LM_HEAD_WEIGHT_BASE;" in text
+
+
+def test_paper_pe_mesh_uses_tile_aware_address_formula_not_metadata_accumulator():
+    text = read("code/rtl/tree_control/PaperPeArrays16x128Mesh.v")
+    assert "localparam integer FP16_ELEMS_PER_BEAT" in text
+    assert "localparam integer MODEL_VECTOR_BEATS" in text
+    assert "localparam integer MODEL_MAC_TILE_BEATS" in text
+    assert "localparam integer MODEL_K_TILE_COUNT" in text
+    assert "mesh_k_tile_r;" in text
+    assert "reg [`SRAM_ADDR_W-1:0] embedding_token_base_addr_comb;" in text
+    assert "reg [`SRAM_ADDR_W-1:0] slot_workspace_base_addr_comb;" in text
+    assert "reg [`SRAM_ADDR_W-1:0] phase_tile_base_addr_comb;" in text
+    assert "cell_addr_accum_c" not in text
+    assert "base_visibility_idx_i" not in text
+    assert "vec_req_bank_id_r[\n                    (lane_i*`BANK_ID_W) +: `BANK_ID_W] =\n                    cell_addr_comb[" in text
+    assert "vec_req_subbank_id_r[\n                    (lane_i*`SUBBANK_ID_W) +: `SUBBANK_ID_W] =\n                    cell_addr_comb[" in text
+
+
+def test_paper_pe_mesh_parameterizes_k_sweep_width_and_address_offsets():
+    text = read("code/rtl/tree_control/PaperPeArrays16x128Mesh.v")
+    assert "localparam integer MESH_K_ITER_W =" in text
+    assert "reg [MESH_K_ITER_W-1:0] mesh_k_tile_r;" in text
+    assert "localparam [`SRAM_ADDR_W-1:0] MODEL_VECTOR_BEATS_ADDR =" in text
+    assert "localparam [`SRAM_ADDR_W-1:0] MODEL_MAC_TILE_BEATS_ADDR =" in text
+    assert "reg [`SRAM_ADDR_W-1:0] embedding_token_offset_comb;" in text
+    assert "reg [`SRAM_ADDR_W-1:0] slot_workspace_offset_comb;" in text
+    assert "reg [`SRAM_ADDR_W-1:0] phase_tile_offset_comb;" in text
+    assert "embedding_token_offset_comb =" in text
+    assert "slot_workspace_offset_comb =" in text
+    assert "phase_tile_offset_comb =" in text
+    assert "localparam [2:0] LAST_PHASE =" in text
+
+
+def test_control_chip_routes_paper_mesh_tile_result_through_readout_before_lifecycle():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    assert "wire paper_mesh_tile_result_valid_w;" in text
+    assert "wire [`REQ_ID_W-1:0] paper_mesh_tile_result_req_id_w;" in text
+    assert "wire [`BRANCH_NUM*`SRAM_RDATA_W-1:0] paper_mesh_tile_result_data_w;" in text
+    assert "wire paper_readout_result_valid_w;" in text
+    assert "wire [`BRANCH_NUM*`TOKEN_ID_W-1:0] paper_readout_result_real_token_id_w;" in text
+    assert ".tile_result_valid(paper_mesh_tile_result_valid_w)" in text
+    assert ".tile_result_data(paper_mesh_tile_result_data_w)" in text
+    assert ".readout_result_valid(paper_readout_result_valid_w)" in text
+    assert ".readout_result_real_token_id(paper_readout_result_real_token_id_w)" in text
+    assert "lifecycle_cmp_real_token_id_r <= paper_mesh_result_real_token_id_w;" not in text
+    assert "lifecycle_result_accept_comb <= paper_mesh_result_accept_w;" not in text
+
+
+def test_strict_tree_mask_paper_readout_accumulates_logits_tiles_with_argmax():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperReadout.v")
+    assert "localparam integer FP16_ELEMS_PER_BEAT" in text
+    assert "function [15:0] fp16_order_key;" in text
+    assert "reg logits_active_r;" in text
+    assert "reg [`BRANCH_NUM-1:0] logits_done_mask_r;" in text
+    assert "reg [`BRANCH_NUM*`TOKEN_ID_W-1:0] logits_argmax_token_id_r;" in text
+    assert "reg [`BRANCH_NUM*16-1:0] logits_argmax_score_bits_r;" in text
+    assert "(tile_result_tile_index == 16'd0)" not in text
+
+
+def test_strict_tree_mask_paper_path_threads_tree_visibility_and_compute_base_descriptor():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperPath.v")
+    assert (
+        "input      [`TREE_MAX_FRONTIER_LEVELS*`TREE_FRONTIER_SLOTS*`MODEL_MAX_POS_EMB-1:0]\n"
+        "               visible_mask_by_level," in text
+    )
+    assert "wire [4:0] agu_bundle_slot_count_w;" in text
+    assert "wire [15:0] agu_bundle_prefix_len_w;" in text
+    assert (
+        "wire [`TREE_FRONTIER_SLOTS-1:0] agu_bundle_slot_tree_mask_en_w;"
+        in text
+    )
+    assert (
+        "wire [`TREE_FRONTIER_SLOTS*`MODEL_MAX_POS_EMB-1:0]\n"
+        "     agu_bundle_slot_visible_mask_w;" in text
+    )
+    assert (
+        "wire [`TREE_FRONTIER_SLOTS-1:0] token_wr_bundle_slot_tree_mask_en_w;"
+        in text
+    )
+    assert (
+        "wire [`TREE_FRONTIER_SLOTS*`MODEL_MAX_POS_EMB-1:0]\n"
+        "     token_wr_bundle_slot_visible_mask_w;" in text
+    )
+    assert "wire [4:0] token_wr_bundle_slot_count_w;" in text
+    assert "wire [15:0] token_wr_bundle_prefix_len_w;" in text
+    assert "output     [`TREE_LEVEL_ID_W-1:0] paper_issue_bundle_level_id," in text
+    assert "output     [4:0]                 paper_issue_bundle_slot_count," in text
+    assert "output     [15:0]                paper_issue_bundle_prefix_len," in text
+    assert (
+        "output     [`TREE_FRONTIER_SLOTS-1:0] paper_issue_bundle_slot_tree_mask_en,"
+        in text
+    )
+    assert (
+        "output     [`TREE_FRONTIER_SLOTS*`MODEL_MAX_POS_EMB-1:0]\n"
+        "               paper_issue_bundle_slot_visible_mask," in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]     paper_issue_bundle_embedding_base_addr,"
+        in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]     paper_issue_bundle_hidden0_base_addr,"
+        in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]     paper_issue_bundle_hidden1_base_addr,"
+        in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]     paper_issue_bundle_final_base_addr,"
+        in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]     paper_issue_bundle_weight_sram_base_addr,"
+        in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]     paper_issue_bundle_kv_cache_base_addr,"
+        in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]     paper_issue_bundle_draft_kv_base_addr,"
+        in text
+    )
+    assert (
+        "output     [`HBM_ADDR_W-1:0]      paper_issue_bundle_hbm_weight_base_addr,"
+        in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]     paper_issue_bundle_final_norm_gamma_addr,"
+        in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]     paper_issue_bundle_lm_head_weight_base_addr,"
+        in text
+    )
+    assert ".bundle_in_slot_count(agu_bundle_slot_count_w)" in text
+    assert ".bundle_in_prefix_len(agu_bundle_prefix_len_w)" in text
+    assert ".bundle_in_slot_tree_mask_en(agu_bundle_slot_tree_mask_en_w)" in text
+    assert ".bundle_in_slot_visible_mask(agu_bundle_slot_visible_mask_w)" in text
+    assert ".token_wr_bundle_slot_count(token_wr_bundle_slot_count_w)" in text
+    assert ".token_wr_bundle_prefix_len(token_wr_bundle_prefix_len_w)" in text
+    assert (
+        ".token_wr_bundle_slot_tree_mask_en("
+        "token_wr_bundle_slot_tree_mask_en_w)" in text
+    )
+    assert (
+        ".token_wr_bundle_slot_visible_mask("
+        "token_wr_bundle_slot_visible_mask_w)" in text
+    )
+    assert ".issue_bundle_level_id(paper_issue_bundle_level_id)" in text
+    assert ".issue_bundle_slot_count(paper_issue_bundle_slot_count)" in text
+    assert ".issue_bundle_prefix_len(paper_issue_bundle_prefix_len)" in text
+    assert (
+        ".issue_bundle_slot_tree_mask_en(paper_issue_bundle_slot_tree_mask_en)"
+        in text
+    )
+    assert (
+        ".issue_bundle_slot_visible_mask(paper_issue_bundle_slot_visible_mask)"
+        in text
+    )
+
+
+def test_agu_preserves_tree_visibility_sideband_until_token_write_bundle():
+    text = read("code/rtl/tree_control/agu.v")
+    assert "input  [4:0]                 bundle_in_slot_count," in text
+    assert "input  [15:0]                bundle_in_prefix_len," in text
+    assert (
+        "input  [`TREE_FRONTIER_SLOTS-1:0] bundle_in_slot_tree_mask_en," in text
+    )
+    assert (
+        "input  [`TREE_FRONTIER_SLOTS*`MODEL_MAX_POS_EMB-1:0] bundle_in_slot_visible_mask,"
+        in text
+    )
+    assert "output [4:0]                 token_wr_bundle_slot_count," in text
+    assert "output [15:0]                token_wr_bundle_prefix_len," in text
+    assert (
+        "output [`TREE_FRONTIER_SLOTS-1:0] token_wr_bundle_slot_tree_mask_en,"
+        in text
+    )
+    assert (
+        "output [`TREE_FRONTIER_SLOTS*`MODEL_MAX_POS_EMB-1:0] token_wr_bundle_slot_visible_mask,"
+        in text
+    )
+    assert "reg [4:0] pending_slot_count_r;" in text
+    assert "reg [15:0] pending_prefix_len_r;" in text
+    assert "reg pending_tree_mask_en_r;" in text
+    assert "reg [`MODEL_MAX_POS_EMB-1:0] pending_visible_mask_r;" in text
+    assert "reg [`TREE_SLOT_ID_W-1:0] pending_slot_index_r;" in text
+    assert "assign token_wr_bundle_slot_valid =" in text
+    assert "(pending_slot_index_r < `TREE_FRONTIER_SLOTS)" in text
+    assert "assign token_wr_bundle_slot_count =" in text
+    assert "assign token_wr_bundle_prefix_len =" in text
+    assert "assign token_wr_bundle_slot_tree_mask_en =" in text
+    assert "assign token_wr_bundle_slot_visible_mask =" in text
+
+
+def test_strict_tree_mask_paper_issue_scheduler_assembles_full_compute_descriptor_bundle():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperIssueScheduler.v")
+    assert "input      [`TREE_LEVEL_ID_W-1:0]  src_bundle_level_id," in text
+    assert "input      [4:0]                  src_bundle_slot_count," in text
+    assert "input      [15:0]                 src_bundle_prefix_len," in text
+    assert (
+        "input      [`TREE_FRONTIER_SLOTS-1:0] src_bundle_slot_tree_mask_en,"
+        in text
+    )
+    assert (
+        "input      [`TREE_FRONTIER_SLOTS*`MODEL_MAX_POS_EMB-1:0]\n"
+        "               src_bundle_slot_visible_mask," in text
+    )
+    assert "output     [`TREE_LEVEL_ID_W-1:0]  issue_bundle_level_id," in text
+    assert "output     [4:0]                  issue_bundle_slot_count," in text
+    assert "output     [15:0]                 issue_bundle_prefix_len," in text
+    assert (
+        "output     [`TREE_FRONTIER_SLOTS-1:0] issue_bundle_slot_tree_mask_en,"
+        in text
+    )
+    assert (
+        "output     [`TREE_FRONTIER_SLOTS*`MODEL_MAX_POS_EMB-1:0]\n"
+        "               issue_bundle_slot_visible_mask," in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]      issue_bundle_embedding_base_addr,"
+        in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]      issue_bundle_hidden0_base_addr,"
+        in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]      issue_bundle_hidden1_base_addr,"
+        in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]      issue_bundle_final_base_addr,"
+        in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]      issue_bundle_weight_sram_base_addr,"
+        in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]      issue_bundle_kv_cache_base_addr,"
+        in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]      issue_bundle_draft_kv_base_addr,"
+        in text
+    )
+    assert (
+        "output     [`HBM_ADDR_W-1:0]       issue_bundle_hbm_weight_base_addr,"
+        in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]      issue_bundle_final_norm_gamma_addr,"
+        in text
+    )
+    assert (
+        "output     [`SRAM_ADDR_W-1:0]      issue_bundle_lm_head_weight_base_addr"
+        in text
+    )
+    assert "reg collect_pending_r;" in text
+    assert "reg [`TREE_LEVEL_ID_W-1:0] collect_level_id_r;" in text
+    assert "reg [4:0] collect_slot_count_r;" in text
+    assert "reg [15:0] collect_prefix_len_r;" in text
+    assert (
+        "reg [`TREE_FRONTIER_SLOTS-1:0] collect_slot_tree_mask_en_r;" in text
+    )
+    assert (
+        "reg [`TREE_FRONTIER_SLOTS*`MODEL_MAX_POS_EMB-1:0]\n"
+        "    collect_slot_visible_mask_r;" in text
+    )
+    assert "issue_bundle_level_id_r <= collect_level_id_r;" in text
+    assert "issue_bundle_slot_count_r <= collect_slot_count_r;" in text
+    assert "issue_bundle_prefix_len_r <= collect_prefix_len_r;" in text
+    assert (
+        "issue_bundle_slot_tree_mask_en_r <= collect_slot_tree_mask_en_r;"
+        in text
+    )
+    assert (
+        "issue_bundle_slot_visible_mask_r <= collect_slot_visible_mask_r;"
+        in text
+    )
+
+
+def test_strict_tree_mask_paper_issue_scheduler_carries_parent_and_depth_metadata():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperIssueScheduler.v")
+    assert "input      [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0]\n               src_bundle_parent_node_id," in text
+    assert "input      [`TREE_FRONTIER_SLOTS*PRIVATE_DEPTH_W-1:0]\n               src_bundle_private_depth," in text
+    assert "output     [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0]\n               issue_bundle_parent_node_id," in text
+    assert "output     [`TREE_FRONTIER_SLOTS*PRIVATE_DEPTH_W-1:0]\n               issue_bundle_private_depth," in text
+    assert "pending_parent_node_id_r" in text
+    assert "pending_private_depth_r" in text
+    assert "issue_bundle_parent_node_id_r" in text
+    assert "issue_bundle_private_depth_r" in text
+    assert "pending_parent_node_id_r <= src_bundle_parent_node_id;" in text
+    assert "pending_private_depth_r <= src_bundle_private_depth;" in text
+    assert "issue_bundle_parent_node_id_r <= pending_parent_node_id_r;" in text
+    assert "issue_bundle_private_depth_r <= pending_private_depth_r;" in text
+
+
+def test_strict_tree_mask_paper_path_exports_parent_and_depth_metadata_into_issue_bundle():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperPath.v")
+    assert "wire [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] token_wr_bundle_parent_node_id_w;" in text
+    assert "wire [`TREE_FRONTIER_SLOTS*PRIVATE_DEPTH_W-1:0] token_wr_bundle_private_depth_w;" in text
+    assert "output     [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0]\n               paper_issue_bundle_parent_node_id," in text
+    assert "output     [`TREE_FRONTIER_SLOTS*PRIVATE_DEPTH_W-1:0]\n               paper_issue_bundle_private_depth," in text
+    assert ".src_bundle_parent_node_id(token_wr_bundle_parent_node_id_w)" in text
+    assert ".src_bundle_private_depth(token_wr_bundle_private_depth_w)" in text
+    assert ".issue_bundle_parent_node_id(paper_issue_bundle_parent_node_id)" in text
+    assert ".issue_bundle_private_depth(paper_issue_bundle_private_depth)" in text
+
+
+def test_agu_exports_parent_and_private_depth_with_token_write_bundle():
+    text = read("code/rtl/tree_control/agu.v")
+    assert "output [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] token_wr_bundle_parent_node_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*PRIVATE_DEPTH_W-1:0] token_wr_bundle_private_depth," in text
+    assert "reg [PRIVATE_DEPTH_W-1:0] pending_private_depth_r;" in text
+    assert "reg [`NODE_ID_W-1:0] pending_parent_node_id_r;" in text
+    assert "assign token_wr_bundle_parent_node_id =" in text
+    assert "assign token_wr_bundle_private_depth =" in text
+
+
+def test_comparator_exposes_accepted_prefix_branch_id():
+    text = read("code/rtl/tree_control/comparator.v")
+    assert "output [`BRANCH_ID_W-1:0]  accepted_prefix_branch_id," in text
+    assert "assign accepted_prefix_branch_id = accepted_branch_id_comb;" in text
+
+
+def test_strict_tree_mask_paper_path_reexports_accepted_prefix_branch_id():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperPath.v")
+    assert "output     [`BRANCH_ID_W-1:0]     cmp_accepted_prefix_branch_id," in text
+    assert ".accepted_prefix_branch_id(cmp_accepted_prefix_branch_id)" in text
+
+
+def test_stage2_top_exposes_paper_mesh_result_boundary_and_routes_it_into_lifecycle():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    assert "wire paper_mesh_tile_result_valid_w;" in text
+    assert "wire [`REQ_ID_W-1:0] paper_mesh_tile_result_req_id_w;" in text
+    assert "wire [`BRANCH_NUM-1:0] paper_mesh_tile_result_slot_valid_w;" in text
+    assert "wire [`BRANCH_NUM*`SRAM_RDATA_W-1:0] paper_mesh_tile_result_data_w;" in text
+    assert "wire paper_readout_result_valid_w;" in text
+    assert "wire [`BRANCH_NUM*`TOKEN_ID_W-1:0] paper_readout_result_real_token_id_w;" in text
+    assert ".tile_result_valid(paper_mesh_tile_result_valid_w)" in text
+    assert ".tile_result_req_id(paper_mesh_tile_result_req_id_w)" in text
+    assert ".tile_result_slot_valid(paper_mesh_tile_result_slot_valid_w)" in text
+    assert ".tile_result_data(paper_mesh_tile_result_data_w)" in text
+    assert ".readout_result_valid(paper_readout_result_valid_w)" in text
+    assert ".readout_result_real_token_id(paper_readout_result_real_token_id_w)" in text
+    assert "if (strict_tree_paper_backend_active_w &&" in text
+    assert "paper_readout_result_valid_w" in text
+    assert "assign strict_tree_paper_backend_active_w =" in text
+    assert "paper_mesh_busy_w" in text
+
+
+def test_stage2_top_strict_commit_and_prefix_outputs_no_longer_depend_on_legacy_tree_parallel_commit():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    assert "assign commit_valid = cmp_commit_valid_w;" in text
+    assert "assign commit_branch_mask = cmp_commit_branch_mask_w;" in text
+    assert "assign commit_node_mask = cmp_commit_node_mask_w;" in text
+    assert "assign flush_valid = cmp_flush_valid_w;" in text
+    assert "assign flush_branch_mask = cmp_flush_branch_mask_w;" in text
+    assert "assign flush_node_mask = cmp_flush_node_mask_w;" in text
+    assert "assign accepted_prefix_valid = cmp_accepted_prefix_valid_w;" in text
+    assert "assign accepted_prefix_req_id = cmp_accepted_prefix_req_id_w;" in text
+    assert "assign accepted_prefix_depth = cmp_accepted_prefix_depth_w;" in text
+    assert "assign accepted_prefix_node_id = cmp_accepted_prefix_node_id_w;" in text
+    assert "assign live_branch_mask = cmp_live_branch_mask_w;" in text
+    assert "assign prune_branch_mask = cmp_prune_branch_mask_w;" in text
+    assert "tree_parallel_mode_w ? tree_parallel_commit_valid_w : cmp_commit_valid_w" not in text
+    assert "tree_parallel_mode_w ? tree_parallel_flush_valid_comb : cmp_flush_valid_w" not in text
+    assert "tree_parallel_mode_w ?\n        (tree_parallel_commit_valid_w &&" not in text
+
+
+def test_stage2_top_replay_uses_comparator_accepted_prefix_branch_metadata():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    assert "wire [`BRANCH_ID_W-1:0] cmp_accepted_prefix_branch_id_w;" in text
+    assert ".cmp_accepted_prefix_branch_id(cmp_accepted_prefix_branch_id_w)" in text
+    assert "tree_parallel_commit_pending_branch_r <=\n                cmp_accepted_prefix_branch_id_w;" in text
+    assert "tree_parallel_commit_replay_branch_r <=\n                cmp_accepted_prefix_branch_id_w;" in text
+
+
+def test_stage2_top_request_controller_vec_path_is_muxed_between_legacy_batch_and_paper_backend():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    assert "wire [`MEM_REQ_LANES-1:0] rc_vec_req_valid_w;" in text
+    assert "wire [`MEM_REQ_LANES-1:0] paper_mesh_vec_req_valid_w;" in text
+    assert "assign rc_vec_req_valid_w =" in text
+    assert "strict_tree_paper_backend_active_w ?" in text
+    assert "paper_mesh_vec_req_valid_w :" in text
+    assert ".vec_req_valid(rc_vec_req_valid_w)" in text
+    assert ".vec_req_valid(tree_parallel_vec_req_valid_w)" not in text
+
+
+def test_stage2_top_strict_mode_silences_legacy_tree_batch_shortcut():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    assert "wire strict_tree_paper_backend_active_w;" in text
+    assert re.search(
+        r"\.tree_req_valid\(\s*strict_tree_paper_backend_active_w\s*\?\s*1'b0\s*:\s*tree_parallel_req_valid_w\s*\)",
+        text,
+    )
+    assert re.search(
+        r"\.batch_in_valid\(\s*strict_tree_paper_backend_active_w\s*\?\s*1'b0\s*:\s*tree_parallel_batch_valid_w\s*\)",
+        text,
+    )
+
+
+def test_stage2_top_no_longer_owns_comparator_directly():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    assert "comparator u_comparator" not in text
+
+
+def test_stage2_top_no_longer_owns_tree_analyze_directly():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    assert "tree_analyze u_tree_analyze" not in text
+
+
+def test_strict_tree_mask_paper_path_container_owns_tree_analyze_boundary():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperPath.v")
+    assert "module StrictTreeMaskPaperPath" in text
+    assert "tree_analyze u_tree_analyze" in text
+    assert "prefix_valid" in text
+    assert "frontier_valid" in text
+
+
+def test_strict_tree_mask_paper_path_container_owns_agu_and_bundle_packer():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperPath.v")
+    assert "agu u_agu" in text
+    assert "assign prefix_ready = agu_bundle_ready_w;" in text
+    assert "assign frontier_ready = agu_bundle_ready_w;" in text
+    assert "if (prefix_valid) begin" in text
+    assert "end else if (frontier_valid) begin" in text
+    assert ".tree_in_valid(1'b0)" in text
+    assert ".bundle_in_valid(agu_bundle_valid_w)" in text
+    assert ".cand_resp_bundle_valid(cand_resp_bundle_valid_w)" in text
+    assert ".prefetch_bundle_valid(prefetch_bundle_valid)" in text
+    assert ".token_wr_valid(token_wr_valid)" in text
+    assert ".token_wr_bundle_valid(token_wr_bundle_valid_w)" in text
+    assert ".free_list_flush_valid(free_list_flush_valid_w)" in text
+    assert ".token_flush_valid(token_flush_valid_w)" in text
+
+
+def test_strict_tree_mask_paper_path_container_owns_prefetch_queue_and_free_list():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperPath.v")
+    assert "prefetch_queue u_prefetch_queue" in text
+    assert "free_list u_free_list" in text
+    assert "wire queue_bundle_deq_valid_w;" in text
+    assert "wire cand_resp_bundle_valid_w;" in text
+    assert "wire alloc_cand_bundle_valid_w;" in text
+    assert "assign free_list_bundle_valid_w = queue_bundle_deq_valid_w;" in text
+    assert ".bundle_enq_valid(prefetch_bundle_valid)" in text
+    assert ".bundle_deq_valid(queue_bundle_deq_valid_w)" in text
+    assert ".bundle_req_valid(free_list_bundle_valid_w)" in text
+    assert ".cand_resp_bundle_valid(cand_resp_bundle_valid_w)" in text
+    assert ".alloc_cand_bundle_valid(alloc_cand_bundle_valid)" in text
+    assert ".flush_reclaim_valid(flush_reclaim_valid)" in text
+
+
+def test_strict_tree_mask_paper_path_container_owns_bank_state_table():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperPath.v")
+    assert "bank_state_table u_bank_state_table" in text
+    assert ".cand_bundle_valid(alloc_cand_bundle_valid_w)" in text
+    assert ".commit_valid(bank_commit_valid)" in text
+    assert ".commit_req_id(bank_commit_req_id)" in text
+    assert ".reclaim_valid(flush_reclaim_valid)" in text
+    assert ".query_valid(1'b0)" in text
+
+
+def test_strict_tree_mask_paper_path_container_owns_token_register():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperPath.v")
+    assert "token_register u_token_register" in text
+    assert "reg [`TOKEN_REG_INDEX_W-1:0] token_wr_index_r;" in text
+    assert "assign token_wr_index = token_wr_index_r;" in text
+    assert "assign token_wr_bundle_index_w =" in text
+    assert ".wr_bundle_valid(token_wr_bundle_valid_w)" in text
+    assert ".wr_bundle_index(token_wr_bundle_index_w)" in text
+    assert ".lookup_valid(token_lookup_valid)" in text
+    assert ".lookup_token_id(token_lookup_token_id)" in text
+    assert ".lookup_position_id(token_lookup_position_id)" in text
+    assert ".commit_valid(token_commit_valid)" in text
+    assert ".commit_index(token_commit_index)" in text
+    assert ".flush_valid(token_flush_valid_w)" in text
+    assert ".entry_count(token_entry_count)" in text
+    assert ".error_flag(token_error_flag)" in text
+
+
+def test_strict_tree_mask_paper_path_container_owns_comparator():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperPath.v")
+    assert "comparator u_comparator" in text
+    assert ".cmp_req_id(cmp_req_id)" in text
+    assert ".reduce_start_valid(reduce_start_valid)" in text
+    assert ".result_accept(result_accept)" in text
+    assert ".commit_valid(cmp_commit_valid)" in text
+    assert ".flush_valid(cmp_flush_valid)" in text
+    assert ".accepted_prefix_valid(cmp_accepted_prefix_valid)" in text
+    assert ".live_branch_mask(cmp_live_branch_mask)" in text
+    assert ".prune_branch_mask(cmp_prune_branch_mask)" in text
+
+
+def test_agu_exposes_unified_bundle_input_boundary():
+    text = read("code/rtl/tree_control/agu.v")
+    assert "input                        bundle_in_valid," in text
+    assert "output                       bundle_in_ready," in text
+    assert "input  [`REQ_ID_W-1:0]       bundle_in_req_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS-1:0] bundle_in_slot_valid," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] bundle_in_node_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] bundle_in_token_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0] bundle_in_position_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] bundle_in_branch_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS-1:0] bundle_in_slot_shared," in text
+
+
+def test_stage2_top_builds_agu_bundle_before_entering_agu():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    assert "wire agu_bundle_valid_w;" not in text
+    assert "wire agu_bundle_ready_w;" not in text
+    assert "wire [`TREE_FRONTIER_SLOTS-1:0] agu_bundle_slot_valid_w;" not in text
+    assert ".bundle_in_valid(agu_bundle_valid_w)" not in text
+    assert ".bundle_in_ready(agu_bundle_ready_w)" not in text
+    assert ".bundle_in_slot_valid(agu_bundle_slot_valid_w)" not in text
+    assert "if (prefix_valid) begin" not in text
+    assert "end else if (frontier_valid) begin" not in text
+
+
+def test_free_list_exposes_parallel_bundle_request_boundary():
+    text = read("code/rtl/tree_control/free_list.v")
+    assert "input                        bundle_req_valid," in text
+    assert "output                       bundle_req_ready," in text
+    assert "input  [`REQ_ID_W-1:0]       bundle_req_req_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS-1:0] bundle_req_slot_valid," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] bundle_req_branch_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] bundle_req_node_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] bundle_req_size_subbank," in text
+    assert "input  [`TREE_FRONTIER_SLOTS-1:0] bundle_req_shared," in text
+
+
+def test_free_list_exposes_parallel_bundle_response_boundaries():
+    text = read("code/rtl/tree_control/free_list.v")
+    assert "output                       cand_resp_bundle_valid," in text
+    assert "output [`REQ_ID_W-1:0]       cand_resp_bundle_req_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS-1:0] cand_resp_bundle_slot_valid," in text
+    assert "output [`TREE_FRONTIER_SLOTS-1:0] cand_resp_bundle_grant," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] cand_resp_bundle_sram_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] cand_resp_bundle_bank_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0] cand_resp_bundle_subbank_start," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] cand_resp_bundle_group_len," in text
+    assert "output                       alloc_cand_bundle_valid," in text
+    assert "output [`REQ_ID_W-1:0]       alloc_cand_bundle_req_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS-1:0] alloc_cand_bundle_slot_valid," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] alloc_cand_bundle_branch_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] alloc_cand_bundle_node_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] alloc_cand_bundle_size_subbank," in text
+    assert "output [`TREE_FRONTIER_SLOTS-1:0] alloc_cand_bundle_shared," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] alloc_cand_bundle_sram_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] alloc_cand_bundle_bank_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0] alloc_cand_bundle_subbank_start," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] alloc_cand_bundle_group_len," in text
+
+
+def test_prefetch_queue_exposes_parallel_bundle_queue_boundaries():
+    text = read("code/rtl/tree_control/prefetch_queue.v")
+    assert "input                       bundle_enq_valid," in text
+    assert "output                      bundle_enq_ready," in text
+    assert "input  [`REQ_ID_W-1:0]      bundle_enq_req_id," in text
+    assert "input  [`LAYER_ID_W-1:0]    bundle_enq_layer_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS-1:0] bundle_enq_slot_valid," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] bundle_enq_branch_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] bundle_enq_node_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] bundle_enq_size_subbank," in text
+    assert "input  [`TREE_FRONTIER_SLOTS-1:0] bundle_enq_shared," in text
+    assert "output                      bundle_deq_valid," in text
+    assert "input                       bundle_deq_ready," in text
+    assert "output [`REQ_ID_W-1:0]      bundle_deq_req_id," in text
+    assert "output [`LAYER_ID_W-1:0]    bundle_deq_layer_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS-1:0] bundle_deq_slot_valid," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] bundle_deq_branch_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] bundle_deq_node_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] bundle_deq_size_subbank," in text
+    assert "output [`TREE_FRONTIER_SLOTS-1:0] bundle_deq_shared," in text
+
+
+def test_agu_exposes_parallel_prefetch_bundle_output_boundary():
+    text = read("code/rtl/tree_control/agu.v")
+    assert "input                        prefetch_bundle_ready," in text
+    assert "output                       prefetch_bundle_valid," in text
+    assert "output [`REQ_ID_W-1:0]       prefetch_bundle_req_id," in text
+    assert "output [`LAYER_ID_W-1:0]     prefetch_bundle_layer_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS-1:0] prefetch_bundle_slot_valid," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] prefetch_bundle_branch_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] prefetch_bundle_node_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] prefetch_bundle_size_subbank," in text
+    assert "output [`TREE_FRONTIER_SLOTS-1:0] prefetch_bundle_shared," in text
+
+
+def test_agu_exposes_parallel_cand_resp_and_token_write_bundle_boundaries():
+    text = read("code/rtl/tree_control/agu.v")
+    assert "input                        cand_resp_bundle_valid," in text
+    assert "input  [`REQ_ID_W-1:0]       cand_resp_bundle_req_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS-1:0] cand_resp_bundle_slot_valid," in text
+    assert "input  [`TREE_FRONTIER_SLOTS-1:0] cand_resp_bundle_grant," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] cand_resp_bundle_sram_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] cand_resp_bundle_bank_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0] cand_resp_bundle_subbank_start," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] cand_resp_bundle_group_len," in text
+    assert "output                       token_wr_bundle_valid," in text
+    assert "output [`REQ_ID_W-1:0]       token_wr_bundle_req_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS-1:0] token_wr_bundle_slot_valid," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] token_wr_bundle_token_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0] token_wr_bundle_position_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] token_wr_bundle_node_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] token_wr_bundle_branch_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] token_wr_bundle_sram_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] token_wr_bundle_bank_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0] token_wr_bundle_subbank_start," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] token_wr_bundle_group_len," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`BRANCH_MASK_W-1:0] token_wr_bundle_branch_mask," in text
+    assert "output [`TREE_FRONTIER_SLOTS-1:0] token_wr_bundle_is_shared," in text
+
+
+def test_bank_state_table_exposes_parallel_candidate_bundle_boundary():
+    text = read("code/rtl/tree_control/bank_state_table.v")
+    assert "input                        cand_bundle_valid," in text
+    assert "output                       cand_bundle_ready," in text
+    assert "input  [`REQ_ID_W-1:0]       cand_bundle_req_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS-1:0] cand_bundle_slot_valid," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`BRANCH_ID_W-1:0] cand_bundle_branch_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] cand_bundle_node_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] cand_bundle_sram_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] cand_bundle_bank_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0] cand_bundle_subbank_start," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] cand_bundle_group_len," in text
+
+
+def test_token_register_exposes_parallel_write_bundle_boundary():
+    text = read("code/rtl/tree_control/token_register.v")
+    assert "input                        wr_bundle_valid," in text
+    assert "output                       wr_bundle_ready," in text
+    assert "input  [`TREE_FRONTIER_SLOTS-1:0] wr_bundle_slot_valid," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`TOKEN_REG_INDEX_W-1:0] wr_bundle_index," in text
+    assert "input  [`REQ_ID_W-1:0]       wr_bundle_req_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] wr_bundle_token_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0] wr_bundle_position_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`BRANCH_MASK_W-1:0] wr_bundle_branch_mask," in text
+    assert "input  [`TREE_FRONTIER_SLOTS-1:0] wr_bundle_is_shared," in text
+
+
+def test_token_register_exposes_parallel_lookup_bundle_boundary():
+    text = read("code/rtl/tree_control/token_register.v")
+    assert "input                        lookup_bundle_valid," in text
+    assert "output                       lookup_bundle_ready," in text
+    assert "input  [`REQ_ID_W-1:0]       lookup_bundle_req_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS-1:0] lookup_bundle_slot_valid," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] lookup_bundle_token_id," in text
+    assert "input  [`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0] lookup_bundle_position_id," in text
+    assert "output                       lookup_bundle_resp_valid," in text
+    assert "output [`REQ_ID_W-1:0]       lookup_bundle_resp_req_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS-1:0] lookup_bundle_resp_hit," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`SRAM_ID_W-1:0] lookup_bundle_resp_sram_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`BANK_ID_W-1:0] lookup_bundle_resp_bank_id," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`SUBBANK_ID_W-1:0] lookup_bundle_resp_subbank_start," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`KV_GROUP_LEN_W-1:0] lookup_bundle_resp_group_len," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`BRANCH_MASK_W-1:0] lookup_bundle_resp_branch_mask," in text
+    assert "output [`TREE_FRONTIER_SLOTS-1:0] lookup_bundle_resp_is_shared," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`TOKEN_STATE_W-1:0] lookup_bundle_resp_state," in text
+    assert "output [`TREE_FRONTIER_SLOTS*`TOKEN_ENTRY_TYPE_W-1:0] lookup_bundle_resp_entry_type," in text
+    assert "assign lookup_bundle_ready = 1'b1;" in text
+    assert "lookup_bundle_resp_valid_r <=" in text
+
+
+def test_strict_tree_mask_paper_path_owns_issue_scheduler_boundary():
+    text = read("code/rtl/tree_control/StrictTreeMaskPaperPath.v")
+    assert '`include "tree_control/StrictTreeMaskPaperIssueScheduler.v"' in text
+    assert "StrictTreeMaskPaperIssueScheduler u_strict_tree_mask_paper_issue_scheduler" in text
+    assert ".src_bundle_valid(token_wr_bundle_valid_w)" in text
+    assert ".lookup_bundle_valid(token_lookup_bundle_valid_w)" in text
+    assert ".lookup_bundle_resp_valid(token_lookup_bundle_resp_valid_w)" in text
+    assert ".issue_bundle_valid(paper_issue_bundle_valid)" in text
+    assert ".issue_bundle_slot_lookup_hit(paper_issue_bundle_slot_lookup_hit)" in text
+    assert ".lookup_bundle_valid(token_lookup_bundle_valid_w)" in text
+    assert ".lookup_bundle_token_id(token_lookup_bundle_token_id_w)" in text
+    assert ".lookup_bundle_position_id(token_lookup_bundle_position_id_w)" in text
+
+
+def test_stage2_top_keeps_paper_issue_bundle_as_strict_path_boundary():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    assert "wire paper_issue_bundle_ready_w;" in text
+    assert "wire paper_issue_bundle_valid_w;" in text
+    assert "wire [`REQ_ID_W-1:0] paper_issue_bundle_req_id_w;" in text
+    assert "wire [`TREE_FRONTIER_SLOTS-1:0] paper_issue_bundle_slot_valid_w;" in text
+    assert "wire [`TREE_FRONTIER_SLOTS-1:0] paper_issue_bundle_slot_lookup_hit_w;" in text
+    assert ".paper_issue_bundle_ready(paper_issue_bundle_ready_w)" in text
+    assert ".paper_issue_bundle_valid(paper_issue_bundle_valid_w)" in text
+    assert ".paper_issue_bundle_req_id(paper_issue_bundle_req_id_w)" in text
+    assert ".paper_issue_bundle_slot_lookup_hit(paper_issue_bundle_slot_lookup_hit_w)" in text
+
+
+def test_stage2_top_wraps_scalar_resource_paths_into_parallel_bundles():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    assert "wire free_list_bundle_valid_w;" not in text
+    assert "wire bank_alloc_bundle_valid_w;" not in text
+    assert "wire prefetch_bundle_valid_w;" not in text
+    assert "wire queue_bundle_deq_valid_w;" not in text
+    assert "wire cand_resp_bundle_valid_w;" not in text
+    assert "wire alloc_cand_bundle_valid_w;" not in text
+    assert "wire token_wr_bundle_valid_w;" not in text
+    assert "wire token_wr_from_agu_bundle_valid_w;" not in text
+    assert "wire token_flush_valid;" not in text
+    assert not re.search(
+        r"^\s*assign\s+free_list_bundle_valid_w\s*=\s*"
+        r"queue_bundle_deq_valid_w\s*;",
+        text,
+        re.M,
+    )
+    assert "assign bank_alloc_bundle_valid_w = alloc_cand_bundle_valid_w;" not in text
+    assert "assign token_wr_bundle_valid_w = token_wr_from_agu_bundle_valid_w;" not in text
+    assert ".prefetch_bundle_valid(prefetch_bundle_valid_w)" not in text
+    assert ".prefetch_bundle_ready(prefetch_bundle_ready_w)" not in text
+    assert ".bundle_enq_valid(prefetch_bundle_valid_w)" not in text
+    assert ".bundle_deq_valid(queue_bundle_deq_valid_w)" not in text
+    assert ".bundle_req_valid(free_list_bundle_valid_w)" not in text
+    assert ".cand_resp_bundle_valid(cand_resp_bundle_valid_w)" not in text
+    assert ".alloc_cand_bundle_valid(alloc_cand_bundle_valid_w)" not in text
+    assert ".bank_commit_valid(bank_commit_valid)" in text
+    assert ".token_wr_index(token_wr_index_w)" in text
+    assert ".token_commit_valid(token_commit_valid)" in text
+    assert ".token_lookup_valid(kv_lookup_valid)" in text
+    assert ".cand_bundle_valid(bank_alloc_bundle_valid_w)" not in text
+    assert ".wr_bundle_valid(token_wr_bundle_valid_w)" not in text
+    assert ".enq_valid(1'b0)" not in text
+    assert ".cand_req_valid(1'b0)" not in text
+    assert ".cand_valid(1'b0)" not in text
+    assert ".wr_valid(1'b0)" not in text
+
+
+def test_stage2_top_uses_paper_path_container_for_agu_ownership():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    assert "agu u_agu" not in text
+    assert ".bank_commit_valid(bank_commit_valid)" in text
+    assert ".bank_commit_req_id(bank_commit_req_id)" in text
+    assert ".flush_drain_busy(free_list_flush_drain_busy)" in text
+    assert ".token_wr_valid(token_wr_valid)" in text
+    assert ".token_wr_index(token_wr_index_w)" in text
+    assert ".token_wr_bundle_valid(token_wr_from_agu_bundle_valid_w)" not in text
+    assert ".token_flush_valid(token_flush_valid)" not in text
+
+
+def test_stage2_top_uses_paper_path_container_for_prefetch_queue_and_free_list_ownership():
+    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    assert "prefetch_queue u_prefetch_queue" not in text
+    assert "free_list u_free_list" not in text
+    assert "bank_state_table u_bank_state_table" not in text
+    assert "token_register u_token_register" not in text
+    assert "reg [`TOKEN_REG_INDEX_W-1:0] token_wr_index_r;" not in text
+    assert ".bank_commit_valid(bank_commit_valid)" in text
+    assert ".bank_commit_req_id(bank_commit_req_id)" in text
 
 
 def test_tree_parallel_lane0_scalar_orphan_response_is_drained_before_next_scalar_read():
@@ -834,7 +2096,11 @@ def test_req_states_can_consume_same_cycle_responses_on_main_verify_path():
     ffn = read("code/rtl/transformer/fp16_ffn_swiglu.sv")
     emb = read("code/rtl/transformer/fp16_embedding.sv")
     lm = read("code/rtl/transformer/fp16_lm_head.sv")
-    assert "ST_LOAD_Q_REQ: begin\n                if (sram_resp_valid && sram_resp_ready) begin" in mha
+    assert (
+        "ST_LOAD_Q_REQ: begin\n"
+        "                if ((rd_req_accepted_r || (sram_rd_valid && sram_rd_ready)) &&\n"
+        "                    sram_resp_valid && sram_resp_ready) begin"
+    ) in mha
     assert "ST_DOT_REQ: begin" in mha and "else if (sram_rd_valid && sram_rd_ready) begin" in mha
     assert (
         "ST_ACT_GATE_REQ: begin\n"
@@ -1183,31 +2449,32 @@ def test_mc_pe_ready_mux_uses_flattened_helper_wires():
 
 def test_token_register_promotes_tree_entry_to_stream_entry():
     text = read("code/rtl/tree_control/token_register.v")
-    assert "entry_type[wr_index] <= `TOKEN_ENTRY_TREE;" in text
+    assert (
+        "entry_type[active_wr_index_comb] <= `TOKEN_ENTRY_TREE;" in text
+        or "entry_type[wr_index] <= `TOKEN_ENTRY_TREE;" in text
+    )
     assert "entry_type[commit_index] <= `TOKEN_ENTRY_STREAM;" in text
     assert "(entry_type[idx_i] == `TOKEN_ENTRY_TREE)" in text
 
 
 def test_control_chip_replays_tree_parallel_commits_into_token_register():
-    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
-    assert "tree_parallel_commit_replay_active_r" in text
-    assert "tree_parallel_commit_issue_valid_comb" in text
-    assert "assign token_commit_valid =" in text
-    assert "assign token_commit_index =" in text
-    assert "assign token_commit_branch_mask =" in text
-    assert "assign token_commit_node_mask =" in text
-    assert ".commit_valid(token_commit_valid)" in text
-    assert ".commit_index(token_commit_index)" in text
+    top = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    container = read("code/rtl/tree_control/StrictTreeMaskPaperPath.v")
+    assert "tree_parallel_commit_replay_active_r" in top
+    assert "tree_parallel_commit_issue_valid_comb" in top
+    assert "assign token_commit_valid =" in top
+    assert "assign token_commit_index =" in top
+    assert "assign token_commit_branch_mask =" in top
+    assert "assign token_commit_node_mask =" in top
+    assert ".token_commit_valid(token_commit_valid)" in top
+    assert ".token_commit_index(token_commit_index)" in top
+    assert ".commit_valid(token_commit_valid)" in container
+    assert ".commit_index(token_commit_index)" in container
 
 
 def test_tree_parallel_ownership_and_commit_replay_use_level_local_node_indices():
     text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
-    assert re.search(
-        r"\.tree_in_node_id\(\s*tree_parallel_mode_w\s*\?\s*"
-        r"\{\{\(`NODE_ID_W-`TREE_LEVEL_ID_W\)\{1'b0\}\},\s*"
-        r"native_tree_main_pred_level_id_w\}",
-        text,
-    ), "tree-parallel AGU ownership path must key branch-local nodes by level index"
+    assert ".tree_in_node_id(" not in text
     assert (
         "tree_parallel_accepted_prefix_node_id_comb[\n"
         "                    (tree_parallel_reduce_level_i*`NODE_ID_W) +: `NODE_ID_W] =\n"
@@ -1216,30 +2483,20 @@ def test_tree_parallel_ownership_and_commit_replay_use_level_local_node_indices(
 
 
 def test_tree_parallel_agu_frontier_ownership_uses_level_local_node_indices():
-    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
-    assert "wire [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] agu_frontier_node_id_w;" in text
-    assert "reg [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] agu_tree_parallel_frontier_node_id_comb;" in text
-    assert re.search(
-        r"assign\s+agu_frontier_node_id_w\s*=\s*tree_parallel_mode_w\s*\?\s*"
-        r"agu_tree_parallel_frontier_node_id_comb\s*:\s*frontier_node_id\s*;",
-        text,
-    ), "tree-parallel AGU frontier ownership path must normalize node ids by level"
-    assert ".frontier_node_id(agu_frontier_node_id_w)" in text
+    top_text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    container_text = read("code/rtl/tree_control/StrictTreeMaskPaperPath.v")
+    assert "wire [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] agu_frontier_node_id_w;" not in top_text
+    assert "reg [`TREE_FRONTIER_SLOTS*`NODE_ID_W-1:0] agu_tree_parallel_frontier_node_id_comb;" not in top_text
+    assert "agu_bundle_node_id_comb = frontier_node_id;" in container_text
+    assert ".bundle_in_node_id(agu_bundle_node_id_w)" in container_text
 
 
 def test_tree_parallel_agu_ownership_is_driven_by_frontier_queue_not_placeholder_pred_fire():
-    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
-    assert re.search(
-        r"\.tree_in_valid\(\s*tree_parallel_mode_w\s*\?\s*1'b0\s*:\s*pred_accept_fire_w\s*\)",
-        text,
-    ), (
-        "tree-parallel AGU ownership must come from tree_analyze/frontier queue, "
-        "not NativeTreeMainFrontend placeholder pred fire pulses"
-    )
-    assert (
-        "native_tree_main_pred_valid_w && native_tree_main_pred_ready_w &&\n"
-        "             native_tree_main_pred_tree_mask_en_w"
-    ) not in text
+    top_text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    container_text = read("code/rtl/tree_control/StrictTreeMaskPaperPath.v")
+    assert ".tree_in_valid(1'b0)" in container_text
+    assert "pred_accept_fire_w" not in container_text
+    assert ".tree_in_valid(" not in top_text
 
 
 def test_agu_aborts_nonlive_pending_branch_even_after_flush_pulse_has_passed():
@@ -1296,8 +2553,10 @@ def test_tree_parallel_flush_is_gated_by_commit_pulse():
 
 def test_control_chip_exposes_token_register_entry_type_lifecycle():
     text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
-    assert "wire [`TOKEN_ENTRY_TYPE_W-1:0] kv_lookup_entry_type_w;" in text
-    assert ".lookup_resp_entry_type(kv_lookup_entry_type_w)" in text
+    assert "wire [`TOKEN_ENTRY_TYPE_W-1:0] token_lookup_entry_type_w;" in text
+    assert ".token_lookup_entry_type(token_lookup_entry_type_w)" in text
+    assert "wire [`TOKEN_STATE_W-1:0] token_lookup_entry_state_w;" in text
+    assert ".token_lookup_entry_state(token_lookup_entry_state_w)" in text
 
 
 def test_tree_parallel_seed_uses_frontier_referenced_metadata():
@@ -1315,12 +2574,16 @@ def test_tree_parallel_seed_uses_frontier_referenced_metadata():
 
 
 def test_stage2_token_register_lookup_uses_real_kv_lookup_inputs():
-    text = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
-    assert ".lookup_valid(kv_lookup_valid)" in text
-    assert ".lookup_token_id(kv_lookup_token_id)" in text
-    assert ".lookup_position_id(kv_lookup_position_id)" in text
-    assert ".lookup_token_id({`TOKEN_ID_W{1'b0}})" not in text
-    assert ".lookup_position_id({`POSITION_ID_W{1'b0}})" not in text
+    top = read("code/rtl/tree_control/control_chip_stage2_single_chiplet.v")
+    container = read("code/rtl/tree_control/StrictTreeMaskPaperPath.v")
+    assert ".token_lookup_valid(kv_lookup_valid)" in top
+    assert ".token_lookup_token_id(kv_lookup_token_id)" in top
+    assert ".token_lookup_position_id(kv_lookup_position_id)" in top
+    assert ".lookup_valid(token_lookup_valid)" in container
+    assert ".lookup_token_id(token_lookup_token_id)" in container
+    assert ".lookup_position_id(token_lookup_position_id)" in container
+    assert ".lookup_token_id({`TOKEN_ID_W{1'b0}})" not in container
+    assert ".lookup_position_id({`POSITION_ID_W{1'b0}})" not in container
 
 
 def test_tree_flatten_shared_slot_match_requires_token_and_parent_topology():

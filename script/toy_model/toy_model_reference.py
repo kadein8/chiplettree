@@ -1,6 +1,7 @@
 import argparse
 import json
 import math
+import os
 import struct
 import sys
 from pathlib import Path
@@ -15,25 +16,55 @@ if str(REPO_ROOT / "code" / "script") not in sys.path:
 
 from rtl_backend.formats import fp16_to_hex  # noqa: E402
 
+# =========================================================================
+# Profile selection: MODEL_PROFILE env var or --profile CLI arg
+# =========================================================================
+_PROFILE = os.environ.get("MODEL_PROFILE", "toy").lower()
 
-HIDDEN_DIM = 128
-NUM_HEADS = 2
-HEAD_DIM = 64
-INTERMEDIATE_DIM = 256
-N_LAYERS = 2
-VOCAB_SIZE = 16
-MAX_SEQ_LEN = 8
-ROPE_THETA = 1_000_000.0
+# Fixed hardware constants
 DATA_WIDTH = 16
 SRAM_DATA_BUS_W = 128
 HBM_DATA_BUS_W = 256
 FP16_TILE_LANES = 16
 FP16_TILE_COLS = 128
-ELEMS_PER_SRAM_BEAT = SRAM_DATA_BUS_W // DATA_WIDTH
-ELEMS_PER_HBM_BEAT = HBM_DATA_BUS_W // DATA_WIDTH
+ELEMS_PER_SRAM_BEAT = SRAM_DATA_BUS_W // DATA_WIDTH  # 8
+ELEMS_PER_HBM_BEAT = HBM_DATA_BUS_W // DATA_WIDTH    # 16
+WEIGHT_BEATS_PER_TILE = (FP16_TILE_LANES * FP16_TILE_COLS) // ELEMS_PER_SRAM_BEAT  # 256
+HBM_TO_SRAM_RATIO = HBM_DATA_BUS_W // SRAM_DATA_BUS_W  # 2
+
+# Profile-dependent model parameters
+if _PROFILE == "qwen3":
+    HIDDEN_DIM = 1024
+    NUM_HEADS = 16
+    HEAD_DIM = 64
+    INTERMEDIATE_DIM = 3072
+    N_LAYERS = 2
+    VOCAB_SIZE = 1024
+    MAX_SEQ_LEN = 32
+    ROPE_THETA = 1_000_000.0
+    # Address layout matching model_params.vh for Qwen3
+    EMB_BASE = 256
+    FINAL_GAMMA_BASE = 131584
+    LM_HEAD_BASE = 140000
+    HBM_WEIGHT_BASE = 1024
+else:  # toy (default)
+    HIDDEN_DIM = 128
+    NUM_HEADS = 2
+    HEAD_DIM = 64
+    INTERMEDIATE_DIM = 256
+    N_LAYERS = 2
+    VOCAB_SIZE = 16
+    MAX_SEQ_LEN = 8
+    ROPE_THETA = 1_000_000.0
+    # Address layout matching toy model
+    EMB_BASE = 256
+    FINAL_GAMMA_BASE = 2048
+    LM_HEAD_BASE = 49664
+    HBM_WEIGHT_BASE = 1024
+
+# Derived constants (computed from profile parameters)
 HIDDEN_BEATS = HIDDEN_DIM // ELEMS_PER_SRAM_BEAT
 INTERMEDIATE_BEATS = INTERMEDIATE_DIM // ELEMS_PER_SRAM_BEAT
-WEIGHT_BEATS_PER_TILE = (FP16_TILE_LANES * FP16_TILE_COLS) // ELEMS_PER_SRAM_BEAT
 PROJ_MATRIX_BEATS = (
     ((HIDDEN_DIM + FP16_TILE_LANES - 1) // FP16_TILE_LANES)
     * ((HIDDEN_DIM + FP16_TILE_COLS - 1) // FP16_TILE_COLS)
@@ -50,20 +81,9 @@ FFN_DOWN_MATRIX_BEATS = (
     * WEIGHT_BEATS_PER_TILE
 )
 WEIGHT_WINDOW_BEATS = 8 * max(PROJ_MATRIX_BEATS, FFN_EXPAND_MATRIX_BEATS, FFN_DOWN_MATRIX_BEATS)
-HBM_TO_SRAM_RATIO = HBM_DATA_BUS_W // SRAM_DATA_BUS_W
 LAYER_WEIGHT_STRIDE = ((2 * HIDDEN_BEATS) + WEIGHT_WINDOW_BEATS) // HBM_TO_SRAM_RATIO
 
-EMB_BASE = 256
-FINAL_GAMMA_BASE = 2048
-LM_HEAD_BASE = 49664
-WORK_HIDDEN0_BASE = 4096
-WORK_HIDDEN1_BASE = 6144
-WORK_FINAL_BASE = 8192
-WEIGHT_SRAM_BASE = 16384
-KV_CACHE_SRAM_BASE = 57344
-HBM_WEIGHT_BASE = 1024
-
-OUTPUT_DIR_DEFAULT = REPO_ROOT / "code" / "script" / "toy_model" / "generated"
+OUTPUT_DIR_DEFAULT = REPO_ROOT / "code" / "sim" / "generated"
 EPS = 1e-6
 RMS_DIVISOR_RTL = 1024.0
 
@@ -132,27 +152,29 @@ def rope_rotate(vec: np.ndarray, position: int) -> np.ndarray:
 
 
 def tiled_matvec(weight: np.ndarray, vector: np.ndarray) -> np.ndarray:
+    """Matrix-vector multiply matching RTL's FP16 sequential MAC behavior.
+
+    RTL MAC: for each output group of 8 lanes, sequentially accumulate
+    weight[lane, col] * vector[col] in FP16 for all cols.
+    Each cycle: accum[lane] = fp16_add(fp16_mul(weight[lane,col], vector[col]), accum[lane])
+    """
     rows, cols = weight.shape
     out = np.zeros((rows,), dtype=np.float16)
-    tile_rows_total = (rows + FP16_TILE_LANES - 1) // FP16_TILE_LANES
-    tile_cols_total = (cols + FP16_TILE_COLS - 1) // FP16_TILE_COLS
-    for tile_row in range(tile_rows_total):
-        lane_base = tile_row * FP16_TILE_LANES
-        partial = np.zeros((FP16_TILE_LANES,), dtype=np.float16)
-        for tile_col in range(tile_cols_total):
-            col_base = tile_col * FP16_TILE_COLS
-            vec_tile = np.zeros((FP16_TILE_COLS,), dtype=np.float16)
-            span_cols = min(FP16_TILE_COLS, cols - col_base)
-            vec_tile[:span_cols] = vector[col_base : col_base + span_cols].astype(np.float16)
-            w_tile = np.zeros((FP16_TILE_LANES, FP16_TILE_COLS), dtype=np.float16)
-            span_rows = min(FP16_TILE_LANES, rows - lane_base)
-            w_tile[:span_rows, :span_cols] = weight[
-                lane_base : lane_base + span_rows, col_base : col_base + span_cols
-            ].astype(np.float16)
-            tile_res = np.matmul(w_tile.astype(np.float32), vec_tile.astype(np.float32)).astype(np.float16)
-            partial = (partial.astype(np.float32) + tile_res.astype(np.float32)).astype(np.float16)
-        span_rows = min(FP16_TILE_LANES, rows - lane_base)
-        out[lane_base : lane_base + span_rows] = partial[:span_rows]
+    w_fp16 = weight.astype(np.float16)
+    v_fp16 = vector.astype(np.float16)
+    # Process per output group of BEAT_ELEMS (8 lanes), matching RTL
+    beat_elems = ELEMS_PER_SRAM_BEAT  # 8
+    num_groups = (rows + beat_elems - 1) // beat_elems
+    for grp in range(num_groups):
+        lane_base = grp * beat_elems
+        span = min(beat_elems, rows - lane_base)
+        accum = np.zeros((span,), dtype=np.float16)
+        for c in range(cols):
+            # FP16 multiply (numpy does this natively for float16 arrays)
+            prod = w_fp16[lane_base:lane_base+span, c] * v_fp16[c]
+            # FP16 accumulate (numpy float16 addition)
+            accum = accum + prod
+        out[lane_base:lane_base+span] = accum
     return out
 
 
@@ -256,10 +278,7 @@ def _run_reference_impl(
         dumps[f"hidden_after_layer{layer_idx}"] = hidden.copy()
 
     final_hidden = rmsnorm_rtl_style(hidden, final_gamma)
-    logits = np.matmul(
-        weights["embedding"].astype(np.float32),  # type: ignore[index]
-        final_hidden.astype(np.float32),
-    ).astype(np.float16)
+    logits = tiled_matvec(weights["embedding"], final_hidden)  # type: ignore[arg-type]
     token_out = int(np.argmax(logits.astype(np.float32)))
     dumps["final_hidden"] = final_hidden
     dumps["logits"] = logits
@@ -408,19 +427,41 @@ def run_autoregressive(
     }
 
 
+def _write_sparse_memh(f, data: Dict[int, str]) -> None:
+    """Write a sparse $readmemh file using @addr directives.
+
+    Groups consecutive addresses to minimize @addr lines.
+    """
+    if not data:
+        return
+    sorted_addrs = sorted(data)
+    prev_addr = sorted_addrs[0] - 2  # force first @addr
+    for addr in sorted_addrs:
+        if addr != prev_addr + 1:
+            f.write("@%x\n" % addr)
+        f.write("%s\n" % data[addr])
+        prev_addr = addr
+
+
 def emit_embedding_mem(weights: Dict[str, Any], out_dir: Path) -> None:
     embed: np.ndarray = weights["embedding"]  # type: ignore[assignment]
     final_gamma: np.ndarray = weights["final_gamma"]  # type: ignore[assignment]
 
     mem: Dict[int, str] = {}
+    zero_beat = "00000000000000000000000000000000"
+
     for token_id in range(VOCAB_SIZE):
         for beat_idx in range(HIDDEN_BEATS):
             vals = embed[token_id, beat_idx * ELEMS_PER_SRAM_BEAT : (beat_idx + 1) * ELEMS_PER_SRAM_BEAT]
-            mem[EMB_BASE + token_id * HIDDEN_BEATS + beat_idx] = pack_sram_beat(vals)
+            packed = pack_sram_beat(vals)
+            if packed != zero_beat:
+                mem[EMB_BASE + token_id * HIDDEN_BEATS + beat_idx] = packed
 
     for beat_idx in range(HIDDEN_BEATS):
         vals = final_gamma[beat_idx * ELEMS_PER_SRAM_BEAT : (beat_idx + 1) * ELEMS_PER_SRAM_BEAT]
-        mem[FINAL_GAMMA_BASE + beat_idx] = pack_sram_beat(vals)
+        packed = pack_sram_beat(vals)
+        if packed != zero_beat:
+            mem[FINAL_GAMMA_BASE + beat_idx] = packed
 
     lm_rows_total = (VOCAB_SIZE + FP16_TILE_LANES - 1) // FP16_TILE_LANES
     for tile_row in range(lm_rows_total):
@@ -437,13 +478,13 @@ def emit_embedding_mem(weights: Dict[str, Any], out_dir: Path) -> None:
             )
             for beat_idx in range(WEIGHT_BEATS_PER_TILE):
                 vals = flat[beat_idx * ELEMS_PER_SRAM_BEAT : (beat_idx + 1) * ELEMS_PER_SRAM_BEAT]
-                mem[base_addr + beat_idx] = pack_sram_beat(vals)
+                packed = pack_sram_beat(vals)
+                if packed != zero_beat:
+                    mem[base_addr + beat_idx] = packed
 
-    max_addr = max(mem) if mem else 0
-    lines = ["00000000000000000000000000000000"] * (max_addr + 1)
-    for addr, line in mem.items():
-        lines[addr] = line
-    (out_dir / "sram_preload.memh").write_text("\n".join(lines) + "\n", encoding="ascii")
+    # Write sparse memh with @addr directives (VCS-compatible)
+    with open(out_dir / "sram_preload.memh", "w", encoding="ascii") as f:
+        _write_sparse_memh(f, mem)
 
 
 def matrix_to_weight_slot_beats(matrix: np.ndarray, slot_beats: int) -> List[str]:
@@ -478,6 +519,7 @@ def vector_to_beats(vec: np.ndarray) -> List[str]:
 def emit_hbm_mem(weights: Dict[str, Any], out_dir: Path) -> None:
     layers: Sequence[Dict[str, np.ndarray]] = weights["layers"]  # type: ignore[assignment]
     hbm_lines: Dict[int, str] = {}
+    zero_beat_hbm = "0" * 64
     for layer_idx, layer in enumerate(layers):
         sram_lines: List[str] = []
         sram_lines.extend(vector_to_beats(layer["pre_gamma"]))
@@ -497,12 +539,13 @@ def emit_hbm_mem(weights: Dict[str, Any], out_dir: Path) -> None:
             lo_vals = unpack_memh_line_to_fp16(pair[0], ELEMS_PER_SRAM_BEAT)
             hi_vals = unpack_memh_line_to_fp16(pair[1], ELEMS_PER_SRAM_BEAT)
             beat_vals = np.concatenate([lo_vals, hi_vals]).astype(np.float16)
-            hbm_lines[layer_base + (hbm_idx // HBM_TO_SRAM_RATIO)] = pack_hbm_beat(beat_vals)
-    max_addr = max(hbm_lines) if hbm_lines else 0
-    lines = ["0" * 64] * (max_addr + 1)
-    for addr, line in hbm_lines.items():
-        lines[addr] = line
-    (out_dir / "hbm_weights.memh").write_text("\n".join(lines) + "\n", encoding="ascii")
+            packed = pack_hbm_beat(beat_vals)
+            if packed != zero_beat_hbm:
+                hbm_lines[layer_base + (hbm_idx // HBM_TO_SRAM_RATIO)] = packed
+
+    # Write sparse memh with @addr directives (VCS-compatible)
+    with open(out_dir / "hbm_weights.memh", "w", encoding="ascii") as f:
+        _write_sparse_memh(f, hbm_lines)
 
 
 def emit_reference_outputs(dumps: Dict[str, Any], out_dir: Path) -> None:
@@ -512,6 +555,7 @@ def emit_reference_outputs(dumps: Dict[str, Any], out_dir: Path) -> None:
     np.save(out_dir / "ref_logits.npy", dumps["logits"])
     (out_dir / "ref_token_id.txt").write_text(str(dumps["token_id"]) + "\n", encoding="ascii")
     manifest = {
+        "profile": _PROFILE,
         "dims": {
             "hidden_dim": HIDDEN_DIM,
             "intermediate_dim": INTERMEDIATE_DIM,
@@ -553,15 +597,32 @@ def emit_autoregressive_outputs(autoregressive: Dict[str, Any], out_dir: Path) -
         "\n".join(str(int(tok)) for tok in token_sequence) + "\n",
         encoding="ascii",
     )
+    # Also emit golden file used by testbench comparison
+    (out_dir / "golden_spec_decode_tokens.txt").write_text(
+        "\n".join(str(int(tok)) for tok in token_sequence) + "\n",
+        encoding="ascii",
+    )
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Generate toy-model weights/reference dumps for tran RTL verification")
+    parser = argparse.ArgumentParser(description="Generate model weights/reference dumps for RTL verification")
     parser.add_argument("--out-dir", type=Path, default=OUTPUT_DIR_DEFAULT)
     parser.add_argument("--token-id", type=int, default=0)
     parser.add_argument("--position", type=int, default=0)
     parser.add_argument("--num-tokens", type=int, default=1)
+    parser.add_argument("--profile", type=str, default=None,
+                        help="Model profile: toy or qwen3 (overrides MODEL_PROFILE env)")
     args = parser.parse_args()
+
+    # Allow CLI --profile to override env var (requires re-import for changed globals)
+    if args.profile is not None and args.profile.lower() != _PROFILE:
+        os.environ["MODEL_PROFILE"] = args.profile
+        print(f"NOTE: --profile={args.profile} differs from startup profile '{_PROFILE}'.")
+        print(f"      Please set MODEL_PROFILE={args.profile} env var and re-run.")
+        return 1
+
+    print(f"Profile: {_PROFILE} (d={HIDDEN_DIM}, vocab={VOCAB_SIZE}, "
+          f"intermediate={INTERMEDIATE_DIM}, heads={NUM_HEADS})")
 
     out_dir = args.out_dir.resolve()
     out_dir.mkdir(parents=True, exist_ok=True)

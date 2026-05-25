@@ -199,8 +199,9 @@ always @(*) begin : mac_vec_select
         if (op_r == OP_DOWN)
             mac_vec_sel[sv] = slot_gate_r[sv][mac_elem_idx_r*DATA_W +: DATA_W];
         else if (op_r == OP_WO)
-            // For Wo: read V directly from slot_mac_out_r (avoids LATCH copy issue)
-            mac_vec_sel[sv] = slot_mac_out_r[sv][mac_elem_idx_r*DATA_W +: DATA_W];
+            // Wo reads from slot_norm_r (attn output copied there to avoid
+            // read-write conflict with slot_mac_out_r which holds Wo results)
+            mac_vec_sel[sv] = slot_norm_r[sv][mac_elem_idx_r*DATA_W +: DATA_W];
         else
             mac_vec_sel[sv] = slot_norm_r[sv][mac_elem_idx_r*DATA_W +: DATA_W];
     end
@@ -448,6 +449,17 @@ always @(posedge clk or negedge rst_n) begin
                         beat_cnt_r <= 9'd0; resp_cnt_r <= 9'd0;
                     end else begin
                         // All embeddings loaded → start layer 0
+                        // synthesis translate_off
+                        $display("[DBG] EMBED slot0[0:7]=%h %h %h %h %h %h %h %h",
+                            slot_hidden_r[0][0*DATA_W +: DATA_W],
+                            slot_hidden_r[0][1*DATA_W +: DATA_W],
+                            slot_hidden_r[0][2*DATA_W +: DATA_W],
+                            slot_hidden_r[0][3*DATA_W +: DATA_W],
+                            slot_hidden_r[0][4*DATA_W +: DATA_W],
+                            slot_hidden_r[0][5*DATA_W +: DATA_W],
+                            slot_hidden_r[0][6*DATA_W +: DATA_W],
+                            slot_hidden_r[0][7*DATA_W +: DATA_W]);
+                        // synthesis translate_on
                         op_r <= OP_PRE_NORM;
                         layer_idx_r <= 6'd0;
                         state_r <= ST_NORM_RD;
@@ -504,6 +516,20 @@ always @(posedge clk or negedge rst_n) begin
                         slot_residual_r[i] <= slot_hidden_r[i];
                     end
                 end
+                // synthesis translate_off
+                if (op_r == OP_PRE_NORM && layer_idx_r == 0)
+                    $display("[DBG] PRE_NORM L0 slot0[0:3]=%h %h %h %h",
+                        norm_vec_out_w[0*DATA_W +: DATA_W],
+                        norm_vec_out_w[1*DATA_W +: DATA_W],
+                        norm_vec_out_w[2*DATA_W +: DATA_W],
+                        norm_vec_out_w[3*DATA_W +: DATA_W]);
+                if (op_r == OP_POST_NORM && layer_idx_r == 0)
+                    $display("[DBG] POST_NORM L0 slot0[0:3]=%h %h %h %h",
+                        norm_vec_out_w[0*DATA_W +: DATA_W],
+                        norm_vec_out_w[1*DATA_W +: DATA_W],
+                        norm_vec_out_w[2*DATA_W +: DATA_W],
+                        norm_vec_out_w[3*DATA_W +: DATA_W]);
+                // synthesis translate_on
                 sub_started_r <= 1'b0;
                 // Advance to next operation after norm
                 beat_cnt_r <= 9'd0; resp_cnt_r <= 9'd0; out_group_r <= 5'd0;
@@ -527,6 +553,17 @@ always @(posedge clk or negedge rst_n) begin
                     state_r <= ST_MATVEC_RD;
                 end
                 OP_FINAL_NORM: begin
+                    // synthesis translate_off
+                    $display("[DBG] FINAL_NORM out slot0[0:3]=%h %h %h %h norm_r[0:3]=%h %h %h %h",
+                        norm_vec_out_w[0*DATA_W +: DATA_W],
+                        norm_vec_out_w[1*DATA_W +: DATA_W],
+                        norm_vec_out_w[2*DATA_W +: DATA_W],
+                        norm_vec_out_w[3*DATA_W +: DATA_W],
+                        slot_norm_r[0][0*DATA_W +: DATA_W],
+                        slot_norm_r[0][1*DATA_W +: DATA_W],
+                        slot_norm_r[0][2*DATA_W +: DATA_W],
+                        slot_norm_r[0][3*DATA_W +: DATA_W]);
+                    // synthesis translate_on
                     op_r <= OP_LM_HEAD;
                     mv_weight_base_r <= lm_head_weight_base_addr;
                     mv_input_dim_r <= HIDDEN_DIM;
@@ -577,70 +614,95 @@ always @(posedge clk or negedge rst_n) begin
             end
         end
 
-        // MATVEC DONE: store result, advance output group or next op
+        // MATVEC DONE: wait for MAC done, then store result and advance
         ST_MATVEC_DN: begin
-            for (i = 0; i < NUM_SLOTS; i = i + 1) begin
-                if (active_slots_r[i])
-                    slot_mac_out_r[i][out_group_r*BEAT_ELEMS*DATA_W +: BEAT_ELEMS*DATA_W]
-                        <= mac_result[i*BEAT_ELEMS*DATA_W +: BEAT_ELEMS*DATA_W];
-            end
-            if (out_group_r == mv_output_groups_r - 1) begin
-                // Matvec complete — route based on current op
-                case (op_r)
-                OP_WQ: begin
-                    // Q computed — save to slot_q_r, proceed to Wk
-                    // (uses LATCH state to let slot_mac_out_r settle)
-                    state_r <= ST_MATVEC_LATCH;
+            if (all_mac_done_w) begin
+                // synthesis translate_off
+                if (out_group_r == 0 && op_r == OP_WQ && layer_idx_r == 0)
+                    $display("[DBG] WQ group0 mac_result[0]=%h (cycle %0t)",
+                             mac_result[BEAT_ELEMS*DATA_W-1:0], $time);
+                if (out_group_r == 0 && op_r == OP_DOWN && layer_idx_r == 0)
+                    $display("[DBG] DOWN group0 mac_result[0]=%h",
+                             mac_result[BEAT_ELEMS*DATA_W-1:0]);
+                if (op_r == OP_LM_HEAD && out_group_r == 0)
+                    $display("[DBG] LM_HEAD group0 (tok0-7)=%h",
+                             mac_result[BEAT_ELEMS*DATA_W-1:0]);
+                if (op_r == OP_LM_HEAD && out_group_r == 9'd127)
+                    $display("[DBG] LM_HEAD group127 (tok1016-1023)=%h",
+                             mac_result[BEAT_ELEMS*DATA_W-1:0]);
+                if (op_r == OP_LM_HEAD && out_group_r == 9'd4)
+                    $display("[DBG] LM_HEAD group4 (tok32-39)=%h",
+                             mac_result[BEAT_ELEMS*DATA_W-1:0]);
+                // synthesis translate_on
+                for (i = 0; i < NUM_SLOTS; i = i + 1) begin
+                    if (active_slots_r[i])
+                        slot_mac_out_r[i][out_group_r*BEAT_ELEMS*DATA_W +: BEAT_ELEMS*DATA_W]
+                            <= mac_result[i*BEAT_ELEMS*DATA_W +: BEAT_ELEMS*DATA_W];
                 end
-                OP_WK: begin
-                    // K computed — save to slot_k_r, proceed to Wv
-                    // (uses LATCH state to let slot_mac_out_r settle)
-                    state_r <= ST_MATVEC_LATCH;
-                end
-                OP_WV: begin
-                    // V computed — go to full attention (V in slot_mac_out_r)
-                    state_r <= ST_MATVEC_LATCH;
-                end
-                OP_WO: begin
-                    // Wo @ V done → residual add
-                    op_r <= OP_RES1;
-                    sub_started_r <= 1'b0;
-                    state_r <= ST_RESIDUAL;
-                end
-                OP_GATE: begin
-                    // Gate computed — need 1 cycle for slot_mac_out_r to settle
-                    state_r <= ST_MATVEC_LATCH;
-                end
-                OP_UP: begin
-                    // Up computed — need 1 cycle for slot_mac_out_r to settle
-                    state_r <= ST_MATVEC_LATCH;
-                end
-                OP_DOWN: begin
-                    // Down computed → residual add
-                    op_r <= OP_RES2;
-                    sub_started_r <= 1'b0;
-                    state_r <= ST_RESIDUAL;
-                end
-                OP_LM_HEAD: begin
-                    // Logits computed → argmax
-                    for (i = 0; i < NUM_SLOTS; i = i + 1)
-                        slot_mac_out_r[i] <= slot_mac_out_r[i]; // already there
-                    op_r <= OP_ARGMAX;
-                    argmax_elem_r <= 16'd0;
-                    for (i = 0; i < NUM_SLOTS; i = i + 1) begin
-                        slot_max_val_r[i] <= 16'h0000;
-                        slot_max_idx_r[i] <= {`TOKEN_ID_W{1'b0}};
+                if (out_group_r == mv_output_groups_r - 1) begin
+                    // Matvec complete — route based on current op
+                    case (op_r)
+                    OP_WQ: begin
+                        // Q computed — save to slot_q_r, proceed to Wk
+                        // (uses LATCH state to let slot_mac_out_r settle)
+                        state_r <= ST_MATVEC_LATCH;
                     end
-                    state_r <= ST_ARGMAX;
+                    OP_WK: begin
+                        // K computed — save to slot_k_r, proceed to Wv
+                        // (uses LATCH state to let slot_mac_out_r settle)
+                        state_r <= ST_MATVEC_LATCH;
+                    end
+                    OP_WV: begin
+                        // V computed — go to full attention (V in slot_mac_out_r)
+                        state_r <= ST_MATVEC_LATCH;
+                    end
+                    OP_WO: begin
+                        // Wo @ V done → residual add
+                        op_r <= OP_RES1;
+                        sub_started_r <= 1'b0;
+                        state_r <= ST_RESIDUAL;
+                    end
+                    OP_GATE: begin
+                        // Gate computed — need 1 cycle for slot_mac_out_r to settle
+                        state_r <= ST_MATVEC_LATCH;
+                    end
+                    OP_UP: begin
+                        // Up computed — need 1 cycle for slot_mac_out_r to settle
+                        state_r <= ST_MATVEC_LATCH;
+                    end
+                    OP_DOWN: begin
+                        // Down computed → residual add
+                        // synthesis translate_off
+                        if (layer_idx_r == 0)
+                            $display("[DBG] DOWN L0 done slot0[0:3]=%h %h %h %h",
+                                mac_result[0*DATA_W +: DATA_W],
+                                mac_result[1*DATA_W +: DATA_W],
+                                mac_result[2*DATA_W +: DATA_W],
+                                mac_result[3*DATA_W +: DATA_W]);
+                        // synthesis translate_on
+                        op_r <= OP_RES2;
+                        sub_started_r <= 1'b0;
+                        state_r <= ST_RESIDUAL;
+                    end
+                    OP_LM_HEAD: begin
+                        // Logits computed → argmax
+                        op_r <= OP_ARGMAX;
+                        argmax_elem_r <= 16'd0;
+                        for (i = 0; i < NUM_SLOTS; i = i + 1) begin
+                            slot_max_val_r[i] <= 16'h0000;
+                            slot_max_idx_r[i] <= {`TOKEN_ID_W{1'b0}};
+                        end
+                        state_r <= ST_ARGMAX;
+                    end
+                    default: state_r <= ST_DONE;
+                    endcase
+                end else begin
+                    out_group_r <= out_group_r + 5'd1;
+                    mac_clear <= active_slots_r;
+                    beat_cnt_r <= 9'd0; resp_cnt_r <= 9'd0;
+                    state_r <= ST_MATVEC_RD;
                 end
-                default: state_r <= ST_DONE;
-                endcase
-            end else begin
-                out_group_r <= out_group_r + 5'd1;
-                mac_clear <= active_slots_r;
-                beat_cnt_r <= 9'd0; resp_cnt_r <= 9'd0;
-                state_r <= ST_MATVEC_RD;
-            end
+            end // all_mac_done_w
         end
 
         // =================================================================
@@ -707,12 +769,21 @@ always @(posedge clk or negedge rst_n) begin
         ST_ATTN_COMP: begin
             sub_started_r <= 1'b1;
             if (attn_done_w) begin
-                // Latch attention output to slot_mac_out_r (for Wo matvec input)
+                // Copy attention output to slot_norm_r for Wo input
+                // (slot_mac_out_r will be overwritten by Wo results, causing
+                //  read-write conflict if Wo reads from it)
                 for (i = 0; i < NUM_SLOTS; i = i + 1) begin
                     if (active_slots_r[i])
-                        slot_mac_out_r[i][HIDDEN_DIM*DATA_W-1:0]
-                            <= attn_vec_out_w[i*HIDDEN_DIM*DATA_W +: HIDDEN_DIM*DATA_W];
+                        slot_norm_r[i] <= attn_vec_out_w[i*HIDDEN_DIM*DATA_W +: HIDDEN_DIM*DATA_W];
                 end
+                // synthesis translate_off
+                if (layer_idx_r == 0)
+                    $display("[DBG] ATTN L0 out slot0[0:3]=%h %h %h %h",
+                        attn_vec_out_w[0*DATA_W +: DATA_W],
+                        attn_vec_out_w[1*DATA_W +: DATA_W],
+                        attn_vec_out_w[2*DATA_W +: DATA_W],
+                        attn_vec_out_w[3*DATA_W +: DATA_W]);
+                // synthesis translate_on
                 sub_started_r <= 1'b0;
                 // Proceed to Wo projection
                 op_r <= OP_WO;
@@ -735,6 +806,26 @@ always @(posedge clk or negedge rst_n) begin
                     if (active_slots_r[i])
                         slot_hidden_r[i] <= res_vec_out_w[i*HIDDEN_DIM*DATA_W +: HIDDEN_DIM*DATA_W];
                 end
+                // synthesis translate_off
+                if (op_r == OP_RES1 && layer_idx_r == 0)
+                    $display("[DBG] RES1 L0 (after attn+res) slot0[0:3]=%h %h %h %h",
+                        res_vec_out_w[0*DATA_W +: DATA_W],
+                        res_vec_out_w[1*DATA_W +: DATA_W],
+                        res_vec_out_w[2*DATA_W +: DATA_W],
+                        res_vec_out_w[3*DATA_W +: DATA_W]);
+                if (op_r == OP_RES2 && layer_idx_r == 0)
+                    $display("[DBG] RES2 L0 (after FFN+res) slot0[0:3]=%h %h %h %h",
+                        res_vec_out_w[0*DATA_W +: DATA_W],
+                        res_vec_out_w[1*DATA_W +: DATA_W],
+                        res_vec_out_w[2*DATA_W +: DATA_W],
+                        res_vec_out_w[3*DATA_W +: DATA_W]);
+                if (op_r == OP_RES2 && layer_idx_r == N_LAYERS - 1)
+                    $display("[DBG] RES2 L1 (final hidden before norm) slot0[0:3]=%h %h %h %h",
+                        res_vec_out_w[0*DATA_W +: DATA_W],
+                        res_vec_out_w[1*DATA_W +: DATA_W],
+                        res_vec_out_w[2*DATA_W +: DATA_W],
+                        res_vec_out_w[3*DATA_W +: DATA_W]);
+                // synthesis translate_on
                 sub_started_r <= 1'b0;
                 beat_cnt_r <= 9'd0; resp_cnt_r <= 9'd0;
                 case (op_r)
@@ -766,6 +857,22 @@ always @(posedge clk or negedge rst_n) begin
                     if (active_slots_r[i])
                         slot_gate_r[i] <= silu_out_w[i*INTERMEDIATE*DATA_W +: INTERMEDIATE*DATA_W];
                 end
+                // synthesis translate_off
+                if (layer_idx_r == 0)
+                    $display("[DBG] SILU_MUL L0 slot0[0:3]=%h %h %h %h gate_in[0:3]=%h %h %h %h up_in[0:3]=%h %h %h %h",
+                        silu_out_w[0*DATA_W +: DATA_W],
+                        silu_out_w[1*DATA_W +: DATA_W],
+                        silu_out_w[2*DATA_W +: DATA_W],
+                        silu_out_w[3*DATA_W +: DATA_W],
+                        slot_gate_r[0][0*DATA_W +: DATA_W],
+                        slot_gate_r[0][1*DATA_W +: DATA_W],
+                        slot_gate_r[0][2*DATA_W +: DATA_W],
+                        slot_gate_r[0][3*DATA_W +: DATA_W],
+                        slot_up_r[0][0*DATA_W +: DATA_W],
+                        slot_up_r[0][1*DATA_W +: DATA_W],
+                        slot_up_r[0][2*DATA_W +: DATA_W],
+                        slot_up_r[0][3*DATA_W +: DATA_W]);
+                // synthesis translate_on
                 sub_started_r <= 1'b0;
                 // Now do W_down @ silu_result
                 op_r <= OP_DOWN;
@@ -806,6 +913,12 @@ always @(posedge clk or negedge rst_n) begin
                 end
                 argmax_elem_r <= argmax_elem_r + 16'd1;
             end else begin
+                // synthesis translate_off
+                $display("[DBG] ARGMAX slot0: winner_idx=%0d winner_val=%h logit[33]=%h logit[1021]=%h",
+                    slot_max_idx_r[0], slot_max_val_r[0],
+                    slot_mac_out_r[0][33*DATA_W +: DATA_W],
+                    slot_mac_out_r[0][1021*DATA_W +: DATA_W]);
+                // synthesis translate_on
                 for (i = 0; i < NUM_SLOTS; i = i + 1) begin
                     out_token_valid[i] <= active_slots_r[i];
                     out_token_id[i*`TOKEN_ID_W +: `TOKEN_ID_W] <= slot_max_idx_r[i];

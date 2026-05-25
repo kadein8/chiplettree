@@ -105,6 +105,11 @@ always @(posedge clk or negedge rst_n) begin
                         sum_sq = sum_sq + xv * xv;
                     end
                     inv_rms = 1.0 / $sqrt(sum_sq / 1024.0 + 0.000001);
+                    // synthesis translate_off
+                    if (i == 0)
+                        $display("[DBG] RMSNORM slot0: sum_sq=%f inv_rms=%f vec_in[0]=%h",
+                            sum_sq, inv_rms, vec_in[0*DATA_W +: DATA_W]);
+                    // synthesis translate_on
                     for (ni = 0; ni < DIM; ni = ni + 1) begin
                         xv = fp16_to_real(vec_in[(i*DIM+ni)*DATA_W +: DATA_W]);
                         gv = fp16_to_real(gamma[ni*DATA_W +: DATA_W]);

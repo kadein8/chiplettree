@@ -73,7 +73,8 @@ localparam [3:0]
     ST_COMMIT   = 4'd5,
     ST_FEEDBACK = 4'd6,
     ST_CHECK    = 4'd7,
-    ST_DONE     = 4'd8;
+    ST_DONE     = 4'd8,
+    ST_FALLBACK = 4'd9;
 
 logic [3:0] state_r;
 logic [7:0] gen_count_r;
@@ -440,13 +441,14 @@ always_ff @(posedge clk or negedge rst_n) begin
                     state_r <= ST_VERIFY;
                 end else begin
                     // No tree built: fallback single-token generation
-                    // Emit current seed as output and advance
-                    token_out_valid <= 1'b1;
-                    token_out_id <= seed_token_id_r;
-                    gen_count_r <= gen_count_r + 8'd1;
-                    seed_position_r <= seed_position_r +
-                        {{(`POSITION_ID_W-1){1'b0}}, 1'b1};
-                    state_r <= ST_CHECK;
+                    // Run transformer on seed token to get next token
+                    lc_start <= 1'b1;
+                    lc_slot_valid <= {{(`TREE_FRONTIER_SLOTS-1){1'b0}}, 1'b1};
+                    lc_slot_token_id <= {{((`TREE_FRONTIER_SLOTS-1)*`TOKEN_ID_W){1'b0}},
+                                         seed_token_id_r};
+                    lc_slot_position_id <= {{((`TREE_FRONTIER_SLOTS-1)*`POSITION_ID_W){1'b0}},
+                                            seed_position_r};
+                    state_r <= ST_FALLBACK;
                 end
             end
         end
@@ -498,6 +500,21 @@ always_ff @(posedge clk or negedge rst_n) begin
                 state_r <= ST_DONE;
             end else begin
                 state_r <= ST_PREDICT;
+            end
+        end
+
+        ST_FALLBACK: begin
+            // Wait for single-token transformer inference to complete
+            if (lc_done) begin
+                // Emit the output token
+                token_out_valid <= 1'b1;
+                token_out_id <= lc_out_token_id[`TOKEN_ID_W-1:0];
+                gen_count_r <= gen_count_r + 8'd1;
+                // Update seed for next round
+                seed_token_id_r <= lc_out_token_id[`TOKEN_ID_W-1:0];
+                seed_position_r <= seed_position_r +
+                    {{(`POSITION_ID_W-1){1'b0}}, 1'b1};
+                state_r <= ST_CHECK;
             end
         end
 

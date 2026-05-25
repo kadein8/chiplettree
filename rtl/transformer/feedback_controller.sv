@@ -156,8 +156,10 @@ module feedback_controller #(
                     {{(POSITION_ID_W-1){1'b0}}, 1'b1};
 
                 // Feed bonus to HHT
+                // Parent must equal new_seed_node_id so tree_builder's
+                // cand_parent_node_id matches seed_node_id in the next round
                 hht_accept_valid <= 1'b1;
-                hht_accept_parent_node_id <= cur_node_w;
+                hht_accept_parent_node_id <= cur_node_w + {{(NODE_ID_W-1){1'b0}}, 1'b1};
                 hht_accept_token_id <= bonus_token_r;
                 hht_accept_position <= cur_position_w +
                     {{(POSITION_ID_W-1){1'b0}}, 1'b1};

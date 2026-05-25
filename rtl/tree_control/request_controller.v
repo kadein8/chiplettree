@@ -659,8 +659,10 @@ always @(posedge clk or negedge rst_n) begin
                         // 单条写不需要等更多读合并，直接去 ISSUE。
                         state_r <= STATE_ISSUE;
                     end else begin
-                        // 单条读先进入 COLLECT，看还能不能多收几条一起处理。
-                        state_r <= STATE_COLLECT;
+                        // 单条读也直接去 ISSUE（不等待收集更多请求）。
+                        // 原设计在此进入 STATE_COLLECT 等待 merge 机会，
+                        // 但对单路标量请求场景会引入 2 拍额外延迟。
+                        state_r <= STATE_ISSUE;
                     end
                 end
             end

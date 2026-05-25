@@ -42,23 +42,23 @@ module speculative_decode_e2e_top #(
     output logic                          token_out_valid,
     output logic [`TOKEN_ID_W-1:0]        token_out_id,
 
-    // SRAM interface
-    output logic                          sram_rd_valid,
-    input  logic                          sram_rd_ready,
-    output logic [`SRAM_ADDR_W-1:0]       sram_rd_addr,
-    input  logic                          sram_resp_valid,
-    input  logic [`SRAM_RDATA_W-1:0]      sram_resp_data,
-    output logic                          sram_wr_valid,
-    input  logic                          sram_wr_ready,
-    output logic [`SRAM_ADDR_W-1:0]       sram_wr_addr,
-    output logic [`SRAM_WDATA_W-1:0]      sram_wr_data,
-
-    // HBM interface
+    // HBM interface (retained for weight preload to SRAM)
     output logic                          hbm_rd_valid,
     input  logic                          hbm_rd_ready,
     output logic [`HBM_ADDR_W-1:0]        hbm_rd_addr,
     input  logic                          hbm_resp_valid,
-    input  logic [`HBM_DATA_W-1:0]        hbm_resp_data
+    input  logic [`HBM_DATA_W-1:0]        hbm_resp_data,
+
+    // SRAM preload interface (testbench writes weights before start)
+    input  logic                          sram_preload_valid,
+    input  logic [`SRAM_ADDR_W-1:0]       sram_preload_addr,
+    input  logic [`SRAM_WDATA_W-1:0]      sram_preload_data,
+
+    // HHT warmup interface (testbench injects accept records before start)
+    input  logic                          warmup_accept_valid,
+    input  logic [`NODE_ID_W-1:0]         warmup_accept_parent_node_id,
+    input  logic [`TOKEN_ID_W-1:0]        warmup_accept_token_id,
+    input  logic [`POSITION_ID_W-1:0]     warmup_accept_position
 );
 
 // =========================================================================
@@ -287,18 +287,28 @@ feedback_controller #(
 
 // Forward declarations for signals used before their module instantiation
 logic lc_done;
+logic [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] lc_out_token_id;
 
-// HHT accept mux: from feedback controller or from prefill/startup
-// Feed HHT during prefill completion AND during ST_PREDICT (to warm up history)
+// HHT accept mux: from feedback controller, prefill/startup, or testbench warmup
+wire prefill_done_accept = (state_r == ST_PREFILL && lc_done);
 assign hht_accept_valid = fb_hht_accept_valid ||
-    (state_r == ST_PREFILL && lc_done) ||
-    (state_r == ST_IDLE && start);
-assign hht_accept_parent_node_id = fb_hht_accept_valid ?
-    fb_hht_accept_parent_node_id : seed_node_id_r;
-assign hht_accept_token_id = fb_hht_accept_valid ?
-    fb_hht_accept_token_id : (start ? prompt_token_id : seed_token_id_r);
-assign hht_accept_position = fb_hht_accept_valid ?
-    fb_hht_accept_position : seed_position_r;
+    prefill_done_accept ||
+    (state_r == ST_IDLE && start) ||
+    warmup_accept_valid;
+// When prefill completes, the accept's parent must be the NEW seed_node_id (1),
+// not the old value (0). Otherwise tree_builder's seed_node_id won't match
+// cand_parent_node_id and the candidate will be discarded.
+wire [`NODE_ID_W-1:0] prefill_done_node_id = {{(`NODE_ID_W-1){1'b0}}, 1'b1};
+assign hht_accept_parent_node_id = warmup_accept_valid ? warmup_accept_parent_node_id :
+    (fb_hht_accept_valid ? fb_hht_accept_parent_node_id :
+     (prefill_done_accept ? prefill_done_node_id : seed_node_id_r));
+assign hht_accept_token_id = warmup_accept_valid ? warmup_accept_token_id :
+    (fb_hht_accept_valid ? fb_hht_accept_token_id :
+     (start ? prompt_token_id :
+      (prefill_done_accept ? lc_out_token_id[`TOKEN_ID_W-1:0] : seed_token_id_r)));
+assign hht_accept_position = warmup_accept_valid ? warmup_accept_position :
+    (fb_hht_accept_valid ? fb_hht_accept_position :
+     (prefill_done_accept ? {{(`POSITION_ID_W-1){1'b0}}, 1'b1} : seed_position_r));
 
 // =========================================================================
 // Layer Controller (transformer compute)
@@ -307,8 +317,32 @@ logic lc_start, lc_busy;
 logic [`TREE_FRONTIER_SLOTS-1:0] lc_slot_valid;
 logic [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] lc_slot_token_id;
 logic [`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0] lc_slot_position_id;
+logic [`TREE_FRONTIER_SLOTS*`TREE_FRONTIER_SLOTS-1:0] lc_tree_mask;
 logic [`TREE_FRONTIER_SLOTS-1:0] lc_out_token_valid;
-logic [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] lc_out_token_id;
+
+// Internal SRAM signals between layer_ctrl and request_controller
+logic        lc_sram_wr_valid, lc_sram_wr_ready;
+logic [`SRAM_ADDR_W-1:0] lc_sram_wr_addr;
+logic [`SRAM_WDATA_W-1:0] lc_sram_wr_data;
+
+// vec_req from layer_ctrl → request_controller
+logic [`MEM_REQ_LANES-1:0]                    lc_vec_req_valid;
+logic [`MEM_REQ_LANES-1:0]                    lc_vec_req_ready;
+logic [`MEM_REQ_LANES-1:0]                    lc_vec_req_write;
+logic [`MEM_REQ_LANES*`SRAM_ADDR_W-1:0]       lc_vec_req_addr;
+logic [`MEM_REQ_LANES*`SRAM_WDATA_W-1:0]      lc_vec_req_wdata;
+logic [`MEM_REQ_LANES*`REQ_ID_W-1:0]          lc_vec_req_req_id;
+logic [`MEM_REQ_LANES*`PE_MASK_W-1:0]         lc_vec_req_pe_mask;
+logic [`MEM_REQ_LANES*`REQ_PRIORITY_W-1:0]    lc_vec_req_priority;
+logic [`MEM_REQ_LANES*`BANK_ID_W-1:0]         lc_vec_req_bank_id;
+logic [`MEM_REQ_LANES*`SUBBANK_ID_W-1:0]      lc_vec_req_subbank_id;
+
+// mc_resp from multicast_network → layer_ctrl
+logic [`PE_MASK_W-1:0]                        lc_mc_resp_valid;
+logic [`PE_MASK_W-1:0]                        lc_mc_resp_ready;
+logic [`PE_MASK_W*`SRAM_RDATA_W-1:0]          lc_mc_resp_rdata;
+logic [`PE_MASK_W*`REQ_ID_W-1:0]              lc_mc_resp_req_id;
+logic [`PE_MASK_W-1:0]                        lc_mc_resp_last;
 
 PeArrayLayerController u_layer_ctrl (
     .clk(clk),
@@ -319,6 +353,7 @@ PeArrayLayerController u_layer_ctrl (
     .slot_valid(lc_slot_valid),
     .slot_token_id(lc_slot_token_id),
     .slot_position_id(lc_slot_position_id),
+    .tree_mask(lc_tree_mask),
     .embedding_base_addr(`MODEL_EMB_BASE),
     .hidden0_base_addr(`MODEL_WORK_HIDDEN0_BASE),
     .hidden1_base_addr(`MODEL_WORK_HIDDEN1_BASE),
@@ -328,15 +363,29 @@ PeArrayLayerController u_layer_ctrl (
     .final_norm_gamma_addr(`MODEL_FINAL_NORM_GAMMA_ADDR),
     .lm_head_weight_base_addr(`MODEL_LM_HEAD_WEIGHT_BASE),
     .hbm_weight_base_addr(`MODEL_HBM_WEIGHT_BASE),
-    .sram_rd_valid(sram_rd_valid),
-    .sram_rd_ready(sram_rd_ready),
-    .sram_rd_addr(sram_rd_addr),
-    .sram_resp_valid(sram_resp_valid),
-    .sram_resp_data(sram_resp_data),
-    .sram_wr_valid(sram_wr_valid),
-    .sram_wr_ready(sram_wr_ready),
-    .sram_wr_addr(sram_wr_addr),
-    .sram_wr_data(sram_wr_data),
+    // vec_req → request_controller
+    .vec_req_valid(lc_vec_req_valid),
+    .vec_req_ready(lc_vec_req_ready),
+    .vec_req_write(lc_vec_req_write),
+    .vec_req_addr(lc_vec_req_addr),
+    .vec_req_wdata(lc_vec_req_wdata),
+    .vec_req_req_id(lc_vec_req_req_id),
+    .vec_req_pe_mask(lc_vec_req_pe_mask),
+    .vec_req_priority(lc_vec_req_priority),
+    .vec_req_bank_id(lc_vec_req_bank_id),
+    .vec_req_subbank_id(lc_vec_req_subbank_id),
+    // mc_resp ← multicast_network
+    .mc_resp_valid(lc_mc_resp_valid),
+    .mc_resp_ready(lc_mc_resp_ready),
+    .mc_resp_rdata(lc_mc_resp_rdata),
+    .mc_resp_req_id(lc_mc_resp_req_id),
+    .mc_resp_last(lc_mc_resp_last),
+    // Scalar write
+    .sram_wr_valid(lc_sram_wr_valid),
+    .sram_wr_ready(lc_sram_wr_ready),
+    .sram_wr_addr(lc_sram_wr_addr),
+    .sram_wr_data(lc_sram_wr_data),
+    // HBM
     .hbm_rd_valid(hbm_rd_valid),
     .hbm_rd_ready(hbm_rd_ready),
     .hbm_rd_addr(hbm_rd_addr),
@@ -347,6 +396,202 @@ PeArrayLayerController u_layer_ctrl (
 );
 
 // =========================================================================
+// Shared SRAM Infrastructure: request_controller + sram_subsystem + multicast
+// =========================================================================
+
+// Address field extraction for scalar write path
+wire [`BANK_ID_W-1:0] rc_wr_bank_id =
+    lc_sram_wr_addr[`OFFSET_W + `ROW_ADDR_W + `SUBBANK_ID_W +: `BANK_ID_W];
+wire [`SUBBANK_ID_W-1:0] rc_wr_subbank_id =
+    lc_sram_wr_addr[`OFFSET_W + `ROW_ADDR_W +: `SUBBANK_ID_W];
+
+// request_controller ↔ sram_subsystem wires
+wire [`MEM_REQ_LANES-1:0] mem_req_valid_w;
+wire [`MEM_REQ_LANES-1:0] mem_req_ready_w;
+wire [`MEM_REQ_LANES-1:0] mem_req_write_w;
+wire [`MEM_REQ_LANES*`SRAM_ADDR_W-1:0] mem_req_addr_w;
+wire [`MEM_REQ_LANES*`SRAM_WDATA_W-1:0] mem_req_wdata_w;
+wire [`MEM_REQ_LANES*`REQ_ID_W-1:0] mem_req_id_w;
+wire [`MEM_REQ_LANES-1:0] mem_resp_valid_w;
+wire [`MEM_REQ_LANES*`SRAM_RDATA_W-1:0] mem_resp_rdata_w;
+wire [`MEM_REQ_LANES*`REQ_ID_W-1:0] mem_resp_id_w;
+wire [`MEM_REQ_LANES-1:0] mem_resp_last_w;
+
+// request_controller → multicast_network wires
+wire [`MEM_REQ_LANES-1:0] rc_resp_out_valid_w;
+wire [`MEM_REQ_LANES-1:0] rc_resp_out_ready_w;
+wire [`MEM_REQ_LANES*`SRAM_RDATA_W-1:0] rc_resp_out_rdata_w;
+wire [`MEM_REQ_LANES*`REQ_ID_W-1:0] rc_resp_out_req_id_w;
+wire [`MEM_REQ_LANES*`PE_MASK_W-1:0] rc_resp_out_pe_mask_w;
+wire [`MEM_REQ_LANES-1:0] rc_resp_out_last_w;
+
+// multicast_network → PE outputs (directly to layer_ctrl)
+wire [`PE_MASK_W-1:0] mc_pe_valid_w;
+wire [`PE_MASK_W-1:0] mc_pe_ready_w;
+wire [`PE_MASK_W*`SRAM_RDATA_W-1:0] mc_pe_rdata_w;
+wire [`PE_MASK_W*`REQ_ID_W-1:0] mc_pe_req_id_w;
+wire [`PE_MASK_W*`PE_MASK_W-1:0] mc_pe_mask_w;
+wire [`PE_MASK_W-1:0] mc_pe_last_w;
+assign lc_mc_resp_valid = mc_pe_valid_w;
+assign lc_mc_resp_rdata = mc_pe_rdata_w;
+assign lc_mc_resp_req_id = mc_pe_req_id_w;
+assign lc_mc_resp_last = mc_pe_last_w;
+assign mc_pe_ready_w = lc_mc_resp_ready;
+
+// Scalar write path: mux preload / compute_write into req_in
+// Priority: preload > compute_write
+wire rc_req_in_valid = sram_preload_valid || lc_sram_wr_valid;
+wire rc_req_in_write = 1'b1;  // req_in is always write now (reads go via vec_req)
+wire [`SRAM_ADDR_W-1:0] rc_req_in_addr =
+    sram_preload_valid ? sram_preload_addr : lc_sram_wr_addr;
+wire [`SRAM_WDATA_W-1:0] rc_req_in_wdata =
+    sram_preload_valid ? sram_preload_data : lc_sram_wr_data;
+wire [`BANK_ID_W-1:0] rc_req_in_bank_id =
+    sram_preload_valid ?
+        sram_preload_addr[`OFFSET_W + `ROW_ADDR_W + `SUBBANK_ID_W +: `BANK_ID_W] :
+        rc_wr_bank_id;
+wire [`SUBBANK_ID_W-1:0] rc_req_in_subbank_id =
+    sram_preload_valid ?
+        sram_preload_addr[`OFFSET_W + `ROW_ADDR_W +: `SUBBANK_ID_W] :
+        rc_wr_subbank_id;
+wire rc_req_in_ready;
+
+assign lc_sram_wr_ready = rc_req_in_ready && !sram_preload_valid;
+
+request_controller u_req_ctrl (
+    .clk(clk),
+    .rst_n(rst_n),
+    // Scalar input (writes only: preload + KV commit)
+    .req_in_valid(rc_req_in_valid),
+    .req_in_ready(rc_req_in_ready),
+    .req_in_write(rc_req_in_write),
+    .req_in_addr(rc_req_in_addr),
+    .req_in_wdata(rc_req_in_wdata),
+    .req_in_req_id({`REQ_ID_W{1'b0}}),
+    .req_in_pe_mask({`PE_MASK_W{1'b0}}),
+    .req_in_priority(2'b00),
+    .req_in_bank_id(rc_req_in_bank_id),
+    .req_in_subbank_id(rc_req_in_subbank_id),
+    // Vector input from layer_ctrl (reads + broadcast)
+    .vec_req_valid(lc_vec_req_valid),
+    .vec_req_ready(lc_vec_req_ready),
+    .vec_req_write(lc_vec_req_write),
+    .vec_req_addr(lc_vec_req_addr),
+    .vec_req_wdata(lc_vec_req_wdata),
+    .vec_req_req_id(lc_vec_req_req_id),
+    .vec_req_pe_mask(lc_vec_req_pe_mask),
+    .vec_req_priority(lc_vec_req_priority),
+    .vec_req_bank_id(lc_vec_req_bank_id),
+    .vec_req_subbank_id(lc_vec_req_subbank_id),
+    // To sram_subsystem
+    .mem_req_valid(mem_req_valid_w),
+    .mem_req_ready(mem_req_ready_w),
+    .mem_req_write(mem_req_write_w),
+    .mem_req_addr(mem_req_addr_w),
+    .mem_req_wdata(mem_req_wdata_w),
+    .mem_req_id(mem_req_id_w),
+    .mem_resp_valid(mem_resp_valid_w),
+    .mem_resp_rdata(mem_resp_rdata_w),
+    .mem_resp_id(mem_resp_id_w),
+    .mem_resp_last(mem_resp_last_w),
+    // To multicast_network
+    .resp_out_valid(rc_resp_out_valid_w),
+    .resp_out_ready(rc_resp_out_ready_w),
+    .resp_out_rdata(rc_resp_out_rdata_w),
+    .resp_out_req_id(rc_resp_out_req_id_w),
+    .resp_out_pe_mask(rc_resp_out_pe_mask_w),
+    .resp_out_last(rc_resp_out_last_w)
+);
+
+// =========================================================================
+// Behavioral SRAM model (sram_subsystem has VCS unpacked-array issue)
+// Single flat array, 1-cycle read latency, always ready
+// =========================================================================
+localparam BEHAV_SRAM_DEPTH = 524288;
+reg [`SRAM_RDATA_W-1:0] behav_sram [0:BEHAV_SRAM_DEPTH-1];
+assign mem_req_ready_w = {`MEM_REQ_LANES{1'b1}};
+reg [`MEM_REQ_LANES-1:0]                  behav_resp_valid_r;
+reg [`MEM_REQ_LANES*`SRAM_RDATA_W-1:0]   behav_resp_rdata_r;
+reg [`MEM_REQ_LANES*`REQ_ID_W-1:0]       behav_resp_id_r;
+reg [`MEM_REQ_LANES-1:0]                  behav_resp_last_r;
+assign mem_resp_valid_w = behav_resp_valid_r;
+assign mem_resp_rdata_w = behav_resp_rdata_r;
+assign mem_resp_id_w = behav_resp_id_r;
+assign mem_resp_last_w = behav_resp_last_r;
+integer sram_lane_i;
+always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) begin
+        behav_resp_valid_r <= {`MEM_REQ_LANES{1'b0}};
+        behav_resp_rdata_r <= {(`MEM_REQ_LANES*`SRAM_RDATA_W){1'b0}};
+        behav_resp_id_r <= {(`MEM_REQ_LANES*`REQ_ID_W){1'b0}};
+        behav_resp_last_r <= {`MEM_REQ_LANES{1'b0}};
+    end else begin
+        behav_resp_valid_r <= {`MEM_REQ_LANES{1'b0}};
+        for (sram_lane_i = 0; sram_lane_i < `MEM_REQ_LANES; sram_lane_i = sram_lane_i + 1) begin
+            if (mem_req_valid_w[sram_lane_i]) begin
+                if (mem_req_write_w[sram_lane_i])
+                    behav_sram[mem_req_addr_w[sram_lane_i*`SRAM_ADDR_W +: `SRAM_ADDR_W]] <=
+                        mem_req_wdata_w[sram_lane_i*`SRAM_WDATA_W +: `SRAM_WDATA_W];
+                else begin
+                    behav_resp_valid_r[sram_lane_i] <= 1'b1;
+                    behav_resp_rdata_r[sram_lane_i*`SRAM_RDATA_W +: `SRAM_RDATA_W] <=
+                        behav_sram[mem_req_addr_w[sram_lane_i*`SRAM_ADDR_W +: `SRAM_ADDR_W]];
+                    behav_resp_id_r[sram_lane_i*`REQ_ID_W +: `REQ_ID_W] <=
+                        mem_req_id_w[sram_lane_i*`REQ_ID_W +: `REQ_ID_W];
+                    behav_resp_last_r[sram_lane_i] <= 1'b1;
+                end
+            end
+        end
+    end
+end
+
+multicast_network u_multicast (
+    .resp_in_valid(rc_resp_out_valid_w),
+    .resp_in_ready(rc_resp_out_ready_w),
+    .resp_in_rdata(rc_resp_out_rdata_w),
+    .resp_in_req_id(rc_resp_out_req_id_w),
+    .resp_in_pe_mask(rc_resp_out_pe_mask_w),
+    .resp_in_last(rc_resp_out_last_w),
+    .pe_valid(mc_pe_valid_w),
+    .pe_ready(mc_pe_ready_w),
+    .pe_rdata(mc_pe_rdata_w),
+    .pe_req_id(mc_pe_req_id_w),
+    .pe_mask(mc_pe_mask_w),
+    .pe_last(mc_pe_last_w)
+);
+
+// synthesis translate_off
+reg [31:0] dbg_cycle_cnt;
+always @(posedge clk or negedge rst_n) begin
+    if (!rst_n) dbg_cycle_cnt <= 0;
+    else dbg_cycle_cnt <= dbg_cycle_cnt + 1;
+end
+// Tree path debug: show key state transitions only
+always @(posedge clk) begin
+    if (tb_done)
+        $display("[DBG c%0d] TREE: tree_builder done, branch_valid=%b seed_node=%0d",
+            dbg_cycle_cnt, tb_branch_valid, seed_node_id_r);
+    if (state_r == ST_VERIFY && tvd_batch_out_valid)
+        $display("[DBG c%0d] VERIFY: batch count=%0d tokens[0]=%0d",
+            dbg_cycle_cnt, tvd_batch_out_count,
+            tvd_batch_out_token_ids[`TOKEN_ID_W-1:0]);
+    if (state_r == ST_VERIFY && lc_done)
+        $display("[DBG c%0d] VERIFY: lc_done, sending fwd results", dbg_cycle_cnt);
+    // Debug HHT state entering ST_BUILD
+    if (state_r == ST_PREDICT)
+        $display("[DBG c%0d] PREDICT: seed_node=%0d hht_cand_valid=%b cand_parent=%0d cand_token=%0d",
+            dbg_cycle_cnt, seed_node_id_r, hht_cand_valid, hht_cand_parent_node_id, hht_cand_token_id);
+    // Debug feedback accept
+    if (fb_hht_accept_valid)
+        $display("[DBG c%0d] FB_ACCEPT: token=%0d parent=%0d",
+            dbg_cycle_cnt, fb_hht_accept_token_id, fb_hht_accept_parent_node_id);
+    if (fb_new_seed_valid)
+        $display("[DBG c%0d] FB_NEW_SEED: node=%0d token=%0d",
+            dbg_cycle_cnt, fb_new_seed_node_id, fb_new_seed_token_id);
+end
+// synthesis translate_on
+
+// =========================================================================
 // Prefill logic
 // =========================================================================
 logic prefill_done_w;
@@ -354,7 +599,8 @@ assign prefill_done_w = lc_done && (state_r == ST_PREFILL);
 
 // Connect batch forward results from layer controller to dispatcher
 // When dispatcher sends batch, we run layer controller and return results
-assign tvd_batch_out_ready = (state_r == ST_VERIFY) && !lc_busy;
+// Only assert ready when valid is high (proper handshake: transfer on valid && ready)
+assign tvd_batch_out_ready = tvd_batch_out_valid && (state_r == ST_VERIFY) && !lc_busy;
 
 // =========================================================================
 // Main state machine
@@ -379,6 +625,7 @@ always_ff @(posedge clk or negedge rst_n) begin
         lc_slot_valid <= '0;
         lc_slot_token_id <= '0;
         lc_slot_position_id <= '0;
+        lc_tree_mask <= '0;
         tvd_fwd_result_valid <= 1'b0;
         tvd_fwd_result_count <= 5'd0;
         tvd_fwd_result_token_ids <= '0;
@@ -412,6 +659,7 @@ always_ff @(posedge clk or negedge rst_n) begin
                 lc_slot_token_id <= {{((`TREE_FRONTIER_SLOTS-1)*`TOKEN_ID_W){1'b0}},
                                      prompt_token_id};
                 lc_slot_position_id <= '0;
+                lc_tree_mask <= '0; // causal mode for prefill
             end
         end
 
@@ -448,6 +696,7 @@ always_ff @(posedge clk or negedge rst_n) begin
                                          seed_token_id_r};
                     lc_slot_position_id <= {{((`TREE_FRONTIER_SLOTS-1)*`POSITION_ID_W){1'b0}},
                                             seed_position_r};
+                    lc_tree_mask <= '0; // causal mode for fallback
                     state_r <= ST_FALLBACK;
                 end
             end
@@ -456,23 +705,43 @@ always_ff @(posedge clk or negedge rst_n) begin
         ST_VERIFY: begin
             // Wait for dispatcher to send batch, then run transformer
             if (tvd_batch_out_valid && !lc_busy) begin
-                // Start layer controller with batch tokens
+                // Start layer controller with full verify window
                 lc_start <= 1'b1;
-                lc_slot_valid <= {`TREE_FRONTIER_SLOTS{1'b1}};
-                // Map batch tokens to slot inputs (simplified)
-                lc_slot_token_id <= tvd_batch_out_token_ids[`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0];
-                lc_slot_position_id <=
-                    tvd_batch_out_positions[`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0];
+                // Set valid bits based on batch_out_count
+                lc_slot_valid <= '0;
+                begin : set_verify_valid
+                    integer vi;
+                    for (vi = 0; vi < WINDOW_SIZE; vi = vi + 1)
+                        if (vi < tvd_batch_out_count)
+                            lc_slot_valid[vi] <= 1'b1;
+                end
+                // Map batch tokens and positions to layer controller inputs
+                begin : map_verify_tokens
+                    integer vi;
+                    for (vi = 0; vi < WINDOW_SIZE; vi = vi + 1) begin
+                        lc_slot_token_id[vi*`TOKEN_ID_W +: `TOKEN_ID_W] <=
+                            tvd_batch_out_token_ids[vi*32 +: `TOKEN_ID_W];
+                        lc_slot_position_id[vi*`POSITION_ID_W +: `POSITION_ID_W] <=
+                            tvd_batch_out_positions[vi*16 +: `POSITION_ID_W];
+                    end
+                end
+                // Pass tree mask to layer controller
+                lc_tree_mask <= tvd_batch_out_tree_mask;
             end
 
-            // When layer controller finishes, send results back to dispatcher
+            // When layer controller finishes, send all slot results to dispatcher
             if (lc_done) begin
                 tvd_fwd_result_valid <= 1'b1;
                 tvd_fwd_result_count <= tvd_batch_out_count;
-                tvd_fwd_result_token_ids <= {(WINDOW_SIZE*32){1'b0}};
-                // Fill in argmax results from layer controller
-                tvd_fwd_result_token_ids[`TOKEN_ID_W-1:0] <=
-                    lc_out_token_id[`TOKEN_ID_W-1:0];
+                // Pack all slot argmax results into fwd_result_token_ids
+                begin : pack_fwd_results
+                    integer vi;
+                    for (vi = 0; vi < WINDOW_SIZE; vi = vi + 1) begin
+                        tvd_fwd_result_token_ids[vi*32 +: 32] <=
+                            {{(32-`TOKEN_ID_W){1'b0}},
+                             lc_out_token_id[vi*`TOKEN_ID_W +: `TOKEN_ID_W]};
+                    end
+                end
             end
 
             // Wait for commit
@@ -482,15 +751,15 @@ always_ff @(posedge clk or negedge rst_n) begin
         end
 
         ST_FEEDBACK: begin
+            // Latch new seed when feedback emits it (fires 1 cycle before fb_done)
+            if (fb_new_seed_valid) begin
+                seed_node_id_r <= fb_new_seed_node_id;
+                seed_token_id_r <= fb_new_seed_token_id;
+                seed_position_r <= fb_new_seed_position;
+                committed_prefix_len_r <= committed_prefix_len_r +
+                    {13'd0, tvd_commit_depth} + 16'd1;
+            end
             if (fb_done) begin
-                // Update seed from feedback
-                if (fb_new_seed_valid) begin
-                    seed_node_id_r <= fb_new_seed_node_id;
-                    seed_token_id_r <= fb_new_seed_token_id;
-                    seed_position_r <= fb_new_seed_position;
-                    committed_prefix_len_r <= committed_prefix_len_r +
-                        {13'd0, tvd_commit_depth} + 16'd1;
-                end
                 state_r <= ST_CHECK;
             end
         end

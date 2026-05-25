@@ -38,8 +38,8 @@ module sram_subbank (
     output                      resp_last
 );
 
-// 该 subbank 内可寻址的 beat 数。
-localparam integer SUBBANK_DEPTH = `SUBBANK_SIZE_BYTES;
+// 该 subbank 内可寻址的 beat 数（由 ROW_ADDR_W 决定实际深度）。
+localparam integer SUBBANK_DEPTH = (1 << `ROW_ADDR_W);  // 256
 
 // 实际存储阵列。
 reg [`SRAM_RDATA_W-1:0] storage_beats [0:SUBBANK_DEPTH-1];

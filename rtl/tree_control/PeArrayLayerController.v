@@ -36,6 +36,9 @@ module PeArrayLayerController #(
     input  [NUM_SLOTS-1:0]             slot_valid,
     input  [NUM_SLOTS*`TOKEN_ID_W-1:0] slot_token_id,
     input  [NUM_SLOTS*`POSITION_ID_W-1:0] slot_position_id,
+    // Tree mask: WINDOW_SIZE x WINDOW_SIZE visibility matrix from dispatcher
+    // When non-zero, overrides causal mask generation with tree-aware mask
+    input  [NUM_SLOTS*NUM_SLOTS-1:0]  tree_mask,
     input  [`SRAM_ADDR_W-1:0]          embedding_base_addr,
     input  [`SRAM_ADDR_W-1:0]          hidden0_base_addr,
     input  [`SRAM_ADDR_W-1:0]          hidden1_base_addr,
@@ -45,11 +48,24 @@ module PeArrayLayerController #(
     input  [`SRAM_ADDR_W-1:0]          final_norm_gamma_addr,
     input  [`SRAM_ADDR_W-1:0]          lm_head_weight_base_addr,
     input  [`HBM_ADDR_W-1:0]           hbm_weight_base_addr,
-    output reg                         sram_rd_valid,
-    input                              sram_rd_ready,
-    output reg [`SRAM_ADDR_W-1:0]      sram_rd_addr,
-    input                              sram_resp_valid,
-    input  [`SRAM_RDATA_W-1:0]         sram_resp_data,
+    // Vector request output (16 lanes → request_controller)
+    output reg  [`MEM_REQ_LANES-1:0]                    vec_req_valid,
+    input       [`MEM_REQ_LANES-1:0]                    vec_req_ready,
+    output reg  [`MEM_REQ_LANES-1:0]                    vec_req_write,
+    output reg  [`MEM_REQ_LANES*`SRAM_ADDR_W-1:0]       vec_req_addr,
+    output reg  [`MEM_REQ_LANES*`SRAM_WDATA_W-1:0]      vec_req_wdata,
+    output reg  [`MEM_REQ_LANES*`REQ_ID_W-1:0]          vec_req_req_id,
+    output reg  [`MEM_REQ_LANES*`PE_MASK_W-1:0]         vec_req_pe_mask,
+    output reg  [`MEM_REQ_LANES*`REQ_PRIORITY_W-1:0]    vec_req_priority,
+    output reg  [`MEM_REQ_LANES*`BANK_ID_W-1:0]         vec_req_bank_id,
+    output reg  [`MEM_REQ_LANES*`SUBBANK_ID_W-1:0]      vec_req_subbank_id,
+    // Multicast response input (16 PEs ← multicast_network)
+    input       [`PE_MASK_W-1:0]                        mc_resp_valid,
+    output reg  [`PE_MASK_W-1:0]                        mc_resp_ready,
+    input       [`PE_MASK_W*`SRAM_RDATA_W-1:0]          mc_resp_rdata,
+    input       [`PE_MASK_W*`REQ_ID_W-1:0]              mc_resp_req_id,
+    input       [`PE_MASK_W-1:0]                        mc_resp_last,
+    // Scalar write (KV commit path, still through req_in)
     output reg                         sram_wr_valid,
     input                              sram_wr_ready,
     output reg [`SRAM_ADDR_W-1:0]      sram_wr_addr,
@@ -62,6 +78,90 @@ module PeArrayLayerController #(
     output reg [NUM_SLOTS-1:0]         out_token_valid,
     output reg [NUM_SLOTS*`TOKEN_ID_W-1:0] out_token_id
 );
+
+// =========================================================================
+// Internal scalar SRAM interface (compatibility with state machine)
+// These are mapped to vec_req/mc_resp by the adapter logic below.
+// =========================================================================
+reg                         sram_rd_valid;
+wire                        sram_rd_ready;
+reg  [`SRAM_ADDR_W-1:0]    sram_rd_addr;
+wire                        sram_resp_valid;
+wire [`SRAM_RDATA_W-1:0]   sram_resp_data;
+
+// Parallel embedding read mode
+reg                         embed_parallel_mode_r;  // 1 = multi-lane embed read active
+reg  [`MEM_REQ_LANES-1:0]  embed_lane_valid_r;     // which lanes have pending embed reads
+reg  [`MEM_REQ_LANES*`SRAM_ADDR_W-1:0] embed_lane_addr_r;
+reg  [`MEM_REQ_LANES-1:0]  embed_lane_done_r;      // which lanes got responses
+
+// Request ID counter for vec_req
+reg  [`REQ_ID_W-1:0]       vec_req_id_cnt_r;
+
+// Address field extraction helpers
+wire [`BANK_ID_W-1:0]    addr_bank_id_w    = sram_rd_addr[`OFFSET_W + `ROW_ADDR_W + `SUBBANK_ID_W +: `BANK_ID_W];
+wire [`SUBBANK_ID_W-1:0] addr_subbank_id_w = sram_rd_addr[`OFFSET_W + `ROW_ADDR_W +: `SUBBANK_ID_W];
+
+// =========================================================================
+// vec_req / mc_resp adapter: scalar → multi-lane
+// =========================================================================
+// Normal mode (weight/gamma reads): lane 0, pe_mask = 0xFFFF (broadcast)
+// Parallel embed mode: up to 16 lanes, each one-hot pe_mask
+// mc_resp[0] feeds back as sram_resp for normal mode
+assign sram_rd_ready = embed_parallel_mode_r ? 1'b0 : vec_req_ready[0];
+assign sram_resp_valid = embed_parallel_mode_r ? 1'b0 : mc_resp_valid[0];
+assign sram_resp_data = mc_resp_rdata[0 +: `SRAM_RDATA_W];
+
+always @(*) begin : vec_req_adapter
+    integer vi;
+    // Defaults
+    vec_req_valid = {`MEM_REQ_LANES{1'b0}};
+    vec_req_write = {`MEM_REQ_LANES{1'b0}};
+    vec_req_addr = {(`MEM_REQ_LANES*`SRAM_ADDR_W){1'b0}};
+    vec_req_wdata = {(`MEM_REQ_LANES*`SRAM_WDATA_W){1'b0}};
+    vec_req_req_id = {(`MEM_REQ_LANES*`REQ_ID_W){1'b0}};
+    vec_req_pe_mask = {(`MEM_REQ_LANES*`PE_MASK_W){1'b0}};
+    vec_req_priority = {(`MEM_REQ_LANES*`REQ_PRIORITY_W){1'b0}};
+    vec_req_bank_id = {(`MEM_REQ_LANES*`BANK_ID_W){1'b0}};
+    vec_req_subbank_id = {(`MEM_REQ_LANES*`SUBBANK_ID_W){1'b0}};
+    mc_resp_ready = {`PE_MASK_W{1'b0}};
+
+    if (embed_parallel_mode_r) begin
+        // Parallel embedding mode: each lane reads a different slot's embedding
+        for (vi = 0; vi < `MEM_REQ_LANES; vi = vi + 1) begin
+            vec_req_valid[vi] = embed_lane_valid_r[vi] && !embed_lane_done_r[vi];
+            vec_req_addr[vi*`SRAM_ADDR_W +: `SRAM_ADDR_W] =
+                embed_lane_addr_r[vi*`SRAM_ADDR_W +: `SRAM_ADDR_W];
+            vec_req_req_id[vi*`REQ_ID_W +: `REQ_ID_W] = vec_req_id_cnt_r;
+            // One-hot pe_mask: lane i → PE i
+            vec_req_pe_mask[vi*`PE_MASK_W + vi] = 1'b1;
+            vec_req_bank_id[vi*`BANK_ID_W +: `BANK_ID_W] =
+                embed_lane_addr_r[vi*`SRAM_ADDR_W + `OFFSET_W + `ROW_ADDR_W + `SUBBANK_ID_W +: `BANK_ID_W];
+            vec_req_subbank_id[vi*`SUBBANK_ID_W +: `SUBBANK_ID_W] =
+                embed_lane_addr_r[vi*`SRAM_ADDR_W + `OFFSET_W + `ROW_ADDR_W +: `SUBBANK_ID_W];
+        end
+        // Accept responses on all PEs
+        mc_resp_ready = {`PE_MASK_W{1'b1}};
+    end else begin
+        // Normal broadcast mode: lane 0, pe_mask = all-ones
+        vec_req_valid[0] = sram_rd_valid;
+        vec_req_addr[0 +: `SRAM_ADDR_W] = sram_rd_addr;
+        vec_req_req_id[0 +: `REQ_ID_W] = vec_req_id_cnt_r;
+        vec_req_pe_mask[0 +: `PE_MASK_W] = {`PE_MASK_W{1'b1}};  // broadcast
+        vec_req_bank_id[0 +: `BANK_ID_W] = addr_bank_id_w;
+        vec_req_subbank_id[0 +: `SUBBANK_ID_W] = addr_subbank_id_w;
+        // PE 0 response → scalar sram_resp
+        mc_resp_ready[0] = 1'b1;
+    end
+end
+
+// vec_req_id counter
+always @(posedge clk or negedge rst_n) begin
+    if (!rst_n)
+        vec_req_id_cnt_r <= {`REQ_ID_W{1'b0}};
+    else if (|vec_req_valid & |vec_req_ready)
+        vec_req_id_cnt_r <= vec_req_id_cnt_r + {{(`REQ_ID_W-1){1'b0}}, 1'b1};
+end
 
 // Weight tile sizes in SRAM beats (elements / BEAT_ELEMS):
 // 128×128 matrix = 16384 elements = 2048 beats
@@ -132,7 +232,7 @@ reg [5:0] layer_idx_r;
 reg [11:0] beat_cnt_r;   // up to 3072 for FFN down input
 reg [11:0] resp_cnt_r;
 reg [8:0] out_group_r;   // output group index (max 384 = 3072/8)
-reg [1:0] load_slot_r;
+reg [4:0] load_slot_r;
 reg [15:0] hbm_cnt_r;
 
 // Per-slot vectors (128 × 16-bit = 2048 bits each)
@@ -370,6 +470,10 @@ always @(posedge clk or negedge rst_n) begin
         done <= 1'b0;
         sram_rd_valid <= 1'b0;
         sram_wr_valid <= 1'b0;
+        embed_parallel_mode_r <= 1'b0;
+        embed_lane_valid_r <= {`MEM_REQ_LANES{1'b0}};
+        embed_lane_addr_r <= {(`MEM_REQ_LANES*`SRAM_ADDR_W){1'b0}};
+        embed_lane_done_r <= {`MEM_REQ_LANES{1'b0}};
         hbm_rd_valid <= 1'b0;
         out_token_valid <= {NUM_SLOTS{1'b0}};
         out_token_id <= {(NUM_SLOTS*`TOKEN_ID_W){1'b0}};
@@ -411,44 +515,144 @@ always @(posedge clk or negedge rst_n) begin
                 lat_token_id_r <= slot_token_id;
                 layer_idx_r <= 6'd0;
                 op_r <= OP_EMBED;
-                load_slot_r <= 2'd0;
+                load_slot_r <= 5'd0;
                 beat_cnt_r <= 9'd0;
                 resp_cnt_r <= 9'd0;
                 state_r <= ST_EMBED_RD;
-                // Generate causal visible mask from position for each slot
-                // mask[pos] = 1 for pos <= current_position (causal attention)
-                for (i = 0; i < NUM_SLOTS; i = i + 1) begin : gen_mask_blk
-                    integer mi;
-                    for (mi = 0; mi < MAX_POS; mi = mi + 1) begin
-                        if (mi <= slot_position_id[i*`POSITION_ID_W +: `POSITION_ID_W])
-                            slot_visible_mask_r[i*MAX_POS + mi] <= 1'b1;
-                        else
+                // Generate visible mask: use tree_mask if provided, else causal
+                if (|tree_mask) begin
+                    // Tree-parallel mode: convert slot-level tree_mask to position-level mask
+                    // Each slot sees committed prefix positions + positions of visible slots
+                    for (i = 0; i < NUM_SLOTS; i = i + 1) begin : gen_tree_mask_blk
+                        integer mi, sj;
+                        // First: mark committed prefix as visible (positions 0..pos-MAX_LEVELS-1)
+                        for (mi = 0; mi < MAX_POS; mi = mi + 1) begin
                             slot_visible_mask_r[i*MAX_POS + mi] <= 1'b0;
+                        end
+                        // Mark positions of all visible slots (from tree_mask row i)
+                        for (sj = 0; sj < NUM_SLOTS; sj = sj + 1) begin
+                            if (tree_mask[i*NUM_SLOTS + sj] && slot_valid[sj]) begin
+                                slot_visible_mask_r[i*MAX_POS +
+                                    slot_position_id[sj*`POSITION_ID_W +: `POSITION_ID_W]] <= 1'b1;
+                            end
+                        end
+                    end
+                end else begin
+                    // Standard causal mode: mask[pos] = 1 for pos <= current_position
+                    for (i = 0; i < NUM_SLOTS; i = i + 1) begin : gen_mask_blk
+                        integer mi;
+                        for (mi = 0; mi < MAX_POS; mi = mi + 1) begin
+                            if (mi <= slot_position_id[i*`POSITION_ID_W +: `POSITION_ID_W])
+                                slot_visible_mask_r[i*MAX_POS + mi] <= 1'b1;
+                            else
+                                slot_visible_mask_r[i*MAX_POS + mi] <= 1'b0;
+                        end
                     end
                 end
             end
         end
 
         // =================================================================
-        // EMBEDDING READ (pipelined)
+        // EMBEDDING READ — parallel multi-lane
+        // Phase 1: slots 0..15 via 16 lanes simultaneously (beat_cnt_r beats)
+        // Phase 2: slot 16 (if active) via lane 0 only
+        // embed_parallel_mode_r controls the vec_req adapter
         ST_EMBED_RD: begin
-            if (beat_cnt_r < HIDDEN_BEATS) begin
-                sram_rd_valid <= 1'b1;
-                sram_rd_addr <= embedding_base_addr +
-                    (lat_token_id_r[load_slot_r*`TOKEN_ID_W +: `TOKEN_ID_W] * HIDDEN_BEATS) +
-                    beat_cnt_r;
-                if (sram_rd_ready) beat_cnt_r <= beat_cnt_r + 9'd1;
-            end
-            if (sram_resp_valid) begin
-                slot_hidden_r[load_slot_r][resp_cnt_r*BEAT_ELEMS*DATA_W +: BEAT_ELEMS*DATA_W]
-                    <= sram_resp_data[BEAT_ELEMS*DATA_W-1:0];
-                resp_cnt_r <= resp_cnt_r + 9'd1;
-                if (resp_cnt_r == HIDDEN_BEATS - 1) begin
-                    if (load_slot_r < NUM_SLOTS-1 && active_slots_r[load_slot_r+1]) begin
-                        load_slot_r <= load_slot_r + 2'd1;
-                        beat_cnt_r <= 9'd0; resp_cnt_r <= 9'd0;
+            if (!embed_parallel_mode_r) begin
+                // Setup phase: configure parallel lanes for first batch
+                embed_parallel_mode_r <= 1'b1;
+                embed_lane_done_r <= {`MEM_REQ_LANES{1'b0}};
+                beat_cnt_r <= 12'd0;
+                resp_cnt_r <= 12'd0;
+                // Set up lane addresses for current beat (beat 0)
+                for (i = 0; i < `MEM_REQ_LANES; i = i + 1) begin
+                    if (i < NUM_SLOTS && active_slots_r[i] && load_slot_r == 5'd0) begin
+                        embed_lane_valid_r[i] <= 1'b1;
+                        embed_lane_addr_r[i*`SRAM_ADDR_W +: `SRAM_ADDR_W] <=
+                            embedding_base_addr +
+                            (lat_token_id_r[i*`TOKEN_ID_W +: `TOKEN_ID_W] * HIDDEN_BEATS);
                     end else begin
-                        // All embeddings loaded → start layer 0
+                        embed_lane_valid_r[i] <= 1'b0;
+                    end
+                end
+            end else if (load_slot_r == 5'd0) begin
+                // Phase 1: parallel read for slots 0..15
+                // Check which lanes got accepted this cycle
+                for (i = 0; i < `MEM_REQ_LANES; i = i + 1) begin
+                    if (embed_lane_valid_r[i] && vec_req_ready[i])
+                        embed_lane_done_r[i] <= 1'b1;
+                end
+                // Capture responses from multicast
+                for (i = 0; i < `MEM_REQ_LANES; i = i + 1) begin
+                    if (mc_resp_valid[i] && i < NUM_SLOTS && active_slots_r[i]) begin
+                        slot_hidden_r[i][resp_cnt_r*BEAT_ELEMS*DATA_W +: BEAT_ELEMS*DATA_W]
+                            <= mc_resp_rdata[i*`SRAM_RDATA_W +: BEAT_ELEMS*DATA_W];
+                    end
+                end
+                // When all lanes accepted, advance to next beat
+                if ((embed_lane_valid_r & ~embed_lane_done_r) == {`MEM_REQ_LANES{1'b0}} &&
+                    |embed_lane_valid_r) begin
+                    // All requests for this beat accepted; wait for responses
+                    // (responses arrive 1 cycle after accept in sram_subsystem)
+                end
+                // Count responses (all lanes respond together due to same-cycle SRAM)
+                if (|mc_resp_valid) begin
+                    resp_cnt_r <= resp_cnt_r + 12'd1;
+                    if (resp_cnt_r == HIDDEN_BEATS - 1) begin
+                        // All beats for slots 0..15 done
+                        if (NUM_SLOTS > `MEM_REQ_LANES && active_slots_r[`MEM_REQ_LANES]) begin
+                            // Need phase 2 for slot 16
+                            load_slot_r <= 5'd16;
+                            embed_parallel_mode_r <= 1'b0;
+                            beat_cnt_r <= 12'd0;
+                            resp_cnt_r <= 12'd0;
+                            embed_lane_valid_r <= {`MEM_REQ_LANES{1'b0}};
+                        end else begin
+                            // Done — proceed to layer 0
+                            embed_parallel_mode_r <= 1'b0;
+                            embed_lane_valid_r <= {`MEM_REQ_LANES{1'b0}};
+                            // synthesis translate_off
+                            $display("[DBG] EMBED slot0[0:7]=%h %h %h %h %h %h %h %h",
+                                slot_hidden_r[0][0*DATA_W +: DATA_W],
+                                slot_hidden_r[0][1*DATA_W +: DATA_W],
+                                slot_hidden_r[0][2*DATA_W +: DATA_W],
+                                slot_hidden_r[0][3*DATA_W +: DATA_W],
+                                slot_hidden_r[0][4*DATA_W +: DATA_W],
+                                slot_hidden_r[0][5*DATA_W +: DATA_W],
+                                slot_hidden_r[0][6*DATA_W +: DATA_W],
+                                slot_hidden_r[0][7*DATA_W +: DATA_W]);
+                            // synthesis translate_on
+                            op_r <= OP_PRE_NORM;
+                            layer_idx_r <= 6'd0;
+                            state_r <= ST_NORM_RD;
+                            beat_cnt_r <= 12'd0; resp_cnt_r <= 12'd0;
+                        end
+                    end else begin
+                        // Next beat: update all lane addresses
+                        embed_lane_done_r <= {`MEM_REQ_LANES{1'b0}};
+                        for (i = 0; i < `MEM_REQ_LANES; i = i + 1) begin
+                            if (embed_lane_valid_r[i])
+                                embed_lane_addr_r[i*`SRAM_ADDR_W +: `SRAM_ADDR_W] <=
+                                    embed_lane_addr_r[i*`SRAM_ADDR_W +: `SRAM_ADDR_W] +
+                                    {{(`SRAM_ADDR_W-1){1'b0}}, 1'b1};
+                        end
+                    end
+                end
+            end else begin
+                // Phase 2: slot 16 via scalar path (lane 0, broadcast pe_mask)
+                embed_parallel_mode_r <= 1'b0;
+                if (beat_cnt_r < HIDDEN_BEATS) begin
+                    sram_rd_valid <= 1'b1;
+                    sram_rd_addr <= embedding_base_addr +
+                        (lat_token_id_r[16*`TOKEN_ID_W +: `TOKEN_ID_W] * HIDDEN_BEATS) +
+                        beat_cnt_r;
+                    if (sram_rd_ready) beat_cnt_r <= beat_cnt_r + 12'd1;
+                end
+                if (sram_resp_valid) begin
+                    slot_hidden_r[16][resp_cnt_r*BEAT_ELEMS*DATA_W +: BEAT_ELEMS*DATA_W]
+                        <= sram_resp_data[BEAT_ELEMS*DATA_W-1:0];
+                    resp_cnt_r <= resp_cnt_r + 12'd1;
+                    if (resp_cnt_r == HIDDEN_BEATS - 1) begin
                         // synthesis translate_off
                         $display("[DBG] EMBED slot0[0:7]=%h %h %h %h %h %h %h %h",
                             slot_hidden_r[0][0*DATA_W +: DATA_W],
@@ -463,7 +667,7 @@ always @(posedge clk or negedge rst_n) begin
                         op_r <= OP_PRE_NORM;
                         layer_idx_r <= 6'd0;
                         state_r <= ST_NORM_RD;
-                        beat_cnt_r <= 9'd0; resp_cnt_r <= 9'd0;
+                        beat_cnt_r <= 12'd0; resp_cnt_r <= 12'd0;
                     end
                 end
             end

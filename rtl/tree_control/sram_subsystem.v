@@ -88,10 +88,10 @@ reg [`SUBBANK_ID_W-1:0] lane_target_subbank_r [0:`MEM_REQ_LANES-1];
 reg [LANE_IDX_W-1:0] lane_issue_rr_start_r;
 
 // storage_beats_debug：
-// 这是一个调试镜像，只在写请求时更新，方便本地观察写入内容。
-// 真正的读数据仍然来自下层 sram_subbank。
-reg [`SRAM_WDATA_W-1:0] storage_beats_debug [0:TOTAL_BANKS-1]
-    [0:`SUBBANK_NUM_PER_BANK-1][0:`SUBBANK_SIZE_BYTES-1];
+// DISABLED — too large for simulation (64*32*4096 entries), causes VCS issues.
+// Uncomment for targeted debug only.
+// reg [`SRAM_WDATA_W-1:0] storage_beats_debug [0:TOTAL_BANKS-1]
+//     [0:`SUBBANK_NUM_PER_BANK-1][0:`SUBBANK_SIZE_BYTES-1];
 
 // lane_busy_r：
 // 某条 lane 发出读请求后，在读响应回来之前被标记为 busy，不再接受新的读。
@@ -285,13 +285,6 @@ always @(posedge clk or negedge rst_n) begin
                  subbank_i = subbank_i + 1) begin
                 owner_valid_r[bank_i][subbank_i] <= 1'b0;
                 owner_lane_r[bank_i][subbank_i] <= {LANE_IDX_W{1'b0}};
-                for (debug_base_addr_i = 0;
-                     debug_base_addr_i < `SUBBANK_SIZE_BYTES;
-                     debug_base_addr_i = debug_base_addr_i + 1) begin
-                    // 调试镜像清零。
-                    storage_beats_debug[bank_i][subbank_i][debug_base_addr_i] <=
-                        {`SRAM_WDATA_W{1'b0}};
-                end
             end
         end
     end else begin
@@ -322,21 +315,7 @@ always @(posedge clk or negedge rst_n) begin
                 owner_lane_r[lane_target_bank_r[lane_i]][lane_target_subbank_r[lane_i]] <=
                     lane_i[LANE_IDX_W-1:0];
             end else if (lane_accept_valid_r[lane_i] && !lane_accept_read_r[lane_i]) begin
-                // 写请求被接受：更新本地 debug 镜像，便于调试观察。
-                debug_addr_value =
-                    mem_req_addr[(lane_i*`SRAM_ADDR_W) +: `SRAM_ADDR_W];
-                debug_offset_value = debug_addr_value[`OFFSET_W-1:0];
-                debug_row_addr_value =
-                    debug_addr_value[`OFFSET_W +: `ROW_ADDR_W];
-                debug_base_addr_i =
-                    {debug_row_addr_value, debug_offset_value};
-                if (debug_base_addr_i < `SUBBANK_SIZE_BYTES) begin
-                    storage_beats_debug[
-                            lane_target_bank_r[lane_i]][
-                            lane_target_subbank_r[lane_i]][
-                            debug_base_addr_i] <=
-                            mem_req_wdata[(lane_i*`SRAM_WDATA_W) +: `SRAM_WDATA_W];
-                end
+                // 写请求被接受：no-op (debug mirror disabled)
             end
         end
     end

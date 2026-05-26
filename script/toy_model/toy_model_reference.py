@@ -179,12 +179,16 @@ def tiled_matvec(weight: np.ndarray, vector: np.ndarray) -> np.ndarray:
 
 
 def build_weights() -> Dict[str, Any]:
-    rng = np.random.default_rng(7)
+    rng = np.random.default_rng(42)
     embed = (rng.standard_normal((VOCAB_SIZE, HIDDEN_DIM), dtype=np.float32) * 0.125).astype(np.float16)
     final_gamma = np.ones((HIDDEN_DIM,), dtype=np.float16)
     layers: List[Dict[str, np.ndarray]] = []
     for layer_idx in range(N_LAYERS):
-        scale = np.float32(0.1 + 0.01 * layer_idx)
+        # Scale weights by 1/sqrt(dim) to keep activations in a reasonable range
+        # For d=1024: scale ~ 0.031; for d=128: scale ~ 0.088
+        base_scale = np.float32(1.0 / math.sqrt(HIDDEN_DIM))
+        scale = base_scale * np.float32(1.0 + 0.1 * layer_idx)
+        ffn_scale = np.float32(1.0 / math.sqrt(INTERMEDIATE_DIM))
         layer = {
             "pre_gamma": np.ones((HIDDEN_DIM,), dtype=np.float16),
             "post_gamma": np.ones((HIDDEN_DIM,), dtype=np.float16),
@@ -194,7 +198,7 @@ def build_weights() -> Dict[str, Any]:
             "wo": (rng.standard_normal((HIDDEN_DIM, HIDDEN_DIM), dtype=np.float32) * scale).astype(np.float16),
             "gate": (rng.standard_normal((INTERMEDIATE_DIM, HIDDEN_DIM), dtype=np.float32) * scale).astype(np.float16),
             "up": (rng.standard_normal((INTERMEDIATE_DIM, HIDDEN_DIM), dtype=np.float32) * scale).astype(np.float16),
-            "down": (rng.standard_normal((HIDDEN_DIM, INTERMEDIATE_DIM), dtype=np.float32) * scale).astype(np.float16),
+            "down": (rng.standard_normal((HIDDEN_DIM, INTERMEDIATE_DIM), dtype=np.float32) * ffn_scale).astype(np.float16),
         }
         layers.append(layer)
     return {

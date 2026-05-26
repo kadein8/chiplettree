@@ -45,6 +45,13 @@ module tree_builder #(
     input  logic [POSITION_ID_W-1:0]      cand_referenced_position,
     input  logic                          hht_done,
 
+    // HHT speculative lookup (for multi-level tree exploration)
+    output logic [TOKEN_ID_W-1:0]         spec_token_0,
+    output logic [TOKEN_ID_W-1:0]         spec_token_1,
+    output logic                          spec_query_valid,
+    input  logic                          spec_hit,
+    input  logic [TOKEN_ID_W-1:0]         spec_prediction,
+
     // Output: tree request to tree_verify_dispatcher
     output logic                          tree_req_valid,
     input  logic                          tree_req_ready,
@@ -72,6 +79,13 @@ module tree_builder #(
     logic [BRANCH_NUM-1:0]         branch_active_r;
     logic [NODE_ID_W-1:0]          branch_tip_node_r [0:BRANCH_NUM-1];
     logic [2:0]                    branch_depth_r [0:BRANCH_NUM-1];
+
+    // Per-branch token tracking for speculative lookup (packed to avoid VCS bug)
+    logic [BRANCH_NUM*TOKEN_ID_W-1:0]  branch_tip_token_r;
+    logic [BRANCH_NUM*TOKEN_ID_W-1:0]  branch_prev_token_r;
+    logic [1:0]                    explore_branch_r;
+    logic                          explore_phase_r; // 0=cand_valid, 1=spec lookup
+    logic [1:0]                    spec_wait_r;     // 0=register tokens, 1=query active, 2=check result
 
     // Storage for tree structure
     logic [BRANCH_NUM*MAX_LEVELS*NODE_ID_W-1:0]     node_ids_r;
@@ -116,6 +130,9 @@ module tree_builder #(
         end
     end
 
+    // Speculative lookup query: active when spec_wait_r==1 (tokens registered on cycle 0)
+    assign spec_query_valid = (state_r == ST_COLLECT) && explore_phase_r && (spec_wait_r == 2'd1);
+
     // Outputs
     assign out_seed_node_id = seed_node_id;
     assign out_seed_token_id = seed_token_id;
@@ -143,9 +160,14 @@ module tree_builder #(
             draft_positions_r <= '0;
             levels_valid_r <= '0;
             next_node_id_r <= '0;
+            explore_branch_r <= 2'd0;
+            explore_phase_r <= 1'b0;
+            spec_wait_r <= 2'd0;
             for (init_i = 0; init_i < BRANCH_NUM; init_i = init_i + 1) begin
                 branch_tip_node_r[init_i] <= '0;
                 branch_depth_r[init_i] <= 3'd0;
+                branch_tip_token_r[init_i*TOKEN_ID_W +: TOKEN_ID_W] <= '0;
+                branch_prev_token_r[init_i*TOKEN_ID_W +: TOKEN_ID_W] <= '0;
             end
         end else begin
             done <= 1'b0;
@@ -160,9 +182,14 @@ module tree_builder #(
                     branch_active_r <= {BRANCH_NUM{1'b0}};
                     levels_valid_r <= '0;
                     next_node_id_r <= seed_node_id + {{(NODE_ID_W-1){1'b0}}, 1'b1};
+                    explore_branch_r <= 2'd0;
+                    explore_phase_r <= 1'b0;
+                    spec_wait_r <= 2'd0;
                     for (init_i = 0; init_i < BRANCH_NUM; init_i = init_i + 1) begin
                         branch_tip_node_r[init_i] <= '0;
                         branch_depth_r[init_i] <= 3'd0;
+                        branch_tip_token_r[init_i*TOKEN_ID_W +: TOKEN_ID_W] <= '0;
+                        branch_prev_token_r[init_i*TOKEN_ID_W +: TOKEN_ID_W] <= '0;
                     end
                 end
             end
@@ -170,29 +197,83 @@ module tree_builder #(
             ST_COLLECT: begin
                 timeout_cnt_r <= timeout_cnt_r + 16'd1;
 
-                // Accept candidate if it fits in the tree
-                if (cand_valid && found_branch) begin
-                    automatic integer flat_idx;
-                    flat_idx = target_branch * MAX_LEVELS + branch_depth_r[target_branch];
+                if (!explore_phase_r) begin
+                    // === Phase 0: fill level 0 from HHT cand_valid ===
+                    if (cand_valid && found_branch) begin
+                        automatic integer flat_idx;
+                        flat_idx = target_branch * MAX_LEVELS + branch_depth_r[target_branch];
 
-                    node_ids_r[flat_idx*NODE_ID_W +: NODE_ID_W] <= next_node_id_r;
-                    parent_node_ids_r[flat_idx*NODE_ID_W +: NODE_ID_W] <= cand_parent_node_id;
-                    draft_tokens_r[flat_idx*TOKEN_ID_W +: TOKEN_ID_W] <= cand_token_id;
-                    draft_positions_r[flat_idx*POSITION_ID_W +: POSITION_ID_W] <=
-                        seed_position + {{(POSITION_ID_W-3){1'b0}}, branch_depth_r[target_branch]} +
-                        {{(POSITION_ID_W-1){1'b0}}, 1'b1};
-                    levels_valid_r[flat_idx] <= 1'b1;
+                        node_ids_r[flat_idx*NODE_ID_W +: NODE_ID_W] <= next_node_id_r;
+                        parent_node_ids_r[flat_idx*NODE_ID_W +: NODE_ID_W] <= cand_parent_node_id;
+                        draft_tokens_r[flat_idx*TOKEN_ID_W +: TOKEN_ID_W] <= cand_token_id;
+                        draft_positions_r[flat_idx*POSITION_ID_W +: POSITION_ID_W] <=
+                            seed_position + {{(POSITION_ID_W-3){1'b0}}, branch_depth_r[target_branch]} +
+                            {{(POSITION_ID_W-1){1'b0}}, 1'b1};
+                        levels_valid_r[flat_idx] <= 1'b1;
 
-                    branch_active_r[target_branch] <= 1'b1;
-                    branch_tip_node_r[target_branch] <= next_node_id_r;
-                    branch_depth_r[target_branch] <= branch_depth_r[target_branch] + 3'd1;
-                    next_node_id_r <= next_node_id_r + {{(NODE_ID_W-1){1'b0}}, 1'b1};
+                        branch_active_r[target_branch] <= 1'b1;
+                        branch_tip_node_r[target_branch] <= next_node_id_r;
+                        branch_depth_r[target_branch] <= branch_depth_r[target_branch] + 3'd1;
+                        next_node_id_r <= next_node_id_r + {{(NODE_ID_W-1){1'b0}}, 1'b1};
+                        // Track tokens for speculative exploration
+                        branch_prev_token_r[target_branch*TOKEN_ID_W +: TOKEN_ID_W] <= seed_token_id;
+                        branch_tip_token_r[target_branch*TOKEN_ID_W +: TOKEN_ID_W] <= cand_token_id;
+                    end
+
+                    // Switch to phase 1 when all branches have level 0, or timeout
+                    if (&branch_active_r || (timeout_cnt_r >= 16'd5)) begin
+                        explore_phase_r <= 1'b1;
+                        explore_branch_r <= 2'd0;
+                    end
+                end else begin
+                    // === Phase 1: extend branches using speculative lookup ===
+                    // 3-cycle pattern: 0=register tokens, 1=query active, 2=check result
+                    if (spec_wait_r == 2'd0) begin
+                        spec_wait_r <= 2'd1;
+                        // Register tokens for spec query (in same always_ff to avoid timing issues)
+                        spec_token_0 <= branch_prev_token_r[explore_branch_r*TOKEN_ID_W +: TOKEN_ID_W];
+                        spec_token_1 <= branch_tip_token_r[explore_branch_r*TOKEN_ID_W +: TOKEN_ID_W];
+                    end else if (spec_wait_r == 2'd1) begin
+                        spec_wait_r <= 2'd2;
+                    end else begin
+                        spec_wait_r <= 2'd0;
+                        // synthesis translate_off
+                        $display("[TB] phase1: br=%0d depth=%0d hit=%b pred=%0d prev=%0d tip=%0d",
+                            explore_branch_r, branch_depth_r[explore_branch_r],
+                            spec_hit, spec_prediction,
+                            branch_prev_token_r[explore_branch_r*TOKEN_ID_W +: TOKEN_ID_W],
+                            branch_tip_token_r[explore_branch_r*TOKEN_ID_W +: TOKEN_ID_W]);
+                        // synthesis translate_on
+                        if (spec_hit && branch_active_r[explore_branch_r] &&
+                            branch_depth_r[explore_branch_r] < MAX_LEVELS[2:0]) begin
+                            automatic integer flat_idx;
+                            flat_idx = explore_branch_r * MAX_LEVELS + branch_depth_r[explore_branch_r];
+
+                            node_ids_r[flat_idx*NODE_ID_W +: NODE_ID_W] <= next_node_id_r;
+                            parent_node_ids_r[flat_idx*NODE_ID_W +: NODE_ID_W] <= branch_tip_node_r[explore_branch_r];
+                            draft_tokens_r[flat_idx*TOKEN_ID_W +: TOKEN_ID_W] <= spec_prediction;
+                            draft_positions_r[flat_idx*POSITION_ID_W +: POSITION_ID_W] <=
+                                seed_position + {{(POSITION_ID_W-3){1'b0}}, branch_depth_r[explore_branch_r]} +
+                                {{(POSITION_ID_W-1){1'b0}}, 1'b1};
+                            levels_valid_r[flat_idx] <= 1'b1;
+
+                            branch_tip_node_r[explore_branch_r] <= next_node_id_r;
+                            branch_depth_r[explore_branch_r] <= branch_depth_r[explore_branch_r] + 3'd1;
+                            next_node_id_r <= next_node_id_r + {{(NODE_ID_W-1){1'b0}}, 1'b1};
+                            branch_prev_token_r[explore_branch_r*TOKEN_ID_W +: TOKEN_ID_W] <= branch_tip_token_r[explore_branch_r*TOKEN_ID_W +: TOKEN_ID_W];
+                            branch_tip_token_r[explore_branch_r*TOKEN_ID_W +: TOKEN_ID_W] <= spec_prediction;
+                        end else begin
+                            if (explore_branch_r == BRANCH_NUM[1:0] - 2'd1) begin
+                                state_r <= ST_OUTPUT;
+                            end else begin
+                                explore_branch_r <= explore_branch_r + 2'd1;
+                            end
+                        end
+                    end
                 end
 
-                // End collection
-                if (hht_done ||
-                    (timeout_cnt_r >= TIMEOUT_CYCLES[15:0]) ||
-                    (&branch_active_r && (branch_depth_r[0] >= MAX_LEVELS[2:0]))) begin
+                // Timeout fallback
+                if (timeout_cnt_r >= TIMEOUT_CYCLES[15:0]) begin
                     state_r <= ST_OUTPUT;
                 end
             end

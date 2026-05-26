@@ -100,11 +100,16 @@ logic [`TOKEN_ID_W-1:0] hht_cand_referenced_token_id;
 logic [`POSITION_ID_W-1:0] hht_cand_referenced_position;
 logic [7:0] hht_cand_confidence;
 
+// Speculative lookup wires (tree_builder ↔ HHT) — must be declared before instantiation
+logic [`TOKEN_ID_W-1:0] tb_spec_token_0, tb_spec_token_1;
+logic tb_spec_query_valid, tb_spec_hit;
+logic [`TOKEN_ID_W-1:0] tb_spec_prediction;
+
 HHTContextPredictor #(
     .CONF_W(8),
     .HISTORY_LEN(2),
-    .SET_NUM(2),
-    .WAY_NUM(2)
+    .SET_NUM(8),
+    .WAY_NUM(4)
 ) u_hht (
     .clk(clk),
     .rst_n(rst_n),
@@ -118,7 +123,12 @@ HHTContextPredictor #(
     .cand_token_id(hht_cand_token_id),
     .cand_referenced_token_id(hht_cand_referenced_token_id),
     .cand_referenced_position(hht_cand_referenced_position),
-    .cand_confidence(hht_cand_confidence)
+    .cand_confidence(hht_cand_confidence),
+    .spec_token_0(tb_spec_token_0),
+    .spec_token_1(tb_spec_token_1),
+    .spec_query_valid(tb_spec_query_valid),
+    .spec_hit(tb_spec_hit),
+    .spec_prediction(tb_spec_prediction)
 );
 
 // =========================================================================
@@ -141,7 +151,7 @@ logic tb_hht_done;
 tree_builder #(
     .BRANCH_NUM(BRANCH_NUM),
     .MAX_LEVELS(MAX_LEVELS),
-    .TIMEOUT_CYCLES(32)
+    .TIMEOUT_CYCLES(64)
 ) u_tree_builder (
     .clk(clk),
     .rst_n(rst_n),
@@ -157,6 +167,11 @@ tree_builder #(
     .cand_token_id(hht_cand_token_id),
     .cand_referenced_position(hht_cand_referenced_position),
     .hht_done(tb_hht_done),
+    .spec_token_0(tb_spec_token_0),
+    .spec_token_1(tb_spec_token_1),
+    .spec_query_valid(tb_spec_query_valid),
+    .spec_hit(tb_spec_hit),
+    .spec_prediction(tb_spec_prediction),
     .tree_req_valid(tb_tree_req_valid),
     .tree_req_ready(tb_tree_req_ready),
     .out_seed_node_id(tb_seed_node_id),
@@ -284,6 +299,89 @@ feedback_controller #(
     .busy(fb_busy),
     .done(fb_done)
 );
+
+// =========================================================================
+// Draft Injection Interface (behavioral simulation of external draft chiplet)
+// =========================================================================
+logic draft_inject_start;
+logic draft_valid, draft_done_w;
+logic [`TOKEN_ID_W-1:0] draft_token_id;
+logic [`NODE_ID_W-1:0] draft_parent_node_id;
+logic [`POSITION_ID_W-1:0] draft_position;
+logic [1:0] draft_branch_id;
+logic [2:0] draft_depth;
+logic [BRANCH_NUM-1:0] draft_branch_active;
+logic [BRANCH_NUM*MAX_LEVELS*`TOKEN_ID_W-1:0] draft_branch_injected_tokens;
+
+draft_injection_interface #(
+    .BRANCH_NUM(BRANCH_NUM),
+    .MAX_DEPTH(MAX_LEVELS)
+) u_draft_inject (
+    .clk(clk),
+    .rst_n(rst_n),
+    .inject_start(draft_inject_start),
+    .seed_token_id(seed_token_id_r),
+    .seed_position(seed_position_r),
+    .seed_node_id(seed_node_id_r),
+    .draft_valid(draft_valid),
+    .draft_token_id(draft_token_id),
+    .draft_parent_node_id(draft_parent_node_id),
+    .draft_position(draft_position),
+    .draft_branch_id(draft_branch_id),
+    .draft_depth(draft_depth),
+    .draft_done(draft_done_w),
+    .branch_active(draft_branch_active),
+    .branch_injected_tokens(draft_branch_injected_tokens),
+    .branch_depth_out()  // unused for now
+);
+
+// Draft injection triggers at the same time as tree building
+assign draft_inject_start = (state_r == ST_BUILD) && !tb_busy && !tb_done;
+
+// =========================================================================
+// Longest Path Comparator (branch-level verification)
+// =========================================================================
+logic comparator_start;
+logic comparator_result_valid;
+logic [2:0] comparator_accepted_depth;
+logic [(MAX_LEVELS+1)*`TOKEN_ID_W-1:0] comparator_accepted_tokens;
+logic [BRANCH_NUM-1:0] comparator_flush_mask;
+logic comparator_all_correct;
+
+// Per-branch generated tokens: extract from lc_out_token_id
+// Branch 0 = slot 0 (seed generates next), Branch 1 = slot with depth 1, etc.
+// For now, map slot indices to branches based on dispatcher layout:
+//   slot 0 = seed (branch 0 output)
+//   slots 1..4 = branch 0 levels (but branch 0 has no injection, so slot 0 is its output)
+//   Actually: slot 0 = seed, slot 1 = branch0_level0, slot 5 = branch1_level0, etc.
+// Simplified: branch[b].generated = lc_out_token_id[slot_for_branch_tip(b)]
+wire [BRANCH_NUM*`TOKEN_ID_W-1:0] branch_gen_tokens = {
+    lc_out_token_id[4*`TOKEN_ID_W +: `TOKEN_ID_W],   // branch 3: slot 4 (simplified)
+    lc_out_token_id[3*`TOKEN_ID_W +: `TOKEN_ID_W],   // branch 2: slot 3
+    lc_out_token_id[2*`TOKEN_ID_W +: `TOKEN_ID_W],   // branch 1: slot 2
+    lc_out_token_id[0*`TOKEN_ID_W +: `TOKEN_ID_W]    // branch 0: slot 0 (main path)
+};
+
+longest_path_comparator #(
+    .BRANCH_NUM(BRANCH_NUM),
+    .MAX_DEPTH(MAX_LEVELS)
+) u_comparator (
+    .clk(clk),
+    .rst_n(rst_n),
+    .compare_start(comparator_start),
+    .branch_generated_token(branch_gen_tokens),
+    .branch_valid(draft_branch_active),
+    .branch_injected_tokens(draft_branch_injected_tokens),
+    .branch_depth({3'd1, 3'd2, 3'd1, 3'd0}),  // packed: branch3=1, branch2=2, branch1=1, branch0=0
+    .result_valid(comparator_result_valid),
+    .accepted_depth(comparator_accepted_depth),
+    .accepted_tokens(comparator_accepted_tokens),
+    .flush_mask(comparator_flush_mask),
+    .all_correct(comparator_all_correct)
+);
+
+// Comparator triggers when layer controller finishes verify batch
+assign comparator_start = lc_done && (state_r == ST_VERIFY);
 
 // Forward declarations for signals used before their module instantiation
 logic lc_done;
@@ -506,8 +604,9 @@ request_controller u_req_ctrl (
 // =========================================================================
 // Behavioral SRAM model (sram_subsystem has VCS unpacked-array issue)
 // Single flat array, 1-cycle read latency, always ready
+// Depth sized for qwen3: weight_base(280000) + 2 layers * 3145984 = ~6.6M
 // =========================================================================
-localparam BEHAV_SRAM_DEPTH = 524288;
+localparam BEHAV_SRAM_DEPTH = 8388608;  // 8M entries
 reg [`SRAM_RDATA_W-1:0] behav_sram [0:BEHAV_SRAM_DEPTH-1];
 assign mem_req_ready_w = {`MEM_REQ_LANES{1'b1}};
 reg [`MEM_REQ_LANES-1:0]                  behav_resp_valid_r;
@@ -577,6 +676,14 @@ always @(posedge clk) begin
             tvd_batch_out_token_ids[`TOKEN_ID_W-1:0]);
     if (state_r == ST_VERIFY && lc_done)
         $display("[DBG c%0d] VERIFY: lc_done, sending fwd results", dbg_cycle_cnt);
+    // Debug layer controller start and request_controller state
+    if (lc_start)
+        $display("[DBG c%0d] LC_START: slots=%b rc_state=%0d req_in_valid=%b",
+            dbg_cycle_cnt, lc_slot_valid, u_req_ctrl.state_r, rc_req_in_valid);
+    if (comparator_result_valid)
+        $display("[DBG c%0d] COMPARATOR: accepted_depth=%0d flush=%b all_correct=%b token[0]=%0d",
+            dbg_cycle_cnt, comparator_accepted_depth, comparator_flush_mask,
+            comparator_all_correct, comparator_accepted_tokens[`TOKEN_ID_W-1:0]);
     // Debug HHT state entering ST_BUILD
     if (state_r == ST_PREDICT)
         $display("[DBG c%0d] PREDICT: seed_node=%0d hht_cand_valid=%b cand_parent=%0d cand_token=%0d",

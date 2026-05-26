@@ -94,8 +94,13 @@ reg                         embed_parallel_mode_r;  // 1 = multi-lane embed read
 reg  [`MEM_REQ_LANES-1:0]  embed_lane_valid_r;     // which lanes have pending embed reads
 reg  [`MEM_REQ_LANES*`SRAM_ADDR_W-1:0] embed_lane_addr_r;
 
-// Parallel weight read mode — DISABLED (reverted to scalar read)
-// weight_parallel_mode_r removed; using single-lane scalar reads for matvec.
+// Parallel weight read mode (16 lanes for matvec)
+reg                         weight_parallel_mode_r;  // 1 = multi-lane weight read active
+reg  [`MEM_REQ_LANES-1:0]  weight_lane_valid_r;
+reg  [`MEM_REQ_LANES*`SRAM_ADDR_W-1:0] weight_lane_addr_r;
+reg  [`MEM_REQ_LANES-1:0]  weight_lane_done_r;     // which lanes got responses
+reg  [`MEM_REQ_LANES*`SRAM_RDATA_W-1:0] weight_resp_buf_r;  // 16×128-bit = 2048-bit buffer
+reg  [`MEM_REQ_LANES-1:0]  weight_resp_got_r;      // which lanes received response
 reg  [`MEM_REQ_LANES-1:0]  embed_lane_done_r;      // which lanes got responses
 
 // Request ID counter for vec_req
@@ -108,10 +113,11 @@ wire [`SUBBANK_ID_W-1:0] addr_subbank_id_w = sram_rd_addr[`OFFSET_W + `ROW_ADDR_
 // =========================================================================
 // vec_req / mc_resp adapter: scalar → multi-lane
 // =========================================================================
-// Normal mode (weight/gamma reads): lane 0, pe_mask = 0xFFFF (broadcast)
+// Normal mode (gamma reads): lane 0, pe_mask = 0xFFFF (broadcast)
 // Parallel embed mode: up to 16 lanes, each one-hot pe_mask
-assign sram_rd_ready = embed_parallel_mode_r ? 1'b0 : vec_req_ready[0];
-assign sram_resp_valid = embed_parallel_mode_r ? 1'b0 : mc_resp_valid[0];
+// Parallel weight mode: 16 lanes, pe_mask = 0xFFFF (broadcast to all PEs)
+assign sram_rd_ready = (embed_parallel_mode_r || weight_parallel_mode_r) ? 1'b0 : vec_req_ready[0];
+assign sram_resp_valid = (embed_parallel_mode_r || weight_parallel_mode_r) ? 1'b0 : mc_resp_valid[0];
 assign sram_resp_data = mc_resp_rdata[0 +: `SRAM_RDATA_W];
 
 always @(*) begin : vec_req_adapter
@@ -143,6 +149,21 @@ always @(*) begin : vec_req_adapter
                 embed_lane_addr_r[vi*`SRAM_ADDR_W + `OFFSET_W + `ROW_ADDR_W +: `SUBBANK_ID_W];
         end
         mc_resp_ready = {`PE_MASK_W{1'b1}};
+    end else if (weight_parallel_mode_r) begin
+        // Parallel weight mode: 16 lanes read 16 consecutive weight beats
+        for (vi = 0; vi < `MEM_REQ_LANES; vi = vi + 1) begin
+            vec_req_valid[vi] = weight_lane_valid_r[vi] && !weight_lane_done_r[vi];
+            vec_req_addr[vi*`SRAM_ADDR_W +: `SRAM_ADDR_W] =
+                weight_lane_addr_r[vi*`SRAM_ADDR_W +: `SRAM_ADDR_W];
+            vec_req_req_id[vi*`REQ_ID_W +: `REQ_ID_W] = vec_req_id_cnt_r;
+            // One-hot pe_mask: lane i → PE i (each PE gets its own beat)
+            vec_req_pe_mask[vi*`PE_MASK_W + vi] = 1'b1;
+            vec_req_bank_id[vi*`BANK_ID_W +: `BANK_ID_W] =
+                weight_lane_addr_r[vi*`SRAM_ADDR_W + `OFFSET_W + `ROW_ADDR_W + `SUBBANK_ID_W +: `BANK_ID_W];
+            vec_req_subbank_id[vi*`SUBBANK_ID_W +: `SUBBANK_ID_W] =
+                weight_lane_addr_r[vi*`SRAM_ADDR_W + `OFFSET_W + `ROW_ADDR_W +: `SUBBANK_ID_W];
+        end
+        mc_resp_ready = {`PE_MASK_W{1'b1}};
     end else begin
         // Normal broadcast mode: lane 0, pe_mask = all-ones
         vec_req_valid[0] = sram_rd_valid;
@@ -151,6 +172,7 @@ always @(*) begin : vec_req_adapter
         vec_req_pe_mask[0 +: `PE_MASK_W] = {`PE_MASK_W{1'b1}};  // broadcast
         vec_req_bank_id[0 +: `BANK_ID_W] = addr_bank_id_w;
         vec_req_subbank_id[0 +: `SUBBANK_ID_W] = addr_subbank_id_w;
+        // All PEs must be ready for broadcast response to be accepted by multicast
         mc_resp_ready = {`PE_MASK_W{1'b1}};
     end
 end
@@ -258,12 +280,20 @@ reg [`SRAM_ADDR_W-1:0] mv_weight_base_r;
 reg [11:0] mv_input_dim_r;   // up to 3072 for FFN down
 reg [8:0] mv_output_groups_r; // counts in units of 16 groups (128 elements per MAC done)
 
-// MAC units (8-lane, behavioral-friendly)
+// MAC units — WIDE: 16 beats × 8 lanes = 128 MACs per cycle per slot
+// This matches the paper's "128 MAC per PE" specification.
+// Each cycle: 1 input element broadcast to 16 output groups × 8 weight lanes.
+// After input_dim cycles, produces 16 output groups × 8 elements = 128 results.
+localparam integer MAC_BEATS_PER_CYCLE = `MEM_REQ_LANES;  // 16
+localparam integer MAC_TOTAL_LANES = MAC_BEATS_PER_CYCLE * BEAT_ELEMS;  // 128
+localparam integer MAC_DEPTH_MAX = INTERMEDIATE;  // max input dimension (3072 for FFN down)
+localparam integer MAC_DEPTH_W = (MAC_DEPTH_MAX <= 2) ? 1 : $clog2(MAC_DEPTH_MAX);
+
 reg  [NUM_SLOTS-1:0]              mac_clear;
 reg  [NUM_SLOTS-1:0]              mac_valid;
-reg  [BEAT_ELEMS*DATA_W-1:0]      mac_weight_col;
-reg  [8:0]                        mac_depth_cfg_r;
-wire [NUM_SLOTS*BEAT_ELEMS*DATA_W-1:0] mac_result;
+reg  [MAC_TOTAL_LANES*DATA_W-1:0] mac_weight_col;  // 128 × 16-bit = 2048 bits
+reg  [MAC_DEPTH_W-1:0]            mac_depth_cfg_r;
+wire [NUM_SLOTS*MAC_TOTAL_LANES*DATA_W-1:0] mac_result;
 wire [NUM_SLOTS-1:0]              mac_done;
 reg  [NUM_SLOTS-1:0]              mac_done_latch_r;
 
@@ -276,8 +306,9 @@ always @(posedge clk or negedge rst_n) begin
 end
 wire all_mac_done_w = &(mac_done_latch_r | mac_done | ~active_slots_r);
 
-// MAC input vector selection
-reg [DATA_W-1:0] mac_vec_sel [0:NUM_SLOTS-1];
+// MAC input vector selection: broadcast same input element to all 16 beats.
+// mac_elem_idx_r tracks which input vector element to feed (0..input_dim-1).
+reg [MAC_BEATS_PER_CYCLE*DATA_W-1:0] mac_vec_sel [0:NUM_SLOTS-1];  // 16 × 16-bit (all same)
 reg [11:0] mac_elem_idx_r;
 
 always @(posedge clk or negedge rst_n) begin
@@ -290,27 +321,35 @@ always @(posedge clk or negedge rst_n) begin
 end
 
 always @(*) begin : mac_vec_select
-    integer sv;
+    integer sv, bv;
+    reg [DATA_W-1:0] elem;
     for (sv = 0; sv < NUM_SLOTS; sv = sv + 1) begin
         if (op_r == OP_DOWN)
-            mac_vec_sel[sv] = slot_gate_r[sv][mac_elem_idx_r*DATA_W +: DATA_W];
+            elem = slot_gate_r[sv][mac_elem_idx_r*DATA_W +: DATA_W];
         else
-            mac_vec_sel[sv] = slot_norm_r[sv][mac_elem_idx_r*DATA_W +: DATA_W];
+            elem = slot_norm_r[sv][mac_elem_idx_r*DATA_W +: DATA_W];
+        // Broadcast same element to all 16 beats
+        for (bv = 0; bv < MAC_BEATS_PER_CYCLE; bv = bv + 1)
+            mac_vec_sel[sv][bv*DATA_W +: DATA_W] = elem;
     end
 end
 
 genvar si;
 generate
     for (si = 0; si < NUM_SLOTS; si = si + 1) begin : gen_slot_mac
-        pe_mac_unit #(.LANES(BEAT_ELEMS), .DEPTH(INTERMEDIATE), .DATA_W(DATA_W))
-        u_mac (
+        pe_mac_unit_wide #(
+            .LANES_PER_BEAT(BEAT_ELEMS),
+            .BEATS_PER_CYCLE(MAC_BEATS_PER_CYCLE),
+            .DEPTH(MAC_DEPTH_MAX),
+            .DATA_W(DATA_W)
+        ) u_mac (
             .clk(clk), .rst_n(rst_n),
             .clear(mac_clear[si]),
             .mac_valid(mac_valid[si]),
             .vector_val(mac_vec_sel[si]),
             .weight_col(mac_weight_col),
-            .depth_cfg(mv_input_dim_r[$clog2(INTERMEDIATE)-1:0]),
-            .result(mac_result[si*BEAT_ELEMS*DATA_W +: BEAT_ELEMS*DATA_W]),
+            .depth_cfg(mac_depth_cfg_r),
+            .result(mac_result[si*MAC_TOTAL_LANES*DATA_W +: MAC_TOTAL_LANES*DATA_W]),
             .done(mac_done[si])
         );
     end
@@ -466,14 +505,19 @@ always @(posedge clk or negedge rst_n) begin
         embed_lane_valid_r <= {`MEM_REQ_LANES{1'b0}};
         embed_lane_addr_r <= {(`MEM_REQ_LANES*`SRAM_ADDR_W){1'b0}};
         embed_lane_done_r <= {`MEM_REQ_LANES{1'b0}};
-        embed_lane_done_r <= {`MEM_REQ_LANES{1'b0}};
+        weight_parallel_mode_r <= 1'b0;
+        weight_lane_valid_r <= {`MEM_REQ_LANES{1'b0}};
+        weight_lane_addr_r <= {(`MEM_REQ_LANES*`SRAM_ADDR_W){1'b0}};
+        weight_lane_done_r <= {`MEM_REQ_LANES{1'b0}};
+        weight_resp_buf_r <= {(`MEM_REQ_LANES*`SRAM_RDATA_W){1'b0}};
+        weight_resp_got_r <= {`MEM_REQ_LANES{1'b0}};
         hbm_rd_valid <= 1'b0;
         out_token_valid <= {NUM_SLOTS{1'b0}};
         out_token_id <= {(NUM_SLOTS*`TOKEN_ID_W){1'b0}};
         mac_clear <= {NUM_SLOTS{1'b0}};
         mac_valid <= {NUM_SLOTS{1'b0}};
-        mac_weight_col <= {(BEAT_ELEMS*DATA_W){1'b0}};
-        mac_depth_cfg_r <= 9'd0;
+        mac_weight_col <= {(MAC_TOTAL_LANES*DATA_W){1'b0}};
+        mac_depth_cfg_r <= {MAC_DEPTH_W{1'b0}};
         gamma_r <= {(HIDDEN_DIM*DATA_W){1'b0}};
         sub_started_r <= 1'b0;
         argmax_elem_r <= 16'd0;
@@ -746,7 +790,8 @@ always @(posedge clk or negedge rst_n) begin
                     mv_weight_base_r <= weight_sram_base_addr +
                         (layer_idx_r * LAYER_TOTAL_BEATS) + LAYER_WQ_OFF;
                     mv_input_dim_r <= HIDDEN_DIM;
-                    mv_output_groups_r <= HIDDEN_DIM / BEAT_ELEMS;
+                    mv_output_groups_r <= HIDDEN_DIM / (BEAT_ELEMS * MAC_BEATS_PER_CYCLE);
+                    mac_depth_cfg_r <= MAC_DEPTH_W'(HIDDEN_DIM - 1);
                     mac_clear <= active_slots_r;
                     state_r <= ST_MATVEC_RD;
                 end
@@ -755,7 +800,8 @@ always @(posedge clk or negedge rst_n) begin
                     mv_weight_base_r <= weight_sram_base_addr +
                         (layer_idx_r * LAYER_TOTAL_BEATS) + LAYER_GATE_OFF;
                     mv_input_dim_r <= HIDDEN_DIM;
-                    mv_output_groups_r <= INTERMEDIATE / BEAT_ELEMS;
+                    mv_output_groups_r <= INTERMEDIATE / (BEAT_ELEMS * MAC_BEATS_PER_CYCLE);
+                    mac_depth_cfg_r <= MAC_DEPTH_W'(HIDDEN_DIM - 1);
                     mac_clear <= active_slots_r;
                     state_r <= ST_MATVEC_RD;
                 end
@@ -774,7 +820,8 @@ always @(posedge clk or negedge rst_n) begin
                     op_r <= OP_LM_HEAD;
                     mv_weight_base_r <= lm_head_weight_base_addr;
                     mv_input_dim_r <= HIDDEN_DIM;
-                    mv_output_groups_r <= VOCAB_SIZE / BEAT_ELEMS;
+                    mv_output_groups_r <= VOCAB_SIZE / (BEAT_ELEMS * MAC_BEATS_PER_CYCLE);
+                    mac_depth_cfg_r <= MAC_DEPTH_W'(HIDDEN_DIM - 1);
                     mac_clear <= active_slots_r;
                     state_r <= ST_MATVEC_RD;
                 end
@@ -797,49 +844,100 @@ always @(posedge clk or negedge rst_n) begin
         //   actual_group = out_group_r * 16 + l
         //   addr = base + (actual_group/2)*256 + beat_cnt_r*2 + (actual_group%2)
         ST_MATVEC_RD: begin
-            if (beat_cnt_r < mv_input_dim_r) begin
-                sram_rd_valid <= 1'b1;
-                if (mv_input_dim_r <= 12'd128) begin
-                    sram_rd_addr <= mv_weight_base_r +
-                        ((out_group_r >> 1) * 256) +
-                        (beat_cnt_r * 2) +
-                        {{(`SRAM_ADDR_W-1){1'b0}}, out_group_r[0]};
-                end else begin
-                    sram_rd_addr <= mv_weight_base_r +
-                        ((out_group_r >> 1) * ((mv_input_dim_r >> 7) * 256)) +
-                        ((beat_cnt_r >> 7) * 256) +
-                        ((beat_cnt_r & 12'h7F) * 2) +
-                        {{(`SRAM_ADDR_W-1){1'b0}}, out_group_r[0]};
+            if (!weight_parallel_mode_r) begin
+                // Setup: configure 16 lanes for weight read
+                weight_parallel_mode_r <= 1'b1;
+                weight_lane_done_r <= {`MEM_REQ_LANES{1'b0}};
+                weight_resp_got_r <= {`MEM_REQ_LANES{1'b0}};
+                // synthesis translate_off
+                $display("[DBG_MV] ST_MATVEC_RD setup: op=%0d grp=%0d beat=%0d input_dim=%0d",
+                    op_r, out_group_r, beat_cnt_r, mv_input_dim_r);
+                // synthesis translate_on
+                for (i = 0; i < `MEM_REQ_LANES; i = i + 1) begin
+                    weight_lane_valid_r[i] <= 1'b1;
+                    if (mv_input_dim_r <= 12'd128) begin
+                        // Single tile-col: each lane reads a different output group
+                        weight_lane_addr_r[i*`SRAM_ADDR_W +: `SRAM_ADDR_W] <=
+                            mv_weight_base_r +
+                            (((out_group_r * 9'd16 + i[8:0]) >> 1) * 256) +
+                            (beat_cnt_r * 2) +
+                            {{(`SRAM_ADDR_W-1){1'b0}}, (out_group_r * 9'd16 + i[8:0]) & 9'd1};
+                    end else begin
+                        // Multi tile-col (FFN down)
+                        weight_lane_addr_r[i*`SRAM_ADDR_W +: `SRAM_ADDR_W] <=
+                            mv_weight_base_r +
+                            (((out_group_r * 9'd16 + i[8:0]) >> 1) * ((mv_input_dim_r >> 7) * 256)) +
+                            ((beat_cnt_r >> 7) * 256) +
+                            ((beat_cnt_r & 12'h7F) * 2) +
+                            {{(`SRAM_ADDR_W-1){1'b0}}, (out_group_r * 9'd16 + i[8:0]) & 9'd1};
+                    end
                 end
-                if (sram_rd_ready) beat_cnt_r <= beat_cnt_r + 12'd1;
-            end
-            if (sram_resp_valid) begin
-                mac_weight_col <= sram_resp_data[BEAT_ELEMS*DATA_W-1:0];
-                mac_valid <= active_slots_r;
-                resp_cnt_r <= resp_cnt_r + 12'd1;
-                if (resp_cnt_r == mv_input_dim_r - 12'd1)
-                    state_r <= ST_MATVEC_DN;
+            end else begin
+                // Track accepted requests
+                for (i = 0; i < `MEM_REQ_LANES; i = i + 1) begin
+                    if (weight_lane_valid_r[i] && vec_req_ready[i])
+                        weight_lane_done_r[i] <= 1'b1;
+                end
+                // Capture responses into buffer
+                for (i = 0; i < `MEM_REQ_LANES; i = i + 1) begin
+                    if (mc_resp_valid[i]) begin
+                        weight_resp_buf_r[i*BEAT_ELEMS*DATA_W +: BEAT_ELEMS*DATA_W] <=
+                            mc_resp_rdata[i*`SRAM_RDATA_W +: BEAT_ELEMS*DATA_W];
+                        weight_resp_got_r[i] <= 1'b1;
+                    end
+                end
+                // synthesis translate_off
+                if (resp_cnt_r == 0 && out_group_r == 0)
+                    $display("[DBG_MV] wait: done=%h resp_got=%h mc_valid=%h mc_ready=%h vec_valid=%h vec_ready=%h",
+                        weight_lane_done_r, weight_resp_got_r,
+                        mc_resp_valid, mc_resp_ready,
+                        vec_req_valid, vec_req_ready);
+                // synthesis translate_on
+                // When all 16 responses received, feed to MAC
+                if (&weight_resp_got_r) begin
+                    mac_weight_col <= weight_resp_buf_r;
+                    mac_valid <= active_slots_r;
+                    resp_cnt_r <= resp_cnt_r + 12'd1;
+                    weight_parallel_mode_r <= 1'b0;
+                    weight_lane_valid_r <= {`MEM_REQ_LANES{1'b0}};
+                    // synthesis translate_off
+                    if (op_r == OP_WQ && layer_idx_r == 0 && out_group_r == 0 && resp_cnt_r < 3)
+                        $display("[DBG] WQ L0 grp0 resp[%0d]: weight[0]=%h vec=%h",
+                            resp_cnt_r, weight_resp_buf_r[BEAT_ELEMS*DATA_W-1:0],
+                            mac_vec_sel[0][DATA_W-1:0]);
+                    // synthesis translate_on
+                    // Advance to next input position
+                    beat_cnt_r <= beat_cnt_r + 12'd1;
+                    // Check if all input elements processed
+                    if (resp_cnt_r == mv_input_dim_r - 12'd1) begin
+                        state_r <= ST_MATVEC_DN;
+                    end
+                end
             end
         end
 
-        // MATVEC DONE: wait for MAC done, then store result and advance
+        // MATVEC DONE: wait for MAC done, then store 128 elements (16 groups) and advance
         ST_MATVEC_DN: begin
             if (all_mac_done_w) begin
                 // synthesis translate_off
                 if (out_group_r == 0 && op_r == OP_WQ && layer_idx_r == 0)
                     $display("[DBG] WQ group0 mac_result[0]=%h (cycle %0t)",
-                             mac_result[BEAT_ELEMS*DATA_W-1:0], $time);
+                             mac_result[MAC_TOTAL_LANES*DATA_W-1:0], $time);
                 if (out_group_r == 0 && op_r == OP_DOWN && layer_idx_r == 0)
                     $display("[DBG] DOWN group0 mac_result[0]=%h",
-                             mac_result[BEAT_ELEMS*DATA_W-1:0]);
+                             mac_result[MAC_TOTAL_LANES*DATA_W-1:0]);
                 if (op_r == OP_LM_HEAD && out_group_r == 0)
                     $display("[DBG] LM_HEAD group0 (tok0-7)=%h",
                              mac_result[BEAT_ELEMS*DATA_W-1:0]);
+                if (op_r == OP_LM_HEAD && out_group_r == mv_output_groups_r - 1)
+                    $display("[DBG] LM_HEAD group_last (last 8)=%h",
+                             mac_result[BEAT_ELEMS*DATA_W-1:0]);
                 // synthesis translate_on
+                // Store 128 elements (16 groups of 8) into slot_mac_out_r
                 for (i = 0; i < NUM_SLOTS; i = i + 1) begin
                     if (active_slots_r[i])
-                        slot_mac_out_r[i][out_group_r*BEAT_ELEMS*DATA_W +: BEAT_ELEMS*DATA_W]
-                            <= mac_result[i*BEAT_ELEMS*DATA_W +: BEAT_ELEMS*DATA_W];
+                        slot_mac_out_r[i][out_group_r*MAC_TOTAL_LANES*DATA_W +: MAC_TOTAL_LANES*DATA_W]
+                            <= mac_result[i*MAC_TOTAL_LANES*DATA_W +: MAC_TOTAL_LANES*DATA_W];
                 end
                 if (out_group_r == mv_output_groups_r - 1) begin
                     // Matvec complete — route based on current op
@@ -908,7 +1006,8 @@ always @(posedge clk or negedge rst_n) begin
                 op_r <= OP_WK;
                 mv_weight_base_r <= weight_sram_base_addr +
                     (layer_idx_r * LAYER_TOTAL_BEATS) + LAYER_WK_OFF;
-                mv_output_groups_r <= HIDDEN_DIM / BEAT_ELEMS;
+                mv_output_groups_r <= HIDDEN_DIM / (BEAT_ELEMS * MAC_BEATS_PER_CYCLE);
+                mac_depth_cfg_r <= MAC_DEPTH_W'(HIDDEN_DIM / MAC_BEATS_PER_CYCLE - 1);
                 out_group_r <= 9'd0; beat_cnt_r <= 12'd0; resp_cnt_r <= 12'd0;
                 mac_clear <= active_slots_r;
                 state_r <= ST_MATVEC_RD;
@@ -920,7 +1019,8 @@ always @(posedge clk or negedge rst_n) begin
                 op_r <= OP_WV;
                 mv_weight_base_r <= weight_sram_base_addr +
                     (layer_idx_r * LAYER_TOTAL_BEATS) + LAYER_WV_OFF;
-                mv_output_groups_r <= HIDDEN_DIM / BEAT_ELEMS;
+                mv_output_groups_r <= HIDDEN_DIM / (BEAT_ELEMS * MAC_BEATS_PER_CYCLE);
+                mac_depth_cfg_r <= MAC_DEPTH_W'(HIDDEN_DIM / MAC_BEATS_PER_CYCLE - 1);
                 out_group_r <= 9'd0; beat_cnt_r <= 12'd0; resp_cnt_r <= 12'd0;
                 mac_clear <= active_slots_r;
                 state_r <= ST_MATVEC_RD;
@@ -938,7 +1038,8 @@ always @(posedge clk or negedge rst_n) begin
                 mv_weight_base_r <= weight_sram_base_addr +
                     (layer_idx_r * LAYER_TOTAL_BEATS) + LAYER_UP_OFF;
                 mv_input_dim_r <= HIDDEN_DIM;
-                mv_output_groups_r <= INTERMEDIATE / BEAT_ELEMS;
+                mv_output_groups_r <= INTERMEDIATE / (BEAT_ELEMS * MAC_BEATS_PER_CYCLE);
+                mac_depth_cfg_r <= MAC_DEPTH_W'(HIDDEN_DIM / MAC_BEATS_PER_CYCLE - 1);
                 out_group_r <= 9'd0; beat_cnt_r <= 12'd0; resp_cnt_r <= 12'd0;
                 mac_clear <= active_slots_r;
                 state_r <= ST_MATVEC_RD;
@@ -982,7 +1083,8 @@ always @(posedge clk or negedge rst_n) begin
                 mv_weight_base_r <= weight_sram_base_addr +
                     (layer_idx_r * LAYER_TOTAL_BEATS) + LAYER_WO_OFF;
                 mv_input_dim_r <= HIDDEN_DIM;
-                mv_output_groups_r <= HIDDEN_DIM / BEAT_ELEMS;
+                mv_output_groups_r <= HIDDEN_DIM / (BEAT_ELEMS * MAC_BEATS_PER_CYCLE);
+                mac_depth_cfg_r <= MAC_DEPTH_W'(HIDDEN_DIM / MAC_BEATS_PER_CYCLE - 1);
                 out_group_r <= 9'd0; beat_cnt_r <= 12'd0; resp_cnt_r <= 12'd0;
                 mac_clear <= active_slots_r;
                 state_r <= ST_MATVEC_RD;
@@ -1071,7 +1173,8 @@ always @(posedge clk or negedge rst_n) begin
                 mv_weight_base_r <= weight_sram_base_addr +
                     (layer_idx_r * LAYER_TOTAL_BEATS) + LAYER_DOWN_OFF;
                 mv_input_dim_r <= INTERMEDIATE;
-                mv_output_groups_r <= HIDDEN_DIM / BEAT_ELEMS;
+                mv_output_groups_r <= HIDDEN_DIM / (BEAT_ELEMS * MAC_BEATS_PER_CYCLE);
+                mac_depth_cfg_r <= MAC_DEPTH_W'(INTERMEDIATE - 1);
                 out_group_r <= 9'd0; beat_cnt_r <= 12'd0; resp_cnt_r <= 12'd0;
                 mac_clear <= active_slots_r;
                 state_r <= ST_MATVEC_RD;

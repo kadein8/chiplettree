@@ -1,0 +1,17 @@
+tb_name=tb_comparator_free_list_flush
+timestamp=2026-04-24 12:35:54
+repo_root=/home/ICer/first
+run_dir=/home/ICer/first/verification/run_024_vcs_comparator_free_list_flush
+log_dir=/home/ICer/first/verification/run_024_vcs_comparator_free_list_flush/logs
+local_run_workdir=/tmp/codex_vcs_work/run_024_vcs_comparator_free_list_flush
+top_module=tb_comparator_free_list_flush
+compile_log=/home/ICer/first/verification/run_024_vcs_comparator_free_list_flush/logs/tb_comparator_free_list_flush_compile.log
+run_log=/home/ICer/first/verification/run_024_vcs_comparator_free_list_flush/logs/tb_comparator_free_list_flush_run.log
+local_tb_workdir=/tmp/codex_vcs_work/run_024_vcs_comparator_free_list_flush/tb_comparator_free_list_flush
+simv_path=/tmp/codex_vcs_work/run_024_vcs_comparator_free_list_flush/tb_comparator_free_list_flush/tb_comparator_free_list_flush.simv
+compile_rc=0
+compile_status=PASS
+run_rc=0
+run_status=PASS
+judge=PASS
+reason=pass_banner_detected

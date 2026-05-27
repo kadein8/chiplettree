@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  Apr 21 20:41 2026
+tb_tree_stage_abcd_integration PASS
+$finish called from file "/home/ICer/first/code/tb/tb_tree_stage_abcd_integration.v", line 739.
+$finish at simulation time               256000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 256000 ps
+CPU Time:      0.260 seconds;       Data structure size:   3.4Mb
+Tue Apr 21 20:41:04 2026

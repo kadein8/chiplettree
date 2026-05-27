@@ -1,0 +1,17 @@
+tb_name=tb_tree_stage_abc_integration
+timestamp=2026-04-23 12:09:33
+repo_root=/home/ICer/first
+run_dir=/home/ICer/first/verification/run_011_vcs_tree_stage_abc_integration
+log_dir=/home/ICer/first/verification/run_011_vcs_tree_stage_abc_integration/logs
+local_run_workdir=/tmp/codex_vcs_work/run_011_vcs_tree_stage_abc_integration
+top_module=tb_tree_stage_abc_integration
+compile_log=/home/ICer/first/verification/run_011_vcs_tree_stage_abc_integration/logs/tb_tree_stage_abc_integration_compile.log
+run_log=/home/ICer/first/verification/run_011_vcs_tree_stage_abc_integration/logs/tb_tree_stage_abc_integration_run.log
+local_tb_workdir=/tmp/codex_vcs_work/run_011_vcs_tree_stage_abc_integration/tb_tree_stage_abc_integration
+simv_path=/tmp/codex_vcs_work/run_011_vcs_tree_stage_abc_integration/tb_tree_stage_abc_integration/tb_tree_stage_abc_integration.simv
+compile_rc=0
+compile_status=PASS
+run_rc=0
+run_status=PASS
+judge=PASS
+reason=pass_banner_detected

@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  Apr 29 01:09 2026
+tb_control_chip_variable_len_token_writeback PASS
+$finish called from file "/home/ICer/first/code/tb/tb_control_chip_variable_len_token_writeback.v", line 256.
+$finish at simulation time               986000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 986000 ps
+CPU Time:      0.290 seconds;       Data structure size:   5.0Mb
+Wed Apr 29 01:09:13 2026

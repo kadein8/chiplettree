@@ -1,0 +1,17 @@
+tb_name=tb_comparator_d0_basic
+timestamp=2026-04-23 16:31:38
+repo_root=/home/ICer/first
+run_dir=/home/ICer/first/verification/run_021_vcs_comparator_d0_basic
+log_dir=/home/ICer/first/verification/run_021_vcs_comparator_d0_basic/logs
+local_run_workdir=/tmp/codex_vcs_work/run_021_vcs_comparator_d0_basic
+top_module=tb_comparator_d0_basic
+compile_log=/home/ICer/first/verification/run_021_vcs_comparator_d0_basic/logs/tb_comparator_d0_basic_compile.log
+run_log=/home/ICer/first/verification/run_021_vcs_comparator_d0_basic/logs/tb_comparator_d0_basic_run.log
+local_tb_workdir=/tmp/codex_vcs_work/run_021_vcs_comparator_d0_basic/tb_comparator_d0_basic
+simv_path=/tmp/codex_vcs_work/run_021_vcs_comparator_d0_basic/tb_comparator_d0_basic/tb_comparator_d0_basic.simv
+compile_rc=0
+compile_status=PASS
+run_rc=0
+run_status=PASS
+judge=PASS
+reason=pass_banner_detected

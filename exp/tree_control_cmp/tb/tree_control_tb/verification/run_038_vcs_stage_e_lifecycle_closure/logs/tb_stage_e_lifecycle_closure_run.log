@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  Apr 26 14:09 2026
+tb_stage_e_lifecycle_closure PASS
+$finish called from file "/home/ICer/first/code/tb/tb_stage_e_lifecycle_closure.v", line 1404.
+$finish at simulation time               516000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 516000 ps
+CPU Time:      0.250 seconds;       Data structure size:   1.8Mb
+Sun Apr 26 14:09:35 2026

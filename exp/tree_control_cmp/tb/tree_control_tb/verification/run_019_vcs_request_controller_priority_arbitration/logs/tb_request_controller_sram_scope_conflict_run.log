@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  Apr 21 20:41 2026
+tb_request_controller_sram_scope_conflict PASS
+$finish called from file "/home/ICer/first/code/tb/tb_request_controller_sram_scope_conflict.v", line 318.
+$finish at simulation time               506000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 506000 ps
+CPU Time:      0.240 seconds;       Data structure size:   3.2Mb
+Tue Apr 21 20:41:24 2026

@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  May  1 13:02 2026
+tb_control_chip_bounded_orchestration PASS
+$finish called from file "/home/ICer/first/code/tb/tb_control_chip_bounded_orchestration.v", line 186.
+$finish at simulation time               346000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 346000 ps
+CPU Time:      0.250 seconds;       Data structure size:   5.0Mb
+Fri May  1 13:02:03 2026

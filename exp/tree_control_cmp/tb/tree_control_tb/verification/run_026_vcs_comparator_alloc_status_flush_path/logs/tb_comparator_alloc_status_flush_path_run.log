@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  Apr 24 16:23 2026
+tb_comparator_alloc_status_flush_path PASS
+$finish called from file "/home/ICer/first/code/tb/tb_comparator_alloc_status_flush_path.v", line 813.
+$finish at simulation time             41181000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 41181000 ps
+CPU Time:      0.370 seconds;       Data structure size:   1.0Mb
+Fri Apr 24 16:23:12 2026

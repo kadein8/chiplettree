@@ -1,0 +1,7 @@
+run_name=run_032_vcs_comparator_async_multi_depth_reduction
+timestamp=2026-04-25 22:32:17
+tb_count=1
+tb_0=tb_comparator_async_multi_depth_reduction
+tb_0_result_file=/home/ICer/first/verification/run_032_vcs_comparator_async_multi_depth_reduction/logs/tb_comparator_async_multi_depth_reduction_result.txt
+tb_0_judge=PASS
+overall_judge=PASS

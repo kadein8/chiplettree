@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  Apr 26 12:26 2026
+tb_comparator_accepted_path_longest_path PASS
+$finish called from file "/home/ICer/first/code/tb/tb_comparator_accepted_path_longest_path.v", line 244.
+$finish at simulation time                47000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 47000 ps
+CPU Time:      0.250 seconds;       Data structure size:   0.0Mb
+Sun Apr 26 12:26:19 2026

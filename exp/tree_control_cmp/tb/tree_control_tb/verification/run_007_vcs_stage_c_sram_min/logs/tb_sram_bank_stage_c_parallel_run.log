@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  Apr 19 21:41 2026
+tb_sram_bank_stage_c_parallel PASS
+$finish called from file "/home/ICer/first/code/tb/tb_sram_bank_stage_c_parallel.v", line 172.
+$finish at simulation time                86000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 86000 ps
+CPU Time:      0.220 seconds;       Data structure size:   0.1Mb
+Sun Apr 19 21:41:36 2026

@@ -1,0 +1,17 @@
+tb_name=tb_prefetch_queue_selective_flush
+timestamp=2026-04-19 22:52:23
+repo_root=/home/ICer/first
+run_dir=/home/ICer/first/verification/run_008_vcs_tree_analyze_agu_frontend
+log_dir=/home/ICer/first/verification/run_008_vcs_tree_analyze_agu_frontend/logs
+local_run_workdir=/tmp/codex_vcs_work/run_008_vcs_tree_analyze_agu_frontend
+top_module=tb_prefetch_queue_selective_flush
+compile_log=/home/ICer/first/verification/run_008_vcs_tree_analyze_agu_frontend/logs/tb_prefetch_queue_selective_flush_compile.log
+run_log=/home/ICer/first/verification/run_008_vcs_tree_analyze_agu_frontend/logs/tb_prefetch_queue_selective_flush_run.log
+local_tb_workdir=/tmp/codex_vcs_work/run_008_vcs_tree_analyze_agu_frontend/tb_prefetch_queue_selective_flush
+simv_path=/tmp/codex_vcs_work/run_008_vcs_tree_analyze_agu_frontend/tb_prefetch_queue_selective_flush/tb_prefetch_queue_selective_flush.simv
+compile_rc=0
+compile_status=PASS
+run_rc=0
+run_status=PASS
+judge=PASS
+reason=pass_banner_detected

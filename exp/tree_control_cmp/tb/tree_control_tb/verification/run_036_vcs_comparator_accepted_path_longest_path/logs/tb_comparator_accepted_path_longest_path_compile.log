@@ -1,0 +1,42 @@
+                         Chronologic VCS (TM)
+       Version O-2018.09-SP2_Full64 -- Sun Apr 26 12:26:17 2026
+               Copyright (c) 1991-2018 by Synopsys Inc.
+                         ALL RIGHTS RESERVED
+
+This program is proprietary and confidential information of Synopsys Inc.
+and may be used and disclosed only as authorized in a license agreement
+controlling such use and disclosure.
+
+
+Warning-[LCA_FEATURES_ENABLED] Usage warning
+  LCA features enabled by '-lca' argument on the command line.  For more 
+  information regarding list of LCA features please refer to Chapter "LCA 
+  features" in the VCS/VCS-MX Release Notes
+
+Parsing design file '/home/ICer/first/code/comparator.v'
+Parsing included file '/home/ICer/first/code/config/prediction_params.vh'.
+Back to file '/home/ICer/first/code/comparator.v'.
+Parsing included file '/home/ICer/first/code/config/interface_params.vh'.
+Back to file '/home/ICer/first/code/comparator.v'.
+Parsing design file '/home/ICer/first/code/tb/tb_comparator_accepted_path_longest_path.v'
+Top Level Modules:
+       tb_comparator_accepted_path_longest_path
+TimeScale is 1 ns / 1 ps
+
+Warning-[TFIPC] Too few instance port connections
+/home/ICer/first/code/tb/tb_comparator_accepted_path_longest_path.v, 58
+tb_comparator_accepted_path_longest_path, "comparator u_comparator( .clk (clk),  .rst_n (rst_n),  .reduce_start_valid (reduce_start_valid),  .reduce_req_id (reduce_req_id),  .active_branch_valid (active_branch_valid),  .active_branch_epoch (active_branch_epoch),  .active_branch_depth (active_branch_depth),  .active_branch_node_id (active_branch_node_id),  .active_branch_parent_node_id (active_branch_parent_node_id),  .result_slot_valid (result_slot_valid),  .result_req_id (result_req_id),  .result_branch_id (result_branch_id),  .result_branch_epoch (result_branch_epoch),  .result_private_depth (result_private_depth),  .result_node_id (result_node_id),  .result_parent_node_id (result_parent_node_id),  .result_accept (result_accept),  .accepted_prefix_valid (accepted_prefix_valid),  .accepted_pref ... "
+  The above instance has fewer port connections than the module definition.
+  Please use '+lint=TFIPC-L' to print out detailed information of unconnected 
+  ports.
+
+Starting vcs inline pass...
+
+1 module and 0 UDP read.
+recompiling module tb_comparator_accepted_path_longest_path
+rm -f _csrc*.so pre_vcsobj_*.so share_vcsobj_*.so
+if [ -x /tmp/codex_vcs_work/run_036_vcs_comparator_accepted_path_longest_path/tb_comparator_accepted_path_longest_path/tb_comparator_accepted_path_longest_path.simv ]; then chmod -x /tmp/codex_vcs_work/run_036_vcs_comparator_accepted_path_longest_path/tb_comparator_accepted_path_longest_path/tb_comparator_accepted_path_longest_path.simv; fi
+g++  -o /tmp/codex_vcs_work/run_036_vcs_comparator_accepted_path_longest_path/tb_comparator_accepted_path_longest_path/tb_comparator_accepted_path_longest_path.simv    -Wl,-rpath-link=./ -Wl,-rpath='$ORIGIN'/tb_comparator_accepted_path_longest_path.simv.daidir/ -Wl,-rpath=./tb_comparator_accepted_path_longest_path.simv.daidir/ -Wl,-rpath='$ORIGIN'/tb_comparator_accepted_path_longest_path.simv.daidir//scsim.db.dir  -rdynamic  -Wl,-rpath=/home/synopsys/vcs/O-2018.09-SP2/linux64/lib -L/home/synopsys/vcs/O-2018.09-SP2/linux64/lib   objs/amcQw_d.o   _115271_archive_1.so  SIM_l.o       rmapats_mop.o rmapats.o rmar.o rmar_nd.o  rmar_llvm_0_1.o rmar_llvm_0_0.o          -lzerosoft_rt_stubs -lvirsim -lerrorinf -lsnpsmalloc -lvfs    -lvcsnew -lsimprofile -luclinative /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/vcs_tls.o   -Wl,-whole-archive -lvcsucli -Wl,-no-whole-archive          /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/vcs_save_restore_new.o -ldl  -lc -lm -lpthread -ldl 
+/tmp/codex_vcs_work/run_036_vcs_comparator_accepted_path_longest_path/tb_comparator_accepted_path_longest_path/tb_comparator_accepted_path_longest_path.simv up to date
+CPU time: .791 seconds to compile + .214 seconds to elab + .236 seconds to link
+Verdi KDB elaboration done and the database successfully generated: 0 error(s), 0 warning(s)

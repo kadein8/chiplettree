@@ -1,8 +1,0 @@
-{
-  "sequence_id": "bridge-trace-seq-0",
-  "step_index": 0,
-  "request_kind": "sync_tree_step",
-  "created_by": "wsl2_runtime_loop",
-  "created_at_epoch_ms": 1778206647561,
-  "client_workdir": "/mnt/e/Paper/Chen/first/code/runtime_exchange_client/trace_000/step_000"
-}

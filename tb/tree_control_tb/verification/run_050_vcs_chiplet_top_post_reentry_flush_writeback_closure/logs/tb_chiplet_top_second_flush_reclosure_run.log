@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  Apr 29 11:39 2026
+tb_control_chip_second_flush_reclosure PASS
+$finish called from file "/home/ICer/first/code/tb/tb_control_chip_second_flush_reclosure.v", line 406.
+$finish at simulation time               776000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 776000 ps
+CPU Time:      0.240 seconds;       Data structure size:   5.0Mb
+Wed Apr 29 11:39:03 2026

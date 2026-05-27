@@ -1,0 +1,281 @@
+                         Chronologic VCS (TM)
+       Version O-2018.09-SP2_Full64 -- Wed May 27 19:50:01 2026
+               Copyright (c) 1991-2018 by Synopsys Inc.
+                         ALL RIGHTS RESERVED
+
+This program is proprietary and confidential information of Synopsys Inc.
+and may be used and disclosed only as authorized in a license agreement
+controlling such use and disclosure.
+
+Parsing design file 'rtl/transformer/floatMult16.v'
+Parsing design file 'rtl/transformer/floatAdd16.v'
+Parsing design file 'rtl/pe_operators/pe_rmsnorm_compute.v'
+Parsing included file 'rtl/config/interface_params.vh'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/pe_operators/pe_rmsnorm_compute.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/pe_operators/pe_rmsnorm_compute.v'.
+Parsing design file 'rtl/pe_operators/pe_silu_mul_compute.v'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/pe_operators/pe_silu_mul_compute.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/pe_operators/pe_silu_mul_compute.v'.
+Parsing design file 'rtl/pe_operators/pe_residual_add_compute.v'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/pe_operators/pe_residual_add_compute.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/pe_operators/pe_residual_add_compute.v'.
+Parsing design file 'rtl/pe_operators/pe_attn_compute.v'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/pe_operators/pe_attn_compute.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/pe_operators/pe_attn_compute.v'.
+Parsing design file 'rtl/tree_control/pe_mac_unit.v'
+Parsing design file 'rtl/tree_control/pe_mac_unit_wide.v'
+Parsing design file 'rtl/tree_control/PeArrayComputeOverlay.v'
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/PeArrayComputeOverlay.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/PeArrayComputeOverlay.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/PeArrayComputeOverlay.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/PeArrayComputeOverlay.v'.
+Parsing design file 'rtl/tree_control/PeArrayNonlinearUnit.v'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/PeArrayNonlinearUnit.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/PeArrayNonlinearUnit.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/PeArrayNonlinearUnit.v'.
+Parsing design file 'rtl/tree_control/PeArrayLayerController.v'
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/PeArrayLayerController.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/PeArrayLayerController.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/PeArrayLayerController.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/PeArrayLayerController.v'.
+Parsing design file 'rtl/tree_control/HHTContextPredictor.v'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/HHTContextPredictor.v'.
+Parsing design file 'rtl/tree_control/request_controller.v'
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/request_controller.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/request_controller.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/request_controller.v'.
+Parsing design file 'rtl/tree_control/multicast_network.v'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/multicast_network.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/multicast_network.v'.
+Parsing design file 'rtl/tree_control/issue_bundle_adapter.v'
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/issue_bundle_adapter.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/issue_bundle_adapter.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/issue_bundle_adapter.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/issue_bundle_adapter.v'.
+Parsing design file 'rtl/tree_control/branch_parallel_controller.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/branch_parallel_controller.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/branch_parallel_controller.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/branch_parallel_controller.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/branch_parallel_controller.sv'.
+Parsing design file 'rtl/tree_control/draft_injection_interface.sv'
+Parsing design file 'rtl/tree_control/longest_path_comparator.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/longest_path_comparator.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/longest_path_comparator.sv'.
+Parsing design file 'rtl/tree_control/kv_share_scheduler.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/kv_share_scheduler.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/kv_share_scheduler.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/kv_share_scheduler.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/kv_share_scheduler.sv'.
+Parsing design file 'rtl/tree_control/tree_to_native_bridge.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/tree_to_native_bridge.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/tree_to_native_bridge.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/tree_to_native_bridge.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/tree_to_native_bridge.sv'.
+Parsing design file 'rtl/tree_control/StrictTreeMaskPaperPath.v'
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/tree_control/tree_analyze.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/tree_analyze.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/tree_analyze.v'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/tree_control/agu.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/agu.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/agu.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/agu.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/agu.v'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/tree_control/prefetch_queue.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/prefetch_queue.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/prefetch_queue.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/prefetch_queue.v'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/tree_control/free_list.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/free_list.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/free_list.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/free_list.v'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/tree_control/bank_state_table.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/bank_state_table.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/bank_state_table.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/bank_state_table.v'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/tree_control/token_register.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/token_register.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/token_register.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/token_register.v'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/tree_control/comparator.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/comparator.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/comparator.v'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/tree_control/StrictTreeMaskPaperIssueScheduler.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperIssueScheduler.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperIssueScheduler.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperIssueScheduler.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperIssueScheduler.v'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing design file 'rtl/tree_control/branch_parallel_scheduler.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/branch_parallel_scheduler.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/branch_parallel_scheduler.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/branch_parallel_scheduler.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/branch_parallel_scheduler.sv'.
+Parsing design file 'rtl/tree_control/multi_token_emitter.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/multi_token_emitter.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/multi_token_emitter.sv'.
+Parsing design file 'rtl/transformer/speculative_decode_treecontrol_top.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_treecontrol_top.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_treecontrol_top.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_treecontrol_top.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_treecontrol_top.sv'.
+Parsing design file 'rtl/transformer/speculative_decode_final_top.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_final_top.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_final_top.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_final_top.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_final_top.sv'.
+Parsing design file 'code_by/tree_control/tree_flatten.v'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'code_by/tree_control/tree_flatten.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'code_by/tree_control/tree_flatten.v'.
+Parsing design file 'rtl/transformer/tree_verify_dispatcher.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/tree_verify_dispatcher.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/transformer/tree_verify_dispatcher.sv'.
+Parsing design file 'rtl/transformer/tree_builder.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/tree_builder.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/transformer/tree_builder.sv'.
+Parsing design file 'rtl/transformer/feedback_controller.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/feedback_controller.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/transformer/feedback_controller.sv'.
+Parsing design file 'rtl/transformer/speculative_decode_e2e_top.sv'
+Parsing design file 'tb/e2e/tb_speculative_decode_e2e.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'tb/e2e/tb_speculative_decode_e2e.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'tb/e2e/tb_speculative_decode_e2e.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'tb/e2e/tb_speculative_decode_e2e.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'tb/e2e/tb_speculative_decode_e2e.sv'.
+Top Level Modules:
+       pe_mac_unit_wide
+       PeArrayComputeOverlay
+       PeArrayNonlinearUnit
+       multicast_network
+       issue_bundle_adapter
+       branch_parallel_controller
+       kv_share_scheduler
+       speculative_decode_treecontrol_top
+       speculative_decode_final_top
+       tree_flatten
+       tree_verify_dispatcher
+       feedback_controller
+       tb_speculative_decode_e2e
+TimeScale is 1 ns / 1 ps
+
+Error-[URMI] Unresolved modules
+rtl/transformer/speculative_decode_final_top.sv, 142
+"draft_injection_interface #(.BRANCH_NUM(BRANCH_NUM), .MAX_DEPTH(MAX_LEVELS)) u_draft_inject( .clk (clk),  .rst_n (rst_n),  .inject_start (draft_inject_start),  .seed_token_id (seed_token_id_r),  .seed_position (seed_position_r),  .seed_node_id (seed_node_id_r),  .commit_feedback_valid (((emit_token_valid || fallback_token_valid_r) || (start && (state_r == ST_IDLE)))),  .commit_feedback_token ((emit_token_valid ? emit_token_id : (fallback_token_valid_r ? fallback_token_id_r : prompt_token_id))),  .draft_valid (draft_valid),  .draft_token_id (draft_token_id),  .draft_parent_node_id (draft_parent_node_id),  .draft_position (draft_position),  .draft_branch_id (draft_branch_id),  .draft_depth (draft_depth),  .draft_done (draft_done_w),  .branch_active (draft ... "
+  Module definition of above instance is not found in the design.
+
+
+Error-[URMI] Unresolved modules
+tb/e2e/tb_speculative_decode_e2e.sv, 83
+"speculative_decode_e2e_top u_dut( .clk (clk),  .rst_n (rst_n),  .start (start),  .prompt_token_id (prompt_token_id),  .max_gen_tokens (max_gen_tokens),  .done (dut_done),  .busy (dut_busy),  .token_out_valid (token_out_valid),  .token_out_id (token_out_id),  .hbm_rd_valid (hbm_rd_valid),  .hbm_rd_ready (hbm_rd_ready),  .hbm_rd_addr (hbm_rd_addr),  .hbm_resp_valid (hbm_resp_valid),  .hbm_resp_data (hbm_resp_data),  .sram_preload_valid (sram_preload_valid),  .sram_preload_addr (sram_preload_addr),  .sram_preload_data (sram_preload_data),  .warmup_accept_valid (warmup_accept_valid),  .warmup_accept_parent_node_id (warmup_accept_parent_node_id),  .warmup_accept_token_id (warmup_accept_token_id),  .warmup_accept_position (warmup_accept_position));"
+  Module definition of above instance is not found in the design.
+
+2 errors
+CPU time: .343 seconds to compile

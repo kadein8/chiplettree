@@ -1,0 +1,44 @@
+                         Chronologic VCS (TM)
+       Version O-2018.09-SP2_Full64 -- Sat May  9 12:27:26 2026
+               Copyright (c) 1991-2018 by Synopsys Inc.
+                         ALL RIGHTS RESERVED
+
+This program is proprietary and confidential information of Synopsys Inc.
+and may be used and disclosed only as authorized in a license agreement
+controlling such use and disclosure.
+
+
+Warning-[LCA_FEATURES_ENABLED] Usage warning
+  LCA features enabled by '-lca' argument on the command line.  For more 
+  information regarding list of LCA features please refer to Chapter "LCA 
+  features" in the VCS/VCS-MX Release Notes
+
+Parsing design file '/home/ICer/first/code/rtl/tree_control/free_list.v'
+Parsing included file '/home/ICer/first/code/rtl/config/prediction_params.vh'.
+Back to file '/home/ICer/first/code/rtl/tree_control/free_list.v'.
+Parsing included file '/home/ICer/first/code/rtl/config/interface_params.vh'.
+Back to file '/home/ICer/first/code/rtl/tree_control/free_list.v'.
+Parsing included file '/home/ICer/first/code/rtl/config/memory_params.vh'.
+Back to file '/home/ICer/first/code/rtl/tree_control/free_list.v'.
+Parsing design file '/home/ICer/first/code/rtl/tree_control/bank_state_table.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/request_controller.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/sram_bank.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/sram_subbank.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/sram_subsystem.v'
+Parsing design file '/home/ICer/first/exp/sram_ablation_experiment/step3_ablation/tb_exp_step3.v'
+Top Level Modules:
+       tb_exp_step3
+TimeScale is 1 ns / 1 ps
+Notice: Ports coerced to inout, use -notice for details
+Starting vcs inline pass...
+
+2 modules and 0 UDP read.
+recompiling module sram_subbank
+recompiling module tb_exp_step3
+Both modules done.
+rm -f _csrc*.so pre_vcsobj_*.so share_vcsobj_*.so
+if [ -x /tmp/codex_vcs_work/step3_ablation/config_05_incremental/tb_exp_step3.simv ]; then chmod -x /tmp/codex_vcs_work/step3_ablation/config_05_incremental/tb_exp_step3.simv; fi
+g++  -o /tmp/codex_vcs_work/step3_ablation/config_05_incremental/tb_exp_step3.simv    -Wl,-rpath-link=./ -Wl,-rpath='$ORIGIN'/tb_exp_step3.simv.daidir/ -Wl,-rpath=./tb_exp_step3.simv.daidir/ -Wl,-rpath='$ORIGIN'/tb_exp_step3.simv.daidir//scsim.db.dir  -rdynamic  -Wl,-rpath=/home/synopsys/vcs/O-2018.09-SP2/linux64/lib -L/home/synopsys/vcs/O-2018.09-SP2/linux64/lib   objs/amcQw_d.o   _126480_archive_1.so  SIM_l.o       rmapats_mop.o rmapats.o rmar.o rmar_nd.o  rmar_llvm_0_1.o rmar_llvm_0_0.o          -lzerosoft_rt_stubs -lvirsim -lerrorinf -lsnpsmalloc -lvfs    -lvcsnew -lsimprofile -luclinative /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/vcs_tls.o   -Wl,-whole-archive -lvcsucli -Wl,-no-whole-archive          /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/vcs_save_restore_new.o -ldl  -lc -lm -lpthread -ldl 
+/tmp/codex_vcs_work/step3_ablation/config_05_incremental/tb_exp_step3.simv up to date
+CPU time: 3.321 seconds to compile + .873 seconds to elab + .138 seconds to link
+Verdi KDB elaboration done and the database successfully generated: 0 error(s), 0 warning(s)

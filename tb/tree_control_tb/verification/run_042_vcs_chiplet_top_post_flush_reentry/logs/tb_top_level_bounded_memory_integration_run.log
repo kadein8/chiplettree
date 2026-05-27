@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  Apr 26 23:17 2026
+tb_top_level_bounded_memory_integration PASS
+$finish called from file "/home/ICer/first/code/tb/tb_top_level_bounded_memory_integration.v", line 1643.
+$finish at simulation time               546000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 546000 ps
+CPU Time:      0.270 seconds;       Data structure size:   5.0Mb
+Sun Apr 26 23:17:48 2026

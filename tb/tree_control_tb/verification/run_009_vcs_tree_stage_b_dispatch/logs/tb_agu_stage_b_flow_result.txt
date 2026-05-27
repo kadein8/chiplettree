@@ -1,0 +1,17 @@
+tb_name=tb_agu_stage_b_flow
+timestamp=2026-04-23 12:05:12
+repo_root=/home/ICer/first
+run_dir=/home/ICer/first/verification/run_009_vcs_tree_stage_b_dispatch
+log_dir=/home/ICer/first/verification/run_009_vcs_tree_stage_b_dispatch/logs
+local_run_workdir=/tmp/codex_vcs_work/run_009_vcs_tree_stage_b_dispatch
+top_module=tb_agu_stage_b_flow
+compile_log=/home/ICer/first/verification/run_009_vcs_tree_stage_b_dispatch/logs/tb_agu_stage_b_flow_compile.log
+run_log=/home/ICer/first/verification/run_009_vcs_tree_stage_b_dispatch/logs/tb_agu_stage_b_flow_run.log
+local_tb_workdir=/tmp/codex_vcs_work/run_009_vcs_tree_stage_b_dispatch/tb_agu_stage_b_flow
+simv_path=/tmp/codex_vcs_work/run_009_vcs_tree_stage_b_dispatch/tb_agu_stage_b_flow/tb_agu_stage_b_flow.simv
+compile_rc=0
+compile_status=PASS
+run_rc=0
+run_status=PASS
+judge=PASS
+reason=pass_banner_detected

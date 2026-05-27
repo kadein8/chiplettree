@@ -1,0 +1,11 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  May  9 11:58 2026
+ToyDecoderWeightBank using built-in diagonal FP_ONE fallback weights
+tb_exp_step1 PASS
+$finish called from file "/home/ICer/first/exp/sram_ablation_experiment/step1_functional_verification/tb_exp_step1.v", line 610.
+$finish at simulation time              1206000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 1206000 ps
+CPU Time:      0.300 seconds;       Data structure size:   7.6Mb
+Sat May  9 11:58:13 2026

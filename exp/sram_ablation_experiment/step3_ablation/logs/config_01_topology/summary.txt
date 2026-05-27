@@ -1,0 +1,3 @@
+judge=PASS
+reason=pass_banner_detected
+run_rc=0

@@ -1,0 +1,14 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  Apr 24 10:48 2026
+tb_comparator_prefetch_queue_flush debug enqueue tree_in_enqueue: wait=0 state=0 treeq_count=0 tree_in_valid=1 prefix_valid=1 prefix_ready=1 prefetch_enq_valid=1 req=0x3 branch=0x1 node=0x2 layer=0x0 shared=0
+tb_comparator_prefetch_queue_flush debug enqueue prefix_enqueue: wait=0 state=0 treeq_count=1 tree_in_valid=0 prefix_valid=0 prefix_ready=1 prefetch_enq_valid=1 req=0x4 branch=0x0 node=0x1 layer=0x7 shared=1
+tb_comparator_prefetch_queue_flush debug head queue_head_before_flush: wait=0 queue_valid=1 req=0x3 branch=0x1 node=0x2 layer=0x0 shared=0
+tb_comparator_prefetch_queue_flush debug head queue_head_after_flush: wait=0 queue_valid=1 req=0x4 branch=0x0 node=0x1 layer=0x7 shared=1
+tb_comparator_prefetch_queue_flush PASS
+$finish called from file "/home/ICer/first/code/tb/tb_comparator_prefetch_queue_flush.v", line 610.
+$finish at simulation time               106000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 106000 ps
+CPU Time:      0.210 seconds;       Data structure size:   0.0Mb
+Fri Apr 24 10:48:55 2026

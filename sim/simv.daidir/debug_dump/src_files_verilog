@@ -1,0 +1,17 @@
+/mnt/hgfs/E/Paper/Chen/first/code/code_by/transformer/tree_verify_dispatcher.sv
+/mnt/hgfs/E/Paper/Chen/first/code/code_by/tree_control/tree_flatten.v
+/mnt/hgfs/E/Paper/Chen/first/code/rtl/config/interface_params.vh
+/mnt/hgfs/E/Paper/Chen/first/code/rtl/config/memory_params.vh
+/mnt/hgfs/E/Paper/Chen/first/code/rtl/config/model_params.vh
+/mnt/hgfs/E/Paper/Chen/first/code/rtl/config/prediction_params.vh
+/mnt/hgfs/E/Paper/Chen/first/code/rtl/transformer/feedback_controller.sv
+/mnt/hgfs/E/Paper/Chen/first/code/rtl/transformer/floatAdd16.v
+/mnt/hgfs/E/Paper/Chen/first/code/rtl/transformer/floatMult16.v
+/mnt/hgfs/E/Paper/Chen/first/code/rtl/transformer/speculative_decode_e2e_top.sv
+/mnt/hgfs/E/Paper/Chen/first/code/rtl/transformer/tree_builder.sv
+/mnt/hgfs/E/Paper/Chen/first/code/rtl/tree_control/HHTContextPredictor.v
+/mnt/hgfs/E/Paper/Chen/first/code/rtl/tree_control/PeArrayComputeOverlay.v
+/mnt/hgfs/E/Paper/Chen/first/code/rtl/tree_control/PeArrayLayerController.v
+/mnt/hgfs/E/Paper/Chen/first/code/rtl/tree_control/PeArrayNonlinearUnit.v
+/mnt/hgfs/E/Paper/Chen/first/code/rtl/tree_control/pe_mac_unit.v
+/mnt/hgfs/E/Paper/Chen/first/code/tb/e2e/tb_speculative_decode_e2e.sv

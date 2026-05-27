@@ -1,0 +1,6 @@
+run_name=exp_step2_throughput
+timestamp=2026-05-09 11:59:56
+running=run_exp_step2.sh
+scope=control_chip_stage2_single_chiplet_ten_round_throughput
+exit_code_run_exp_step2.sh=0
+judge=PASS

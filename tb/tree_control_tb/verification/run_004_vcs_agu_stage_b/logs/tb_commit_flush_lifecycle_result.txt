@@ -1,0 +1,17 @@
+tb_name=tb_commit_flush_lifecycle
+timestamp=2026-04-18 16:40:51
+repo_root=/home/ICer/first
+run_dir=/home/ICer/first/verification/run_004_vcs_agu_stage_b
+log_dir=/home/ICer/first/verification/run_004_vcs_agu_stage_b/logs
+local_run_workdir=/tmp/codex_vcs_work/run_004_vcs_agu_stage_b
+top_module=tb_commit_flush_lifecycle
+compile_log=/home/ICer/first/verification/run_004_vcs_agu_stage_b/logs/tb_commit_flush_lifecycle_compile.log
+run_log=/home/ICer/first/verification/run_004_vcs_agu_stage_b/logs/tb_commit_flush_lifecycle_run.log
+local_tb_workdir=/tmp/codex_vcs_work/run_004_vcs_agu_stage_b/tb_commit_flush_lifecycle
+simv_path=/tmp/codex_vcs_work/run_004_vcs_agu_stage_b/tb_commit_flush_lifecycle/tb_commit_flush_lifecycle.simv
+compile_rc=0
+compile_status=PASS
+run_rc=0
+run_status=PASS
+judge=PASS
+reason=pass_banner_detected

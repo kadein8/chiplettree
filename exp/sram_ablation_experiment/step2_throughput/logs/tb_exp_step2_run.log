@@ -1,0 +1,30 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  May  9 11:59 2026
+ToyDecoderWeightBank using built-in diagonal FP_ONE fallback weights
+PERF_ROUND,0,0,58,58,58
+PERF_ROUND,1,58,116,116,58
+PERF_ROUND,2,116,174,174,58
+PERF_ROUND,3,174,232,232,58
+PERF_ROUND,4,232,290,290,58
+PERF_ROUND,5,290,348,348,58
+PERF_ROUND,6,348,406,406,58
+PERF_ROUND,7,406,464,464,58
+PERF_ROUND,8,464,522,522,58
+PERF_ROUND,9,522,580,580,58
+PERF_METRIC,global_cycles,580
+PERF_METRIC,total_rounds,10
+PERF_METRIC,total_wb_tokens,10
+PERF_METRIC,total_sram_reads,10
+PERF_METRIC,total_sram_writes,10
+PERF_METRIC,total_flush_events,0
+PERF_METRIC,total_error_events,0
+PERF_METRIC,avg_cycles_per_round,58
+PERF_METRIC,tokens_per_cycle_x1000,17
+tb_exp_step2 PASS
+$finish called from file "/home/ICer/first/exp/sram_ablation_experiment/step2_throughput/tb_exp_step2.v", line 638.
+$finish at simulation time              5826000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 5826000 ps
+CPU Time:      0.250 seconds;       Data structure size:   7.6Mb
+Sat May  9 11:59:56 2026

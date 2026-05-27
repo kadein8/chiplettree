@@ -1176,4 +1176,33 @@ token_register u_token_register (
     .error_flag(token_error_flag)
 );
 
+// synthesis translate_off
+always @(posedge clk) begin
+    if (req_valid && req_ready)
+        $display("[STMP] req accepted: req_id=%0d prefix_slot_valid=%b frontier_level_valid=%b",
+            req_id, src_prefix_slot_valid, src_frontier_level_valid);
+    if (prefix_valid && prefix_ready)
+        $display("[STMP] prefix→AGU: node_id=%0d token_id=%0d pos=%0d",
+            prefix_node_id, prefix_token_id, prefix_position_id);
+    if (frontier_valid && frontier_ready)
+        $display("[STMP] frontier→AGU: level=%0d slot_valid=%b",
+            frontier_level_id, frontier_slot_valid);
+    if (prefetch_bundle_valid && prefetch_bundle_ready_w)
+        $display("[STMP] AGU→prefetch_queue: slot_valid=%b",
+            prefetch_bundle_slot_valid);
+    if (queue_bundle_deq_valid_w && queue_bundle_deq_ready_w)
+        $display("[STMP] prefetch_queue→free_list: slot_valid=%b",
+            queue_bundle_deq_slot_valid_w);
+    if (cand_resp_bundle_valid_w)
+        $display("[STMP] free_list→AGU cand_resp: slot_valid=%b grant=%b",
+            cand_resp_bundle_slot_valid_w, cand_resp_bundle_grant_w);
+    if (token_wr_valid)
+        $display("[STMP] AGU→token_register write: token=%0d pos=%0d node=%0d",
+            token_wr_token_id, token_wr_position_id, token_wr_node_id);
+    if (paper_issue_bundle_valid)
+        $display("[STMP] IssueScheduler→issue_bundle: slot_valid=%b count=%0d",
+            paper_issue_bundle_slot_valid, paper_issue_bundle_slot_count);
+end
+// synthesis translate_on
+
 endmodule

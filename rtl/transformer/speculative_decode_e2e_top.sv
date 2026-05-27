@@ -301,6 +301,12 @@ feedback_controller #(
 );
 
 // =========================================================================
+// Forward declarations for signals used before their module instantiation
+// =========================================================================
+logic lc_done;
+logic [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] lc_out_token_id;
+
+// =========================================================================
 // Draft Injection Interface (behavioral simulation of external draft chiplet)
 // =========================================================================
 logic draft_inject_start;
@@ -323,6 +329,8 @@ draft_injection_interface #(
     .seed_token_id(seed_token_id_r),
     .seed_position(seed_position_r),
     .seed_node_id(seed_node_id_r),
+    .commit_feedback_valid(1'b0),
+    .commit_feedback_token({`TOKEN_ID_W{1'b0}}),
     .draft_valid(draft_valid),
     .draft_token_id(draft_token_id),
     .draft_parent_node_id(draft_parent_node_id),
@@ -343,24 +351,18 @@ assign draft_inject_start = (state_r == ST_BUILD) && !tb_busy && !tb_done;
 // =========================================================================
 logic comparator_start;
 logic comparator_result_valid;
-logic [2:0] comparator_accepted_depth;
+logic [3:0] comparator_accepted_count;
 logic [(MAX_LEVELS+1)*`TOKEN_ID_W-1:0] comparator_accepted_tokens;
 logic [BRANCH_NUM-1:0] comparator_flush_mask;
 logic comparator_all_correct;
 
-// Per-branch generated tokens: extract from lc_out_token_id
-// Branch 0 = slot 0 (seed generates next), Branch 1 = slot with depth 1, etc.
-// For now, map slot indices to branches based on dispatcher layout:
-//   slot 0 = seed (branch 0 output)
-//   slots 1..4 = branch 0 levels (but branch 0 has no injection, so slot 0 is its output)
-//   Actually: slot 0 = seed, slot 1 = branch0_level0, slot 5 = branch1_level0, etc.
-// Simplified: branch[b].generated = lc_out_token_id[slot_for_branch_tip(b)]
-wire [BRANCH_NUM*`TOKEN_ID_W-1:0] branch_gen_tokens = {
-    lc_out_token_id[4*`TOKEN_ID_W +: `TOKEN_ID_W],   // branch 3: slot 4 (simplified)
-    lc_out_token_id[3*`TOKEN_ID_W +: `TOKEN_ID_W],   // branch 2: slot 3
-    lc_out_token_id[2*`TOKEN_ID_W +: `TOKEN_ID_W],   // branch 1: slot 2
-    lc_out_token_id[0*`TOKEN_ID_W +: `TOKEN_ID_W]    // branch 0: slot 0 (main path)
-};
+// Forward declarations for scheduler signals (defined later with kv_share_scheduler)
+logic sched_all_done;
+logic [BRANCH_NUM-1:0] sched_branch_valid;
+logic [BRANCH_NUM*`TOKEN_ID_W-1:0] sched_branch_generated_token;
+
+// Per-branch generated tokens: now from kv_share_scheduler
+wire [BRANCH_NUM*`TOKEN_ID_W-1:0] branch_gen_tokens = sched_branch_generated_token;
 
 longest_path_comparator #(
     .BRANCH_NUM(BRANCH_NUM),
@@ -370,22 +372,18 @@ longest_path_comparator #(
     .rst_n(rst_n),
     .compare_start(comparator_start),
     .branch_generated_token(branch_gen_tokens),
-    .branch_valid(draft_branch_active),
+    .branch_valid(sched_branch_valid),
     .branch_injected_tokens(draft_branch_injected_tokens),
     .branch_depth({3'd1, 3'd2, 3'd1, 3'd0}),  // packed: branch3=1, branch2=2, branch1=1, branch0=0
     .result_valid(comparator_result_valid),
-    .accepted_depth(comparator_accepted_depth),
+    .accepted_count(comparator_accepted_count),
     .accepted_tokens(comparator_accepted_tokens),
     .flush_mask(comparator_flush_mask),
     .all_correct(comparator_all_correct)
 );
 
-// Comparator triggers when layer controller finishes verify batch
-assign comparator_start = lc_done && (state_r == ST_VERIFY);
-
-// Forward declarations for signals used before their module instantiation
-logic lc_done;
-logic [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] lc_out_token_id;
+// Comparator triggers when kv_share_scheduler finishes all branches
+assign comparator_start = sched_all_done;
 
 // HHT accept mux: from feedback controller, prefill/startup, or testbench warmup
 wire prefill_done_accept = (state_r == ST_PREFILL && lc_done);
@@ -411,12 +409,71 @@ assign hht_accept_position = warmup_accept_valid ? warmup_accept_position :
 // =========================================================================
 // Layer Controller (transformer compute)
 // =========================================================================
-logic lc_start, lc_busy;
-logic [`TREE_FRONTIER_SLOTS-1:0] lc_slot_valid;
-logic [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] lc_slot_token_id;
-logic [`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0] lc_slot_position_id;
-logic [`TREE_FRONTIER_SLOTS*`TREE_FRONTIER_SLOTS-1:0] lc_tree_mask;
+// LC signals are muxed between main FSM (prefill/fallback) and kv_share_scheduler (verify)
+wire lc_start;
+logic lc_busy;
+wire [`TREE_FRONTIER_SLOTS-1:0] lc_slot_valid;
+wire [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] lc_slot_token_id;
+wire [`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0] lc_slot_position_id;
+wire [`TREE_FRONTIER_SLOTS*`TREE_FRONTIER_SLOTS-1:0] lc_tree_mask;
 logic [`TREE_FRONTIER_SLOTS-1:0] lc_out_token_valid;
+
+// FSM-driven LC signals (for prefill/fallback)
+logic fsm_lc_start;
+logic [`TREE_FRONTIER_SLOTS-1:0] fsm_lc_slot_valid;
+logic [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] fsm_lc_slot_token_id;
+logic [`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0] fsm_lc_slot_position_id;
+logic [`TREE_FRONTIER_SLOTS*`TREE_FRONTIER_SLOTS-1:0] fsm_lc_tree_mask;
+
+// Scheduler-driven LC signals (for verify phase)
+logic sched_lc_start;
+logic [`TREE_FRONTIER_SLOTS-1:0] sched_lc_slot_valid;
+logic [`TREE_FRONTIER_SLOTS*`TOKEN_ID_W-1:0] sched_lc_slot_token_id;
+logic [`TREE_FRONTIER_SLOTS*`POSITION_ID_W-1:0] sched_lc_slot_position_id;
+logic [`TREE_FRONTIER_SLOTS*`TREE_FRONTIER_SLOTS-1:0] sched_lc_tree_mask;
+
+// Mux: scheduler owns LC during ST_VERIFY, FSM owns otherwise
+wire sched_owns_lc = (state_r == ST_VERIFY);
+assign lc_start          = sched_owns_lc ? sched_lc_start          : fsm_lc_start;
+assign lc_slot_valid     = sched_owns_lc ? sched_lc_slot_valid     : fsm_lc_slot_valid;
+assign lc_slot_token_id  = sched_owns_lc ? sched_lc_slot_token_id  : fsm_lc_slot_token_id;
+assign lc_slot_position_id = sched_owns_lc ? sched_lc_slot_position_id : fsm_lc_slot_position_id;
+assign lc_tree_mask      = sched_owns_lc ? sched_lc_tree_mask      : fsm_lc_tree_mask;
+
+// =========================================================================
+// KV Share Scheduler (drives LC during verify phase)
+// =========================================================================
+logic sched_batch_valid, sched_batch_ready;
+// sched_all_done, sched_branch_valid, sched_branch_generated_token declared above (forward decl)
+
+kv_share_scheduler #(
+    .BRANCH_NUM(BRANCH_NUM),
+    .MAX_DEPTH(MAX_LEVELS),
+    .WINDOW_SIZE(WINDOW_SIZE)
+) u_kv_sched (
+    .clk(clk),
+    .rst_n(rst_n),
+    .batch_valid(sched_batch_valid),
+    .batch_ready(sched_batch_ready),
+    .batch_count(tvd_batch_out_count),
+    .batch_token_ids(tvd_batch_out_token_ids),
+    .batch_positions(tvd_batch_out_positions),
+    .batch_tree_mask(tvd_batch_out_tree_mask),
+    .batch_prefix_len(tvd_batch_out_prefix_len),
+    .batch_slot_is_seed(tvd_batch_out_slot_is_seed),
+    .lc_start(sched_lc_start),
+    .lc_done(lc_done),
+    .lc_busy(lc_busy),
+    .lc_slot_valid(sched_lc_slot_valid),
+    .lc_slot_token_id(sched_lc_slot_token_id),
+    .lc_slot_position_id(sched_lc_slot_position_id),
+    .lc_tree_mask(sched_lc_tree_mask),
+    .all_done(sched_all_done),
+    .branch_valid_out(sched_branch_valid),
+    .branch_generated_token(sched_branch_generated_token),
+    .lc_out_token_valid(lc_out_token_valid),
+    .lc_out_token_id(lc_out_token_id)
+);
 
 // Internal SRAM signals between layer_ctrl and request_controller
 logic        lc_sram_wr_valid, lc_sram_wr_ready;
@@ -606,7 +663,7 @@ request_controller u_req_ctrl (
 // Single flat array, 1-cycle read latency, always ready
 // Depth sized for qwen3: weight_base(280000) + 2 layers * 3145984 = ~6.6M
 // =========================================================================
-localparam BEHAV_SRAM_DEPTH = 8388608;  // 8M entries
+localparam BEHAV_SRAM_DEPTH = 131072;  // 128K entries (enough for toy profile)
 reg [`SRAM_RDATA_W-1:0] behav_sram [0:BEHAV_SRAM_DEPTH-1];
 assign mem_req_ready_w = {`MEM_REQ_LANES{1'b1}};
 reg [`MEM_REQ_LANES-1:0]                  behav_resp_valid_r;
@@ -674,6 +731,12 @@ always @(posedge clk) begin
         $display("[DBG c%0d] VERIFY: batch count=%0d tokens[0]=%0d",
             dbg_cycle_cnt, tvd_batch_out_count,
             tvd_batch_out_token_ids[`TOKEN_ID_W-1:0]);
+    if (state_r == ST_VERIFY && sched_all_done)
+        $display("[DBG c%0d] VERIFY: sched_all_done", dbg_cycle_cnt);
+    // Debug scheduler handshake
+    if (state_r == ST_VERIFY && dbg_cycle_cnt[7:0] == 8'd0)
+        $display("[DBG c%0d] VERIFY_POLL: tvd_valid=%b sched_ready=%b tvd_busy=%b",
+            dbg_cycle_cnt, tvd_batch_out_valid, sched_batch_ready, tvd_busy);
     if (state_r == ST_VERIFY && lc_done)
         $display("[DBG c%0d] VERIFY: lc_done, sending fwd results", dbg_cycle_cnt);
     // Debug layer controller start and request_controller state
@@ -681,8 +744,8 @@ always @(posedge clk) begin
         $display("[DBG c%0d] LC_START: slots=%b rc_state=%0d req_in_valid=%b",
             dbg_cycle_cnt, lc_slot_valid, u_req_ctrl.state_r, rc_req_in_valid);
     if (comparator_result_valid)
-        $display("[DBG c%0d] COMPARATOR: accepted_depth=%0d flush=%b all_correct=%b token[0]=%0d",
-            dbg_cycle_cnt, comparator_accepted_depth, comparator_flush_mask,
+        $display("[DBG c%0d] COMPARATOR: accepted_count=%0d flush=%b all_correct=%b token[0]=%0d",
+            dbg_cycle_cnt, comparator_accepted_count, comparator_flush_mask,
             comparator_all_correct, comparator_accepted_tokens[`TOKEN_ID_W-1:0]);
     // Debug HHT state entering ST_BUILD
     if (state_r == ST_PREDICT)
@@ -705,9 +768,11 @@ logic prefill_done_w;
 assign prefill_done_w = lc_done && (state_r == ST_PREFILL);
 
 // Connect batch forward results from layer controller to dispatcher
-// When dispatcher sends batch, we run layer controller and return results
-// Only assert ready when valid is high (proper handshake: transfer on valid && ready)
-assign tvd_batch_out_ready = tvd_batch_out_valid && (state_r == ST_VERIFY) && !lc_busy;
+// When dispatcher sends batch, we route it to kv_share_scheduler
+// IMPORTANT: ready must gate on valid (valid-before-ready protocol).
+// The dispatcher clears batch_out_valid in the same cycle if ready is pre-asserted.
+assign tvd_batch_out_ready = tvd_batch_out_valid && sched_batch_ready && (state_r == ST_VERIFY);
+assign sched_batch_valid = tvd_batch_out_valid && (state_r == ST_VERIFY);
 
 // =========================================================================
 // Main state machine
@@ -728,18 +793,18 @@ always_ff @(posedge clk or negedge rst_n) begin
         busy <= 1'b0;
         token_out_valid <= 1'b0;
         token_out_id <= '0;
-        lc_start <= 1'b0;
-        lc_slot_valid <= '0;
-        lc_slot_token_id <= '0;
-        lc_slot_position_id <= '0;
-        lc_tree_mask <= '0;
+        fsm_lc_start <= 1'b0;
+        fsm_lc_slot_valid <= '0;
+        fsm_lc_slot_token_id <= '0;
+        fsm_lc_slot_position_id <= '0;
+        fsm_lc_tree_mask <= '0;
         tvd_fwd_result_valid <= 1'b0;
         tvd_fwd_result_count <= 5'd0;
         tvd_fwd_result_token_ids <= '0;
     end else begin
         done <= 1'b0;
         token_out_valid <= 1'b0;
-        lc_start <= 1'b0;
+        fsm_lc_start <= 1'b0;
         tvd_fwd_result_valid <= 1'b0;
 
         // Forward feedback tokens to output
@@ -761,12 +826,12 @@ always_ff @(posedge clk or negedge rst_n) begin
                 seed_position_r <= '0;
                 committed_prefix_len_r <= 16'd0;
                 // Start prefill: run prompt through transformer
-                lc_start <= 1'b1;
-                lc_slot_valid <= {{(`TREE_FRONTIER_SLOTS-1){1'b0}}, 1'b1};
-                lc_slot_token_id <= {{((`TREE_FRONTIER_SLOTS-1)*`TOKEN_ID_W){1'b0}},
+                fsm_lc_start <= 1'b1;
+                fsm_lc_slot_valid <= {{(`TREE_FRONTIER_SLOTS-1){1'b0}}, 1'b1};
+                fsm_lc_slot_token_id <= {{((`TREE_FRONTIER_SLOTS-1)*`TOKEN_ID_W){1'b0}},
                                      prompt_token_id};
-                lc_slot_position_id <= '0;
-                lc_tree_mask <= '0; // causal mode for prefill
+                fsm_lc_slot_position_id <= '0;
+                fsm_lc_tree_mask <= '0; // causal mode for prefill
             end
         end
 
@@ -797,51 +862,30 @@ always_ff @(posedge clk or negedge rst_n) begin
                 end else begin
                     // No tree built: fallback single-token generation
                     // Run transformer on seed token to get next token
-                    lc_start <= 1'b1;
-                    lc_slot_valid <= {{(`TREE_FRONTIER_SLOTS-1){1'b0}}, 1'b1};
-                    lc_slot_token_id <= {{((`TREE_FRONTIER_SLOTS-1)*`TOKEN_ID_W){1'b0}},
+                    fsm_lc_start <= 1'b1;
+                    fsm_lc_slot_valid <= {{(`TREE_FRONTIER_SLOTS-1){1'b0}}, 1'b1};
+                    fsm_lc_slot_token_id <= {{((`TREE_FRONTIER_SLOTS-1)*`TOKEN_ID_W){1'b0}},
                                          seed_token_id_r};
-                    lc_slot_position_id <= {{((`TREE_FRONTIER_SLOTS-1)*`POSITION_ID_W){1'b0}},
+                    fsm_lc_slot_position_id <= {{((`TREE_FRONTIER_SLOTS-1)*`POSITION_ID_W){1'b0}},
                                             seed_position_r};
-                    lc_tree_mask <= '0; // causal mode for fallback
+                    fsm_lc_tree_mask <= '0; // causal mode for fallback
                     state_r <= ST_FALLBACK;
                 end
             end
         end
 
         ST_VERIFY: begin
-            // Wait for dispatcher to send batch, then run transformer
-            if (tvd_batch_out_valid && !lc_busy) begin
-                // Start layer controller with full verify window
-                lc_start <= 1'b1;
-                // Set valid bits based on batch_out_count
-                lc_slot_valid <= '0;
-                begin : set_verify_valid
-                    integer vi;
-                    for (vi = 0; vi < WINDOW_SIZE; vi = vi + 1)
-                        if (vi < tvd_batch_out_count)
-                            lc_slot_valid[vi] <= 1'b1;
-                end
-                // Map batch tokens and positions to layer controller inputs
-                begin : map_verify_tokens
-                    integer vi;
-                    for (vi = 0; vi < WINDOW_SIZE; vi = vi + 1) begin
-                        lc_slot_token_id[vi*`TOKEN_ID_W +: `TOKEN_ID_W] <=
-                            tvd_batch_out_token_ids[vi*32 +: `TOKEN_ID_W];
-                        lc_slot_position_id[vi*`POSITION_ID_W +: `POSITION_ID_W] <=
-                            tvd_batch_out_positions[vi*16 +: `POSITION_ID_W];
-                    end
-                end
-                // Pass tree mask to layer controller
-                lc_tree_mask <= tvd_batch_out_tree_mask;
-            end
+            // kv_share_scheduler handles the batch → LC interaction.
+            // We just wait for scheduler to finish all branches, then
+            // the comparator fires (triggered by sched_all_done).
 
-            // When layer controller finishes, send all slot results to dispatcher
-            if (lc_done) begin
+            // Forward scheduler results to dispatcher (for commit logic)
+            if (sched_all_done) begin
                 tvd_fwd_result_valid <= 1'b1;
                 tvd_fwd_result_count <= tvd_batch_out_count;
-                // Pack all slot argmax results into fwd_result_token_ids
-                begin : pack_fwd_results
+                // Pack branch results into fwd_result_token_ids
+                // Map branch tips back to their slot positions
+                begin : pack_sched_results
                     integer vi;
                     for (vi = 0; vi < WINDOW_SIZE; vi = vi + 1) begin
                         tvd_fwd_result_token_ids[vi*32 +: 32] <=
@@ -851,7 +895,7 @@ always_ff @(posedge clk or negedge rst_n) begin
                 end
             end
 
-            // Wait for commit
+            // Wait for commit from dispatcher
             if (tvd_commit_valid) begin
                 state_r <= ST_FEEDBACK;
             end

@@ -1,2 +1,0 @@
-{"sequence_id":"bridge-trace-seq-0","prompt_token_ids":[16,17],"step_index":0,"recovery_token":18,"speculated_tokens":[33],"accepted_tokens":[18,33],"next_recovery_token":48}
-{"sequence_id":"bridge-trace-seq-0","prompt_token_ids":[16,17,33],"step_index":1,"recovery_token":48,"speculated_tokens":[34],"accepted_tokens":[48,34],"next_recovery_token":64}

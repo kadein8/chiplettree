@@ -1,0 +1,17 @@
+tb_name=tb_exp_step1
+timestamp=2026-05-09 11:58:05
+repo_root=/home/ICer/first
+run_dir=/home/ICer/first/exp/sram_ablation_experiment/step1_functional_verification
+log_dir=/home/ICer/first/exp/sram_ablation_experiment/step1_functional_verification/logs
+local_run_workdir=/tmp/codex_vcs_work/step1_functional_verification
+top_module=tb_exp_step1
+compile_log=/home/ICer/first/exp/sram_ablation_experiment/step1_functional_verification/logs/tb_exp_step1_compile.log
+run_log=/home/ICer/first/exp/sram_ablation_experiment/step1_functional_verification/logs/tb_exp_step1_run.log
+local_tb_workdir=/tmp/codex_vcs_work/step1_functional_verification/tb_exp_step1
+simv_path=/tmp/codex_vcs_work/step1_functional_verification/tb_exp_step1/tb_exp_step1.simv
+compile_rc=0
+compile_status=PASS
+run_rc=0
+run_status=PASS
+judge=PASS
+reason=pass_banner_detected

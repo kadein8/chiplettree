@@ -1,0 +1,7 @@
+run_name=run_030_vcs_comparator_multi_branch_alloc_status_reuse
+timestamp=2026-04-25 16:11:54
+tb_count=1
+tb_0=tb_comparator_multi_branch_alloc_status_reuse
+tb_0_result_file=/home/ICer/first/verification/run_030_vcs_comparator_multi_branch_alloc_status_reuse/logs/tb_comparator_multi_branch_alloc_status_reuse_result.txt
+tb_0_judge=PASS
+overall_judge=PASS

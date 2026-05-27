@@ -1,0 +1,74 @@
+{
+    "feedback_controller": [
+        "feedback_controller",
+        "qj1iN",
+        "module",
+        10
+    ],
+    "std": [
+        "std",
+        "reYIK",
+        "module",
+        1
+    ],
+    "pe_mac_unit_0000_0000": [
+        "pe_mac_unit_0000_0000",
+        "Ce2i9",
+        "module",
+        5
+    ],
+    "floatAdd16": [
+        "floatAdd16",
+        "KDc59",
+        "module",
+        3
+    ],
+    "floatMult16": [
+        "floatMult16",
+        "VSMnJ",
+        "module",
+        2
+    ],
+    "PeArrayComputeOverlay": [
+        "PeArrayComputeOverlay",
+        "HZT5y",
+        "module",
+        6
+    ],
+    "pe_mac_unit_0000": [
+        "pe_mac_unit_0000",
+        "N2F60",
+        "module",
+        4
+    ],
+    "tree_builder": [
+        "tree_builder",
+        "Un59Z",
+        "module",
+        9
+    ],
+    "PeArrayNonlinearUnit": [
+        "PeArrayNonlinearUnit",
+        "FpSde",
+        "module",
+        7
+    ],
+    "HHTContextPredictor": [
+        "HHTContextPredictor",
+        "pmNzK",
+        "module",
+        8
+    ],
+    "tb_speculative_decode_e2e": [
+        "tb_speculative_decode_e2e",
+        "u82L1",
+        "module",
+        11
+    ],
+    "...MASTER...": [
+        "SIM",
+        "amcQw",
+        "module",
+        12
+    ]
+}

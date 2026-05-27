@@ -1,0 +1,7 @@
+run_name=run_035_vcs_comparator_async_ordering
+timestamp=2026-04-26 12:09:01
+tb_count=1
+tb_0=tb_comparator_async_ordering
+tb_0_result_file=/home/ICer/first/verification/run_035_vcs_comparator_async_ordering/logs/tb_comparator_async_ordering_result.txt
+tb_0_judge=PASS
+overall_judge=PASS

@@ -1,0 +1,7 @@
+run_name=run_034_vcs_comparator_async_multi_depth_stale_drop
+timestamp=2026-04-25 23:24:42
+tb_count=1
+tb_0=tb_comparator_async_multi_depth_stale_drop
+tb_0_result_file=/home/ICer/first/verification/run_034_vcs_comparator_async_multi_depth_stale_drop/logs/tb_comparator_async_multi_depth_stale_drop_result.txt
+tb_0_judge=PASS
+overall_judge=PASS

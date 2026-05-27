@@ -1,0 +1,5 @@
+run_name=run_024_vcs_comparator_free_list_flush
+timestamp=2026-04-24 12:35:54
+running=run_tb_comparator_free_list_flush.sh
+exit_code_run_tb_comparator_free_list_flush.sh=0
+judge=PASS

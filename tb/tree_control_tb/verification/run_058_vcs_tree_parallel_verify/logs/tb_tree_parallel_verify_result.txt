@@ -1,0 +1,13 @@
+tb_name=tb_tree_parallel_verify
+timestamp=2026-05-16 01:27:43
+repo_root=/mnt/e/Paper/Chen/first/code/tb/tree_control_tb
+run_dir=/mnt/e/Paper/Chen/first/code/tb/tree_control_tb/verification/run_058_vcs_tree_parallel_verify
+log_dir=/mnt/e/Paper/Chen/first/code/tb/tree_control_tb/verification/run_058_vcs_tree_parallel_verify/logs
+top_module=tb_tree_parallel_verify
+compile_log=/mnt/e/Paper/Chen/first/code/tb/tree_control_tb/verification/run_058_vcs_tree_parallel_verify/logs/tb_tree_parallel_verify_compile.log
+run_log=/mnt/e/Paper/Chen/first/code/tb/tree_control_tb/verification/run_058_vcs_tree_parallel_verify/logs/tb_tree_parallel_verify_run.log
+simv_path=/mnt/e/Paper/Chen/first/code/tb/tree_control_tb/verification/run_058_vcs_tree_parallel_verify/logs/tb_tree_parallel_verify.simv
+compile_status=FAIL
+run_status=SKIP
+judge=FAIL
+reason=vcs_not_found

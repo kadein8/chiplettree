@@ -1,0 +1,11 @@
+code/rtl/transformer_my/legacy_cnn/activationFunction.v
+code/rtl/transformer_my/legacy_cnn/AvgPoolMulti.v
+code/rtl/transformer_my/legacy_cnn/AvgPoolSingle.v
+code/rtl/transformer_my/legacy_cnn/AvgUnit.v
+code/rtl/transformer_my/legacy_cnn/convLayerMulti.v
+code/rtl/transformer_my/legacy_cnn/convLayerSingle.v
+code/rtl/transformer_my/legacy_cnn/HyperBolicTangent.v
+code/rtl/transformer_my/legacy_cnn/HyperBolicTangent16.v
+code/rtl/transformer_my/legacy_cnn/RFselector.v
+code/rtl/transformer_my/legacy_cnn/UsingTheTanh.v
+code/rtl/transformer_my/legacy_cnn/UsingTheTanh16.v

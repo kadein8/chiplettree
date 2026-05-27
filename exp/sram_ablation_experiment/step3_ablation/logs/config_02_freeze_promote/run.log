@@ -1,0 +1,19 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  May  9 12:27 2026
+PERF_METRIC,total_cycles,74
+PERF_METRIC,private_region_hits,0
+PERF_METRIC,shared_reuse_hits,1
+PERF_METRIC,promotion_hits,1
+PERF_METRIC,isolation_guard_hits,0
+PERF_METRIC,occupied_subbanks,10
+PERF_METRIC,physical_reads,2
+PERF_METRIC,physical_writes,5
+PERF_METRIC,mdv_response_lanes,4
+tb_exp_step3 PASS
+$finish called from file "/home/ICer/first/exp/sram_ablation_experiment/step3_ablation/tb_exp_step3.v", line 868.
+$finish at simulation time               766000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 766000 ps
+CPU Time:      0.240 seconds;       Data structure size:   5.2Mb
+Sat May  9 12:27:16 2026

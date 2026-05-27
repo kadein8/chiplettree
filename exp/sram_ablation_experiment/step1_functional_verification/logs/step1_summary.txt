@@ -1,0 +1,6 @@
+run_name=exp_step1_functional_verification
+timestamp=2026-05-09 11:58:13
+running=run_exp_step1.sh
+scope=control_chip_stage2_single_chiplet_two_round_functional
+exit_code_run_exp_step1.sh=0
+judge=PASS

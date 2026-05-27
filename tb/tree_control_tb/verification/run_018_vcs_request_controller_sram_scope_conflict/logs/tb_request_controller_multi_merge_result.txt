@@ -1,0 +1,17 @@
+tb_name=tb_request_controller_multi_merge
+timestamp=2026-04-21 20:26:16
+repo_root=/home/ICer/first
+run_dir=/home/ICer/first/verification/run_018_vcs_request_controller_sram_scope_conflict
+log_dir=/home/ICer/first/verification/run_018_vcs_request_controller_sram_scope_conflict/logs
+local_run_workdir=/tmp/codex_vcs_work/run_018_vcs_request_controller_sram_scope_conflict
+top_module=tb_request_controller_multi_merge
+compile_log=/home/ICer/first/verification/run_018_vcs_request_controller_sram_scope_conflict/logs/tb_request_controller_multi_merge_compile.log
+run_log=/home/ICer/first/verification/run_018_vcs_request_controller_sram_scope_conflict/logs/tb_request_controller_multi_merge_run.log
+local_tb_workdir=/tmp/codex_vcs_work/run_018_vcs_request_controller_sram_scope_conflict/tb_request_controller_multi_merge
+simv_path=/tmp/codex_vcs_work/run_018_vcs_request_controller_sram_scope_conflict/tb_request_controller_multi_merge/tb_request_controller_multi_merge.simv
+compile_rc=0
+compile_status=PASS
+run_rc=0
+run_status=PASS
+judge=PASS
+reason=pass_banner_detected

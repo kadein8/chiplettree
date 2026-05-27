@@ -1,0 +1,135 @@
+                         Chronologic VCS (TM)
+       Version O-2018.09-SP2_Full64 -- Sat May  9 11:59:50 2026
+               Copyright (c) 1991-2018 by Synopsys Inc.
+                         ALL RIGHTS RESERVED
+
+This program is proprietary and confidential information of Synopsys Inc.
+and may be used and disclosed only as authorized in a license agreement
+controlling such use and disclosure.
+
+
+Warning-[LCA_FEATURES_ENABLED] Usage warning
+  LCA features enabled by '-lca' argument on the command line.  For more 
+  information regarding list of LCA features please refer to Chapter "LCA 
+  features" in the VCS/VCS-MX Release Notes
+
+Parsing design file '/home/ICer/first/code/rtl/tree_control/KVLocationTable.v'
+Parsing included file '/home/ICer/first/code/rtl/config/interface_params.vh'.
+Parsing included file '/home/ICer/first/code/rtl/config/prediction_params.vh'.
+Back to file '/home/ICer/first/code/rtl/config/interface_params.vh'.
+Back to file '/home/ICer/first/code/rtl/tree_control/KVLocationTable.v'.
+Parsing included file '/home/ICer/first/code/rtl/config/memory_params.vh'.
+Back to file '/home/ICer/first/code/rtl/tree_control/KVLocationTable.v'.
+Parsing design file '/home/ICer/first/code/rtl/tree_control/KVStateTable.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/RecomputeControl.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/HHTStateTable.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/HHTContextPredictor.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/IntegrationPredictionPart.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/PredictionWindowSerialDispatcher.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/PredictionWindowAguBridge.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/PredictionWindowOwnershipClosureSidecar.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/NativeTreeOwnershipClosureSidecar.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/Stage2TopWritebackHbmShim.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/IntegrationTreeControlPart.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/IntegrationWritebackPart.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/tree_analyze.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/agu.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/prefetch_queue.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/free_list.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/bank_state_table.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/token_register.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/request_controller.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/sram_bank.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/sram_subbank.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/sram_subsystem.v'
+Parsing design file '/home/ICer/first/code/rtl/tree_control/control_chip_stage2_single_chiplet.v'
+Parsing included file '/home/ICer/first/code/rtl/tree_control/NativeTreeMainFrontend.v'.
+Back to file '/home/ICer/first/code/rtl/tree_control/control_chip_stage2_single_chiplet.v'.
+Parsing included file '/home/ICer/first/code/rtl/tree_control/PredictionWindowSerialDispatcher.v'.
+
+Warning-[OPD] Override previous declaration
+/home/ICer/first/code/rtl/tree_control/PredictionWindowSerialDispatcher.v, 1
+  Previously declared 
+  at:"/home/ICer/first/code/rtl/tree_control/PredictionWindowSerialDispatcher.v",
+  1
+  This module will be overridden by the last declaration.
+  
+
+Back to file '/home/ICer/first/code/rtl/tree_control/control_chip_stage2_single_chiplet.v'.
+Parsing design file '/home/ICer/first/code/rtl/transformer/floatAdd16.v'
+Parsing design file '/home/ICer/first/code/rtl/transformer/floatMult16.v'
+Parsing design file '/home/ICer/first/code/rtl/transformer/processingElement16.v'
+Parsing design file '/home/ICer/first/code/rtl/transformer/transformUnit1x1.v'
+Parsing design file '/home/ICer/first/code/rtl/transformer/transformLayerSingle1x1.v'
+Parsing design file '/home/ICer/first/code/rtl/transformer/transformLayerMulti1x1.v'
+Parsing design file '/home/ICer/first/code/rtl/transformer/ToyDecoderWeightBank.v'
+Parsing design file '/home/ICer/first/code/rtl/transformer/decoderAttentionScore.v'
+Parsing design file '/home/ICer/first/code/rtl/transformer/decoderSoftmaxWindow.v'
+Parsing design file '/home/ICer/first/code/rtl/transformer/decoderAttentionValue.v'
+Parsing design file '/home/ICer/first/code/rtl/transformer/decoderFfnUnit.v'
+Parsing design file '/home/ICer/first/code/rtl/transformer/decoderOnlyTransformerChain.v'
+Parsing design file '/home/ICer/first/code/rtl/transformer/IntegrationTransformPart.v'
+Parsing design file '/home/ICer/first/exp/sram_ablation_experiment/step2_throughput/tb_exp_step2.v'
+Top Level Modules:
+       tb_exp_step2
+TimeScale is 1 ns / 1 ps
+
+Warning-[PCWM-W] Port connection width mismatch
+/home/ICer/first/code/rtl/tree_control/control_chip_stage2_single_chiplet.v, 756
+"PredictionWindowOwnershipClosureSidecar #(PRED_SOURCE_ID_W, CONF_W, WINDOW_BRANCH_SLOTS, , ) u_prediction_window_ownership_closure_sidecar( .clk (clk),  .rst_n (rst_n),  .enable (ENABLE_OWNERSHIP_CLOSURE_SIDECAR),  .main_path_quiet (main_path_quiet_w),  .src_tree_window_valid (tree_window_src_valid),  .src_tree_window_ready (closure_sidecar_src_tree_window_ready_w),  .src_tree_window_parent_node_id (tree_window_src_parent_node_id),  .src_tree_window_slot_valid (tree_window_src_slot_valid),  .src_tree_window_source_id (tree_window_src_source_id),  .src_tree_window_token_id (tree_window_src_token_id),  .src_tree_window_referenced_token_id (tree_window_src_referenced_token_id),  .src_tree_window_referenced_position (tree_window_src_referenced_position),  . ... "
+  The following 32-bit expression is connected to 1-bit port "enable" of 
+  module "PredictionWindowOwnershipClosureSidecar", instance 
+  "u_prediction_window_ownership_closure_sidecar".
+  Expression: ENABLE_OWNERSHIP_CLOSURE_SIDECAR
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+/home/ICer/first/code/rtl/tree_control/control_chip_stage2_single_chiplet.v, 796
+"NativeTreeOwnershipClosureSidecar u_native_tree_ownership_closure_sidecar( .clk (clk),  .rst_n (rst_n),  .enable (ENABLE_NATIVE_TREE_SIDECAR),  .main_path_quiet (main_path_quiet_w),  .src_req_valid (native_tree_req_valid),  .src_req_ready (native_tree_req_ready_w),  .src_req_id (native_tree_req_id),  .src_prefix_slot_valid (native_tree_src_prefix_slot_valid),  .src_prefix_node_id (native_tree_src_prefix_node_id),  .src_frontier_level_valid (native_tree_src_frontier_level_valid),  .src_frontier_slot_valid (native_tree_src_frontier_slot_valid),  .src_frontier_node_id (native_tree_src_frontier_node_id),  .src_frontier_parent_node_id (native_tree_src_frontier_parent_node_id),  .pe_req_valid (native_tree_sidecar_pe_req_valid_w),  .pe_req_ready (native_tree_s ... "
+  The following 32-bit expression is connected to 1-bit port "enable" of 
+  module "NativeTreeOwnershipClosureSidecar", instance 
+  "u_native_tree_ownership_closure_sidecar".
+  Expression: ENABLE_NATIVE_TREE_SIDECAR
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+/home/ICer/first/code/rtl/tree_control/control_chip_stage2_single_chiplet.v, 1086
+"Stage2TopWritebackHbmShim u_stage2_top_writeback_hbm_shim( .enable (ENABLE_TOP_HBM_WRITEBACK_SHIM),  .wb_valid (wb_valid),  .wb_ready (wb_ready),  .wb_token_id (wb_token_id),  .wb_addr (wb_addr),  .wb_data (wb_data),  .hbm_req_valid (hbm_req_valid_w),  .hbm_req_write (hbm_req_write_w),  .hbm_req_addr (hbm_req_addr_w),  .hbm_req_wdata (hbm_req_wdata_w),  .hbm_req_id (hbm_req_id_w));"
+  The following 32-bit expression is connected to 1-bit port "enable" of 
+  module "Stage2TopWritebackHbmShim", instance 
+  "u_stage2_top_writeback_hbm_shim".
+  Expression: ENABLE_TOP_HBM_WRITEBACK_SHIM
+  	use +lint=PCWM for more details
+
+Notice: Ports coerced to inout, use -notice for details
+Starting vcs inline pass...
+
+19 modules and 0 UDP read.
+recompiling module HHTContextPredictor
+recompiling module PredictionWindowOwnershipClosureSidecar
+recompiling module NativeTreeOwnershipClosureSidecar
+recompiling module Stage2TopWritebackHbmShim
+recompiling module IntegrationWritebackPart
+recompiling module tree_analyze
+recompiling module agu
+recompiling module prefetch_queue
+recompiling module free_list
+recompiling module bank_state_table
+recompiling module token_register
+recompiling module request_controller
+recompiling module sram_subbank
+recompiling module sram_subsystem
+recompiling module NativeTreeMainFrontend
+recompiling module PredictionWindowSerialDispatcher
+recompiling module floatMult16
+recompiling module transformUnit1x1
+recompiling module tb_exp_step2
+All of 19 modules done
+rm -f _csrc*.so pre_vcsobj_*.so share_vcsobj_*.so
+if [ -x /tmp/codex_vcs_work/step2_throughput/tb_exp_step2/tb_exp_step2.simv ]; then chmod -x /tmp/codex_vcs_work/step2_throughput/tb_exp_step2/tb_exp_step2.simv; fi
+g++  -o /tmp/codex_vcs_work/step2_throughput/tb_exp_step2/tb_exp_step2.simv    -Wl,-rpath-link=./ -Wl,-rpath='$ORIGIN'/tb_exp_step2.simv.daidir/ -Wl,-rpath=./tb_exp_step2.simv.daidir/ -Wl,-rpath='$ORIGIN'/tb_exp_step2.simv.daidir//scsim.db.dir  -rdynamic  -Wl,-rpath=/home/synopsys/vcs/O-2018.09-SP2/linux64/lib -L/home/synopsys/vcs/O-2018.09-SP2/linux64/lib   objs/amcQw_d.o   _99318_archive_1.so  SIM_l.o       rmapats_mop.o rmapats.o rmar.o rmar_nd.o  rmar_llvm_0_1.o rmar_llvm_0_0.o          -lzerosoft_rt_stubs -lvirsim -lerrorinf -lsnpsmalloc -lvfs    -lvcsnew -lsimprofile -luclinative /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/vcs_tls.o   -Wl,-whole-archive -lvcsucli -Wl,-no-whole-archive          /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/vcs_save_restore_new.o -ldl  -lc -lm -lpthread -ldl 
+/tmp/codex_vcs_work/step2_throughput/tb_exp_step2/tb_exp_step2.simv up to date
+CPU time: 3.646 seconds to compile + .929 seconds to elab + .169 seconds to link
+Verdi KDB elaboration done and the database successfully generated: 0 error(s), 0 warning(s)

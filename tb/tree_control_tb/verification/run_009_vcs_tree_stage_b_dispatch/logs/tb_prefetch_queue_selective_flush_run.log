@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  Apr 23 12:05 2026
+tb_prefetch_queue_selective_flush PASS
+$finish called from file "/home/ICer/first/code/tb/tb_prefetch_queue_selective_flush.v", line 160.
+$finish at simulation time               126000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 126000 ps
+CPU Time:      0.270 seconds;       Data structure size:   0.0Mb
+Thu Apr 23 12:05:16 2026

@@ -1,0 +1,166 @@
+14       
+0 config/prediction_params.vh
+0 /home/synopsys/vcs/O-2018.09-SP2/etc/systemverilog/config/prediction_params.vh
+0 config/interface_params.vh
+0 /home/synopsys/vcs/O-2018.09-SP2/etc/systemverilog/config/interface_params.vh
+0 config/memory_params.vh
+0 /home/synopsys/vcs/O-2018.09-SP2/etc/systemverilog/config/memory_params.vh
+0 config/model_params.vh
+0 /home/synopsys/vcs/O-2018.09-SP2/etc/systemverilog/config/model_params.vh
+0 tree_control/tree_flatten.v
+0 /home/synopsys/vcs/O-2018.09-SP2/etc/systemverilog/tree_control/tree_flatten.v
+0 ../rtl/tree_control/tree_flatten.v
+0 ../rtl/config/tree_control/tree_flatten.v
+0 ../rtl/tree_control/tree_control/tree_flatten.v
+0 ../rtl/transformer/tree_control/tree_flatten.v
+51
++incdir+../code_by
++incdir+../code_by/transformer
++incdir+../code_by/tree_control
++incdir+../rtl
++incdir+../rtl/config
++incdir+../rtl/transformer
++incdir+../rtl/tree_control
++itf+/home/synopsys/vcs/O-2018.09-SP2/linux64/lib/vcsdp_lite.tab
++v2k
++vcsd1
++vpi
+-Mamsrun=
+-Masflags=
+-Mcc=gcc
+-Mcfl= -pipe -fPIC -O -I/home/synopsys/vcs/O-2018.09-SP2/include
+-Mcplusplus=g++
+-Mcrt0=
+-Mcrtn=
+-Mcsrc=
+-Mexternalobj=
+-Mldflags= -rdynamic
+-Mobjects= /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/libvirsim.so /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/liberrorinf.so /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/libsnpsmalloc.so /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/libvfs.so
+-Mout=simv
+-Msaverestoreobj=/home/synopsys/vcs/O-2018.09-SP2/linux64/lib/vcs_save_restore_new.o
+-Msyslibs=/home/synopsys/verdi/Verdi_O-2018.09-SP2/share/PLI/VCS/LINUX64/pli.a -ldl
+-Mvcsaceobjs=
+-Mxcflags= -pipe -fPIC -I/home/synopsys/vcs/O-2018.09-SP2/include
+-P
+-debug_access+all
+-fsdb
+-full64
+-full64
+-gen_obj
+-o simv
+-picarchive
+-sverilog
+-timescale=1ns/1ps
+../code_by/transformer/tree_verify_dispatcher.sv
+../rtl/transformer/feedback_controller.sv
+../rtl/transformer/floatAdd16.v
+../rtl/transformer/floatMult16.v
+../rtl/transformer/speculative_decode_e2e_top.sv
+../rtl/transformer/tree_builder.sv
+../rtl/tree_control/HHTContextPredictor.v
+../rtl/tree_control/PeArrayComputeOverlay.v
+../rtl/tree_control/PeArrayLayerController.v
+../rtl/tree_control/PeArrayNonlinearUnit.v
+../rtl/tree_control/pe_mac_unit.v
+../tb/e2e/tb_speculative_decode_e2e.sv
+/home/synopsys/vcs/O-2018.09-SP2/linux64/bin/vcs1
+/home/synopsys/verdi/Verdi_O-2018.09-SP2/share/PLI/VCS/LINUX64/verdi.tab
+72
+sysc_uni_pwd=/home/ICer/first/code/sim
+XMODIFIERS=@im=ibus
+XDG_VTNR=1
+XDG_SESSION_TYPE=x11
+XDG_SESSION_ID=3
+XDG_SESSION_DESKTOP=gnome-classic
+XDG_SEAT=seat0
+XDG_RUNTIME_DIR=/run/user/1000
+XDG_MENU_PREFIX=gnome-
+XDG_DATA_DIRS=/home/ICer/.local/share/flatpak/exports/share/:/var/lib/flatpak/exports/share/:/usr/local/share/:/usr/share/
+XDG_CURRENT_DESKTOP=GNOME-Classic:GNOME
+XAUTHORITY=/run/gdm/auth-for-ICer-aZLJJn/database
+WINDOWPATH=1
+VTE_VERSION=5204
+VMR_MODE_FLAG=64
+VERDI_HOME=/home/synopsys/verdi/Verdi_O-2018.09-SP2
+VCS_MODE_FLAG=64
+VCS_HOME=/home/synopsys/vcs/O-2018.09-SP2
+VCS_DEPTH=0
+VCS_ARG_ADDED_FOR_TMP=1
+VCS_ARCH_OVERRIDE=linux
+VCS_ARCH=linux64
+USERNAME=ICer
+UNAME=/bin/uname
+TOOL_HOME=/home/synopsys/vcs/O-2018.09-SP2/linux64
+SSH_AUTH_SOCK=/run/user/1000/keyring/ssh
+SSH_AGENT_PID=5857
+SPYGLASS_HOME=/home/synopsys/SpyGlass-L2016.06/SPYGLASS_HOME/
+SESSION_MANAGER=local/unix:@/tmp/.ICE-unix/5723,unix/unix:/tmp/.ICE-unix/5723
+SCRNAME=vcs
+SCRIPT_NAME=vcs
+SCL_HOME=/home/synopsys/scl/2018.06
+RISCV=/home/Riscv_Tools
+QUESTASIM_HOME=/home/mentor/questasim
+QT_PLUGIN_PATH=/usr/lib64/kde4/plugins:/usr/lib/kde4/plugins
+QT_IM_MODULE=ibus
+QT_GRAPHICSSYSTEM_CHECKED=1
+QTLIB=/usr/lib/qt-3.3/lib
+QTINC=/usr/lib/qt-3.3/include
+QTDIR=/usr/lib/qt-3.3
+QEMU_HOME=/home/Riscv_Tools/riscv-gnu-toolchain/qemu-6.0.0
+PT_HOME=/home/synopsys/pts/O-2018.06-SP1
+OVA_UUM=0
+MGLS_LICENSE_FILE=/home/mentor/questasim/mentor.dat
+MAMBA_ROOT_PREFIX=/home/ICer/micromamba
+LESSOPEN=||/usr/bin/lesspipe.sh %s
+LC_TIME=zh_CN.UTF-8
+LC_PAPER=zh_CN.UTF-8
+LC_NUMERIC=zh_CN.UTF-8
+LC_MONETARY=zh_CN.UTF-8
+LC_MEASUREMENT=zh_CN.UTF-8
+LC_HOME=/home/synopsys/lc/O-2018.06-SP1
+LC_ALL=C
+KDEDIRS=/usr
+IMSETTINGS_MODULE=none
+IMSETTINGS_INTEGRATE_DESKTOP=yes
+ICC_HOME=/home/synopsys/icc/icc/O-2018.06-SP1
+HISTCONTROL=ignoredups
+GNOME_TERMINAL_SERVICE=:1.105
+GNOME_TERMINAL_SCREEN=/org/gnome/Terminal/screen/f05af69d_9c43_4a5d_acbb_0a1261b86339
+GNOME_SHELL_SESSION_MODE=classic
+GNOME_DESKTOP_SESSION_ID=this-is-deprecated
+GDM_LANG=zh_CN.UTF-8
+GDMSESSION=gnome-classic
+FM_HOME=/home/synopsys/fm/fm/O-2018.06-SP1
+DVE_HOME=/home/synopsys/vcs/O-2018.09-SP2
+DESKTOP_SESSION=gnome-classic
+DC_HOME=/home/synopsys/syn/O-2018.06-SP1
+DBUS_STARTER_BUS_TYPE=session
+DBUS_STARTER_ADDRESS=unix:abstract=/tmp/dbus-8nmA8CH4rY,guid=de7340bc667a4a52e4e1abe66a12f6ee
+DBUS_SESSION_BUS_ADDRESS=unix:abstract=/tmp/dbus-8nmA8CH4rY,guid=de7340bc667a4a52e4e1abe66a12f6ee
+COLORTERM=truecolor
+0
+19
+1779082837 ../code_by/tree_control/tree_flatten.v
+1779545815 ../rtl/config/model_params.vh
+1776398668 ../rtl/config/memory_params.vh
+1778946086 ../rtl/config/interface_params.vh
+1778672098 ../rtl/config/prediction_params.vh
+1779628388 ../tb/e2e/tb_speculative_decode_e2e.sv
+1779628281 ../rtl/transformer/speculative_decode_e2e_top.sv
+1779082853 ../code_by/transformer/tree_verify_dispatcher.sv
+1779611414 ../rtl/transformer/feedback_controller.sv
+1779611383 ../rtl/transformer/tree_builder.sv
+1778073279 ../rtl/tree_control/HHTContextPredictor.v
+1779626400 ../rtl/tree_control/PeArrayLayerController.v
+1779611340 ../rtl/tree_control/PeArrayNonlinearUnit.v
+1779628424 ../rtl/tree_control/PeArrayComputeOverlay.v
+1779624196 ../rtl/tree_control/pe_mac_unit.v
+1779627593 ../rtl/transformer/floatAdd16.v
+1779627656 ../rtl/transformer/floatMult16.v
+1550753332 /home/synopsys/verdi/Verdi_O-2018.09-SP2/share/PLI/VCS/LINUX64/verdi.tab
+1551421246 /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/vcsdp_lite.tab
+4
+1551422344 /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/libvirsim.so
+1551421792 /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/liberrorinf.so
+1551421768 /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/libsnpsmalloc.so
+1551421789 /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/libvfs.so

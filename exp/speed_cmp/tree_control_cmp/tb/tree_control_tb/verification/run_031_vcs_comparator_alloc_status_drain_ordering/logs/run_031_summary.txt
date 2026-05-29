@@ -1,0 +1,7 @@
+run_name=run_031_vcs_comparator_alloc_status_drain_ordering
+timestamp=2026-04-25 20:22:10
+tb_count=1
+tb_0=tb_comparator_alloc_status_drain_ordering
+tb_0_result_file=/home/ICer/first/verification/run_031_vcs_comparator_alloc_status_drain_ordering/logs/tb_comparator_alloc_status_drain_ordering_result.txt
+tb_0_judge=PASS
+overall_judge=PASS

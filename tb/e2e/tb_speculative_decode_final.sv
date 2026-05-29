@@ -16,9 +16,9 @@
 
 module tb_speculative_decode_final;
 
-localparam integer MEM_DEPTH = 131072;
+localparam integer MEM_DEPTH = 270336;
 localparam integer HBM_DEPTH = 32768;
-localparam integer MAX_WAIT_CYCLES = 2000000;
+localparam integer MAX_WAIT_CYCLES = 8000000;
 localparam integer NUM_GEN_TOKENS = 8;
 localparam integer CLK_PERIOD = 10;
 
@@ -146,15 +146,7 @@ initial begin
     $display("Loaded SRAM from %s", sram_path);
     $display("Loaded HBM from %s", hbm_path);
 
-    // HBM → SRAM staging
-    for (idx = 0; idx < HBM_DEPTH; idx = idx + 1) begin
-        if (hbm_mem[1024 + idx] !== '0 && hbm_mem[1024 + idx] !== 'x) begin
-            if (`MODEL_WEIGHT_SRAM_BASE + idx*2 + 1 < MEM_DEPTH) begin
-                sram_mem[`MODEL_WEIGHT_SRAM_BASE + idx*2]     = hbm_mem[1024 + idx][127:0];
-                sram_mem[`MODEL_WEIGHT_SRAM_BASE + idx*2 + 1] = hbm_mem[1024 + idx][255:128];
-            end
-        end
-    end
+    // HBM -> SRAM staging removed: fp16_inference_top streams weights from HBM at runtime
 
     // Reset
     repeat (5) @(posedge clk);
@@ -166,6 +158,9 @@ initial begin
     begin
         integer preload_cnt, ri;
         preload_cnt = 0;
+        // Zero all behav_sram first to avoid 'x propagation
+        for (ri = 0; ri < 270336; ri = ri + 1)
+            u_dut.behav_sram[ri] = '0;
         for (ri = 0; ri < MEM_DEPTH; ri = ri + 1) begin
             if (sram_mem[ri] !== '0 && sram_mem[ri] !== {`SRAM_RDATA_W{1'bx}}) begin
                 u_dut.behav_sram[ri] = sram_mem[ri];
@@ -186,9 +181,9 @@ initial begin
         logic [15:0] warmup_seq [0:4];
         warmup_seq[0] = 16'd0;
         warmup_seq[1] = 16'd13;
-        warmup_seq[2] = 16'd6;
-        warmup_seq[3] = 16'd14;
-        warmup_seq[4] = 16'd11;
+        warmup_seq[2] = 16'd13;
+        warmup_seq[3] = 16'd13;
+        warmup_seq[4] = 16'd13;
         for (wi = 0; wi < 4; wi = wi + 1) begin
             for (si_w = 0; si_w < 5; si_w = si_w + 1) begin
                 @(posedge clk);

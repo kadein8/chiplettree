@@ -1,0 +1,28 @@
+{
+  "mode": "single_token",
+  "token_match": true,
+  "rtl_token": 14,
+  "ref_token": 14,
+  "comparisons": {
+    "hidden_after_layer1": {
+      "name": "hidden_after_layer1",
+      "rtl_len": 128,
+      "ref_len": 128,
+      "compare_len": 128,
+      "max_abs_err": 0.59375,
+      "mean_abs_err": 0.15242767333984375,
+      "max_rel_err": 0.75,
+      "cosine_similarity": 0.9999500513076782
+    },
+    "final_hidden": {
+      "name": "final_hidden",
+      "rtl_len": 128,
+      "ref_len": 128,
+      "compare_len": 128,
+      "max_abs_err": 0.07958984375,
+      "mean_abs_err": 0.02373504638671875,
+      "max_rel_err": 0.760064423084259,
+      "cosine_similarity": 0.9999500513076782
+    }
+  }
+}

@@ -1,0 +1,35 @@
+                         Chronologic VCS (TM)
+       Version O-2018.09-SP2_Full64 -- Sat Apr 18 14:09:57 2026
+               Copyright (c) 1991-2018 by Synopsys Inc.
+                         ALL RIGHTS RESERVED
+
+This program is proprietary and confidential information of Synopsys Inc.
+and may be used and disclosed only as authorized in a license agreement
+controlling such use and disclosure.
+
+
+Warning-[LCA_FEATURES_ENABLED] Usage warning
+  LCA features enabled by '-lca' argument on the command line.  For more 
+  information regarding list of LCA features please refer to Chapter "LCA 
+  features" in the VCS/VCS-MX Release Notes
+
+Parsing design file 'code/free_list.v'
+Parsing included file '/home/ICer/first/code/config/prediction_params.vh'.
+Back to file 'code/free_list.v'.
+Parsing included file '/home/ICer/first/code/config/interface_params.vh'.
+Back to file 'code/free_list.v'.
+Parsing included file '/home/ICer/first/code/config/memory_params.vh'.
+Back to file 'code/free_list.v'.
+Parsing design file 'code/bank_state_table.v'
+Parsing design file 'code/token_register.v'
+Parsing design file 'code/tb_alloc_metadata_flow.v'
+
+Error-[ITSFM] Illegal `timescale for module
+code/tb_alloc_metadata_flow.v, 7
+  Module "tb_alloc_metadata_flow" has `timescale but previous 
+  module(s)/package(s) do not.
+  Please refer LRM 1364-2001 section 19.8.
+
+1 warning
+1 error
+CPU time: 1.683 seconds to compile

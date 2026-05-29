@@ -1,0 +1,14 @@
+tb_name=tb_commit_flush_lifecycle
+timestamp=2026-04-18 14:09:59
+repo_root=/home/ICer/first
+run_dir=/home/ICer/first/verification/run_001_vcs_bringup
+log_dir=/home/ICer/first/verification/run_001_vcs_bringup/logs
+top_module=tb_commit_flush_lifecycle
+compile_log=/home/ICer/first/verification/run_001_vcs_bringup/logs/tb_commit_flush_lifecycle_compile.log
+run_log=/home/ICer/first/verification/run_001_vcs_bringup/logs/tb_commit_flush_lifecycle_run.log
+simv_path=/home/ICer/first/verification/run_001_vcs_bringup/logs/tb_commit_flush_lifecycle.simv
+compile_rc=255
+compile_status=FAIL
+run_status=SKIP
+judge=FAIL
+reason=compile_failed

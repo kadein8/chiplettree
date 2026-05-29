@@ -123,16 +123,65 @@ def unpack_memh_line_to_fp16(line: str, elems: int) -> np.ndarray:
 
 
 def silu(x: np.ndarray) -> np.ndarray:
-    x32 = x.astype(np.float32)
-    return (x32 / (1.0 + np.exp(-x32))).astype(np.float16)
+    """SiLU matching RTL fp16_silu: exp/recip in real precision, intermediates in FP16."""
+    x_fp16 = x.astype(np.float16)
+    out = np.zeros_like(x_fp16)
+    for i in range(len(x_fp16)):
+        xi = float(x_fp16[i])
+        # exp(-x) computed in real precision, result stored as FP16
+        exp_neg_x = np.float16(np.exp(-xi))
+        # 1 + exp(-x) via floatAdd16
+        one_plus_exp = np.float16(np.float16(1.0) + exp_neg_x)
+        # reciprocal in real precision, result stored as FP16
+        if float(one_plus_exp) == 0.0:
+            sigmoid = np.float16(0.0)
+        else:
+            sigmoid = np.float16(1.0 / float(one_plus_exp))
+        # x * sigmoid via floatMult16
+        out[i] = np.float16(x_fp16[i] * sigmoid)
+    return out
 
 
 def rmsnorm_rtl_style(x: np.ndarray, gamma: np.ndarray) -> np.ndarray:
-    x32 = x.astype(np.float32)
-    gamma32 = gamma.astype(np.float32)
-    mean_sq = np.sum(np.square(x32), dtype=np.float32) / RMS_DIVISOR_RTL
-    inv_rms = 1.0 / np.sqrt(mean_sq + np.float32(EPS))
-    return (x32 * inv_rms * gamma32).astype(np.float16)
+    """RMSNorm matching RTL fp16_rmsnorm exactly.
+
+    RTL flow:
+    1. sumsq = FP16 sequential accumulation of x[i]^2 (8 elements per beat, serial beats)
+    2. mean_sq = sumsq / 1024 (exponent subtract)
+    3. mean_sq_eps = fp16_add(mean_sq, eps=0x0011)
+    4. inv_rms = fp16(1.0 / sqrt(real(mean_sq_eps)))  -- simulation path
+    5. out[i] = fp16_mul(fp16_mul(x[i], inv_rms), gamma[i])
+    """
+    x_fp16 = x.astype(np.float16)
+    gamma_fp16 = gamma.astype(np.float16)
+
+    # Step 1: FP16 sequential sum of squares (8 per beat, serial across beats)
+    sumsq = np.float16(0.0)
+    for i in range(len(x_fp16)):
+        sq = np.float16(x_fp16[i] * x_fp16[i])  # floatMult16
+        sumsq = np.float16(sumsq + sq)           # floatAdd16
+
+    # Step 2: divide by 1024 (exponent subtract, exact)
+    mean_sq = np.float16(float(sumsq) / RMS_DIVISOR_RTL)
+
+    # Step 3: add eps (0x0011 ≈ 9.5e-7)
+    eps_fp16 = np.float16(np.frombuffer(b'\x11\x00', dtype=np.float16)[0])
+    mean_sq_eps = np.float16(mean_sq + eps_fp16)
+
+    # Step 4: inv_sqrt (simulation path uses real precision then converts to fp16)
+    mean_sq_eps_f64 = float(mean_sq_eps)
+    if mean_sq_eps_f64 <= 0.0:
+        inv_rms = np.float16(0.0)
+    else:
+        inv_rms = np.float16(1.0 / np.sqrt(mean_sq_eps_f64))
+
+    # Step 5: x[i] * inv_rms * gamma[i] with intermediate FP16 truncation
+    out = np.zeros_like(x_fp16)
+    for i in range(len(x_fp16)):
+        scaled = np.float16(x_fp16[i] * inv_rms)       # floatMult16(x, inv_rms)
+        out[i] = np.float16(scaled * gamma_fp16[i])     # floatMult16(scaled, gamma)
+
+    return out
 
 
 def rope_rotate(vec: np.ndarray, position: int) -> np.ndarray:
@@ -272,13 +321,18 @@ def _run_reference_impl(
 
         attn_cat = np.concatenate(attn_heads, axis=0).astype(np.float16)
         attn_proj = tiled_matvec(layer["wo"], attn_cat)
-        hidden = (hidden.astype(np.float32) + attn_proj.astype(np.float32)).astype(np.float16)
+        # RTL residual add: element-wise fp16 add (floatAdd16)
+        hidden = (hidden.astype(np.float16) + attn_proj.astype(np.float16)).astype(np.float16)
 
         post = rmsnorm_rtl_style(hidden, layer["post_gamma"])
         gate = tiled_matvec(layer["gate"], post)
         up = tiled_matvec(layer["up"], post)
-        ffn = tiled_matvec(layer["down"], (silu(gate).astype(np.float32) * up.astype(np.float32)).astype(np.float16))
-        hidden = (hidden.astype(np.float32) + ffn.astype(np.float32)).astype(np.float16)
+        # RTL FFN: silu(gate) in FP16, then fp16_mul(silu_gate, up) element-wise
+        silu_gate = silu(gate).astype(np.float16)
+        gate_up = (silu_gate.astype(np.float16) * up.astype(np.float16)).astype(np.float16)
+        ffn = tiled_matvec(layer["down"], gate_up)
+        # RTL residual add
+        hidden = (hidden.astype(np.float16) + ffn.astype(np.float16)).astype(np.float16)
         dumps[f"hidden_after_layer{layer_idx}"] = hidden.copy()
 
     final_hidden = rmsnorm_rtl_style(hidden, final_gamma)

@@ -1,0 +1,47 @@
+[
+  {
+    "name": "0%",
+    "accuracy": 0,
+    "cycles": 3938239,
+    "tokens": 8,
+    "rounds": 8,
+    "avg": 492280,
+    "tpr": 1.0
+  },
+  {
+    "name": "25%",
+    "accuracy": 25,
+    "cycles": 2953134,
+    "tokens": 8,
+    "rounds": 6,
+    "avg": 369142,
+    "tpr": 1.33
+  },
+  {
+    "name": "50%",
+    "accuracy": 50,
+    "cycles": 2462266,
+    "tokens": 8,
+    "rounds": 5,
+    "avg": 307783,
+    "tpr": 1.6
+  },
+  {
+    "name": "75%",
+    "accuracy": 75,
+    "cycles": 2462266,
+    "tokens": 8,
+    "rounds": 5,
+    "avg": 307783,
+    "tpr": 1.6
+  },
+  {
+    "name": "100%",
+    "accuracy": 100,
+    "cycles": 2462266,
+    "tokens": 8,
+    "rounds": 5,
+    "avg": 307783,
+    "tpr": 1.6
+  }
+]

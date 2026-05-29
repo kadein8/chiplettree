@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  Apr 30 12:05 2026
+tb_control_chip_third_flush_writeback_closure PASS
+$finish called from file "/home/ICer/first/code/tb/tb_control_chip_third_flush_writeback_closure.v", line 774.
+$finish at simulation time              1206000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 1206000 ps
+CPU Time:      0.250 seconds;       Data structure size:   5.0Mb
+Thu Apr 30 12:05:44 2026

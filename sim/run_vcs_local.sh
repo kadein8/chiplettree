@@ -38,6 +38,23 @@ INC_DIRS="+incdir+${RTL} +incdir+${RTL}/config +incdir+${RTL}/tree_control \
 RTL_SRCS="\
   ${RTL}/transformer/floatMult16.v \
   ${RTL}/transformer/floatAdd16.v \
+  ${RTL}/transformer/exponent.v \
+  ${RTL}/transformer/floatReciprocal.v \
+  ${RTL}/transformer/systolic_matvec16_tile.sv \
+  ${RTL}/transformer/fp16_matvec_tile.sv \
+  ${RTL}/transformer/fp16_matvec_tile_acc.sv \
+  ${RTL}/transformer/fp16_tiled_matvec.sv \
+  ${RTL}/transformer/fp16_compute_module.sv \
+  ${RTL}/transformer/fp16_inv_sqrt_nr.sv \
+  ${RTL}/transformer/fp16_rope.sv \
+  ${RTL}/transformer/fp16_silu.sv \
+  ${RTL}/transformer/fp16_embedding.sv \
+  ${RTL}/transformer/fp16_sampler.sv \
+  ${RTL}/transformer/fp16_lm_head.sv \
+  ${RTL}/transformer/fp16_transformer_layer.sv \
+  ${RTL}/transformer/fp16_layer_scheduler.sv \
+  ${RTL}/transformer/fp16_inference_top.sv \
+  ${RTL}/transformer/fp16_inference_lc_wrapper.sv \
   ${RTL}/pe_operators/pe_rmsnorm_compute.v \
   ${RTL}/pe_operators/pe_silu_mul_compute.v \
   ${RTL}/pe_operators/pe_residual_add_compute.v \

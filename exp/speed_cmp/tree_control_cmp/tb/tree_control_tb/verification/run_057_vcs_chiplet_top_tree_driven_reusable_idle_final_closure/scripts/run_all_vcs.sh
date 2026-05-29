@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+
+set -u
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+RUN_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+LOG_DIR="${RUN_DIR}/logs"
+SUMMARY_FILE="${LOG_DIR}/run_057_summary.txt"
+
+mkdir -p "${LOG_DIR}"
+
+declare -a SCRIPT_LIST=(
+    "run_tb_control_chip_tree_driven_reusable_idle_final_closure.sh"
+    "run_tb_control_chip_tree_driven_serial_long_span_closure.sh"
+    "run_tb_control_chip_tree_driven_strict_serial_closure.sh"
+    "run_tb_control_chip_serial_free_running_surrogate.sh"
+    "run_tb_control_chip_serial_three_tree_final_closure.sh"
+    "run_tb_control_chip_dual_tree_near_steady_state_closure.sh"
+    "run_tb_control_chip_second_post_reentry_flush_writeback_chain.sh"
+    "run_tb_control_chip_post_reentry_flush_writeback_closure.sh"
+    "run_tb_control_chip_post_variable_len_writeback_reentry.sh"
+    "run_tb_control_chip_variable_len_token_writeback.sh"
+    "run_tb_control_chip_third_flush_writeback_closure.sh"
+    "run_tb_control_chip_third_flush_reclosure.sh"
+    "run_tb_control_chip_post_second_flush_reentry.sh"
+    "run_tb_control_chip_second_flush_writeback_closure.sh"
+    "run_tb_control_chip_second_flush_reclosure.sh"
+    "run_tb_control_chip_post_flush_reentry.sh"
+    "run_tb_control_chip_bounded_orchestration.sh"
+    "run_tb_top_level_bounded_memory_integration.sh"
+    "run_tb_request_controller_wide_concurrency.sh"
+)
+
+overall_rc=0
+
+{
+    echo "run_name=run_057_vcs_control_chip_tree_driven_reusable_idle_final_closure"
+    echo "timestamp=$(date '+%Y-%m-%d %H:%M:%S')"
+} > "${SUMMARY_FILE}"
+
+for script_name in "${SCRIPT_LIST[@]}"; do
+    script_path="${SCRIPT_DIR}/${script_name}"
+    echo "running=${script_name}" >> "${SUMMARY_FILE}"
+
+    bash "${script_path}"
+    rc=$?
+
+    echo "exit_code_${script_name}=${rc}" >> "${SUMMARY_FILE}"
+    if [[ ${rc} -ne 0 ]]; then
+        overall_rc=1
+    fi
+done
+
+if [[ ${overall_rc} -eq 0 ]]; then
+    echo "judge=PASS" >> "${SUMMARY_FILE}"
+else
+    echo "judge=FAIL" >> "${SUMMARY_FILE}"
+fi
+
+exit ${overall_rc}

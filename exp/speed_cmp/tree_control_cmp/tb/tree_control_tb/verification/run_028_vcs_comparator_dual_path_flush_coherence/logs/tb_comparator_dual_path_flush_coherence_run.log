@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  Apr 25 12:50 2026
+tb_comparator_dual_path_flush_coherence PASS
+$finish called from file "/home/ICer/first/code/tb/tb_comparator_dual_path_flush_coherence.v", line 1151.
+$finish at simulation time               426000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 426000 ps
+CPU Time:      0.210 seconds;       Data structure size:   1.0Mb
+Sat Apr 25 12:50:57 2026

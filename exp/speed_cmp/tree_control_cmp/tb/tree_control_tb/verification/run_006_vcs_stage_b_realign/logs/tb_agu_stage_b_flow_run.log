@@ -1,0 +1,12 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  Apr 23 12:03 2026
+tb_agu_stage_b_flow debug: step=0 state=2 cand_resp_valid=0 cand_resp_req_id=0x3 pending_req_id=0x3 alloc_cand_valid=0 token_wr_valid=1 alloc_resp_valid=1
+tb_agu_stage_b_flow debug: response_seen_cycle=0
+tb_agu_stage_b_flow PASS
+$finish called from file "/home/ICer/first/code/tb/tb_agu_stage_b_flow.v", line 448.
+$finish at simulation time                76000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 76000 ps
+CPU Time:      0.330 seconds;       Data structure size:   0.2Mb
+Thu Apr 23 12:03:32 2026

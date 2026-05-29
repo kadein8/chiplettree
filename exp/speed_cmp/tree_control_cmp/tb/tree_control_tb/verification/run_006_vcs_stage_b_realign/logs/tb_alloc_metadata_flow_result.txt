@@ -1,0 +1,17 @@
+tb_name=tb_alloc_metadata_flow
+timestamp=2026-04-23 12:03:25
+repo_root=/home/ICer/first
+run_dir=/home/ICer/first/verification/run_006_vcs_stage_b_realign
+log_dir=/home/ICer/first/verification/run_006_vcs_stage_b_realign/logs
+local_run_workdir=/tmp/codex_vcs_work/run_006_vcs_stage_b_realign
+top_module=tb_alloc_metadata_flow
+compile_log=/home/ICer/first/verification/run_006_vcs_stage_b_realign/logs/tb_alloc_metadata_flow_compile.log
+run_log=/home/ICer/first/verification/run_006_vcs_stage_b_realign/logs/tb_alloc_metadata_flow_run.log
+local_tb_workdir=/tmp/codex_vcs_work/run_006_vcs_stage_b_realign/tb_alloc_metadata_flow
+simv_path=/tmp/codex_vcs_work/run_006_vcs_stage_b_realign/tb_alloc_metadata_flow/tb_alloc_metadata_flow.simv
+compile_rc=0
+compile_status=PASS
+run_rc=0
+run_status=PASS
+judge=PASS
+reason=pass_banner_detected

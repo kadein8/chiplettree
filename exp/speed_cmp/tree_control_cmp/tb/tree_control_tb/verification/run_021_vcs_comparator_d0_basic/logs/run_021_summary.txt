@@ -1,0 +1,5 @@
+run_name=run_021_vcs_comparator_d0_basic
+timestamp=2026-04-23 16:31:38
+running=run_tb_comparator_d0_basic.sh
+exit_code_run_tb_comparator_d0_basic.sh=0
+judge=PASS

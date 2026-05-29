@@ -34,8 +34,8 @@ localparam integer LC_SLOTS   = `TREE_FRONTIER_SLOTS;
 
 localparam [3:0]
     ST_IDLE = 4'd0, ST_PREDICT = 4'd1, ST_BUILD = 4'd2, ST_VERIFY = 4'd3,
-    ST_COMPARE = 4'd4, ST_EMIT = 4'd5, ST_CHECK = 4'd6, ST_DONE = 4'd7,
-    ST_FALLBACK = 4'd8, ST_FB_WAIT = 4'd9;
+    ST_COMPARE = 4'd4, ST_EMIT = 4'd5, ST_KV_COMMIT = 4'd6, ST_CHECK = 4'd7, ST_DONE = 4'd8,
+    ST_FALLBACK = 4'd9, ST_FB_WAIT = 4'd10;
 
 logic [3:0] state_r;
 logic [7:0] gen_count_r, max_gen_r;
@@ -43,6 +43,8 @@ logic [`NODE_ID_W-1:0] seed_node_id_r;
 logic [`TOKEN_ID_W-1:0] seed_token_id_r;
 logic [`POSITION_ID_W-1:0] seed_position_r;
 logic [15:0] committed_prefix_len_r;
+logic [3:0] kv_commit_count_r;  // tokens to commit in ST_KV_COMMIT
+logic [15:0] kv_commit_old_prefix_r;  // prefix_len before commit
 
 // Forward declarations for emitter/fallback (used by draft feedback & KV sync)
 logic emit_token_valid, emit_done;
@@ -185,7 +187,7 @@ branch_parallel_scheduler #(.BRANCH_NUM(BRANCH_NUM), .MAX_DEPTH(MAX_LEVELS)) u_s
 // =========================================================================
 // 4x LC instances + shared SRAM
 // =========================================================================
-localparam BEHAV_SRAM_DEPTH = 131072;
+localparam BEHAV_SRAM_DEPTH = 270336;
 reg [`SRAM_RDATA_W-1:0] behav_sram [0:BEHAV_SRAM_DEPTH-1];
 
 logic [BRANCH_NUM-1:0] lc_start_w, lc_done_w, lc_busy_w;
@@ -253,7 +255,14 @@ for (gi = 0; gi < BRANCH_NUM; gi = gi + 1) begin : gen_lc
     logic [`PE_MASK_W*`SRAM_RDATA_W-1:0] lc_mc_resp_rdata;
     logic [`PE_MASK_W*`REQ_ID_W-1:0] lc_mc_resp_req_id;
 
-    PeArrayLayerController u_lc (
+    fp16_inference_lc_wrapper #(
+        .WORK_H0_BASE(`MODEL_WORK_HIDDEN0_BASE + gi * 512),
+        .WORK_H1_BASE(`MODEL_WORK_HIDDEN1_BASE + gi * 512),
+        .WORK_F_BASE(`MODEL_WORK_FINAL_BASE + gi * 512),
+        .KV_BASE(`KV_DRAFT_BASE_MIN + gi * 16384),
+        .W_SRAM_BASE(`MODEL_WEIGHT_SRAM_BASE + gi * 33792),
+        .HBM_W_BASE(`MODEL_HBM_WEIGHT_BASE)
+    ) u_lc (
         .clk(clk), .rst_n(rst_n),
         .start(lc_start_w[gi]), .done(lc_done_w[gi]), .busy(lc_busy_w[gi]),
         .slot_valid(mux_lc_slot_valid[gi*LC_SLOTS +: LC_SLOTS]),
@@ -265,10 +274,11 @@ for (gi = 0; gi < BRANCH_NUM; gi = gi + 1) begin : gen_lc
         .hidden1_base_addr(`MODEL_WORK_HIDDEN1_BASE + gi * 512),
         .final_base_addr(`MODEL_WORK_FINAL_BASE + gi * 512),
         .weight_sram_base_addr(`MODEL_WEIGHT_SRAM_BASE),
-        .kv_cache_base_addr(`KV_DRAFT_BASE_MIN + gi * 1024),
+        .kv_cache_base_addr(`KV_DRAFT_BASE_MIN + gi * 16384),
         .final_norm_gamma_addr(`MODEL_FINAL_NORM_GAMMA_ADDR),
         .lm_head_weight_base_addr(`MODEL_LM_HEAD_WEIGHT_BASE),
         .hbm_weight_base_addr(`MODEL_HBM_WEIGHT_BASE),
+        .committed_prefix_len(committed_prefix_len_r),
         .vec_req_valid(lc_vec_req_valid), .vec_req_ready(lc_vec_req_ready),
         .vec_req_write(lc_vec_req_write), .vec_req_addr(lc_vec_req_addr),
         .vec_req_wdata(lc_vec_req_wdata), .vec_req_req_id(lc_vec_req_req_id),
@@ -314,6 +324,23 @@ for (gi = 0; gi < BRANCH_NUM; gi = gi + 1) begin : gen_lc
         end
         if (lc_sram_wr_valid && lc_sram_wr_addr < BEHAV_SRAM_DEPTH)
             behav_sram[lc_sram_wr_addr] <= lc_sram_wr_data;
+        // KV commit: copy draft KV to committed region (only in gi==0 instance)
+        // synthesis translate_off
+        if (gi == 0 && state_r == ST_KV_COMMIT) begin : kv_commit_copy
+            integer kv_layer, kv_beat, kv_tok;
+            integer kv_src_base, kv_dst_base;
+            localparam integer KV_POS_STRIDE_L = `MODEL_HEAD_NUM * (`MODEL_HEAD_DIM / (`SRAM_RDATA_W / `FP16_TILE_DATA_W)) * 2;
+            for (kv_tok = 0; kv_tok < kv_commit_count_r; kv_tok = kv_tok + 1) begin
+                for (kv_layer = 0; kv_layer < `MODEL_N_LAYERS; kv_layer = kv_layer + 1) begin
+                    kv_src_base = (`KV_DRAFT_BASE_MIN + kv_tok * 16384) + kv_layer * 4096;
+                    kv_dst_base = `KV_COMMITTED_BASE + kv_layer * 4096 + (kv_commit_old_prefix_r + kv_tok) * KV_POS_STRIDE_L;
+                    for (kv_beat = 0; kv_beat < KV_POS_STRIDE_L; kv_beat = kv_beat + 1) begin
+                        behav_sram[kv_dst_base + kv_beat] <= behav_sram[kv_src_base + kv_beat];
+                    end
+                end
+            end
+        end
+        // synthesis translate_on
     end
     assign lc_mc_resp_valid = resp_valid_r;
     assign lc_mc_resp_rdata = resp_rdata_r;
@@ -345,94 +372,11 @@ end
 endgenerate
 
 // =========================================================================
-// KV Cache Sync (behavioral simulation only)
+// KV Cache Sync — NOT NEEDED with fp16_inference_top
 // =========================================================================
-// In real hardware, committed KV lives in shared SRAM/HBM. Each LC reads
-// it via kv_len. For behavioral sim, we merge KV across LCs then broadcast.
-// synthesis translate_off
-integer kv_ly, kv_pos, kv_hd, kv_dm;
-reg [3:0] kv_emit_count_r;
-reg [`POSITION_ID_W-1:0] kv_base_pos_r;
-
-always @(posedge clk) begin
-    if (emit_done) begin
-        kv_emit_count_r = emit_tokens_emitted;
-        kv_base_pos_r = seed_position_r;
-        // Step 1: Merge committed positions from source LCs into LC[0]
-        // Position base+1 KV from LC[1], base+2 from LC[2], etc.
-        if (kv_emit_count_r > 1) begin
-            for (kv_ly = 0; kv_ly < 2; kv_ly = kv_ly + 1)
-                for (kv_hd = 0; kv_hd < 2; kv_hd = kv_hd + 1)
-                    for (kv_dm = 0; kv_dm < 64; kv_dm = kv_dm + 1) begin
-                        gen_lc[0].u_lc.u_attn.kv_cache_k[kv_ly][kv_base_pos_r+1][kv_hd][kv_dm] =
-                            gen_lc[1].u_lc.u_attn.kv_cache_k[kv_ly][kv_base_pos_r+1][kv_hd][kv_dm];
-                        gen_lc[0].u_lc.u_attn.kv_cache_v[kv_ly][kv_base_pos_r+1][kv_hd][kv_dm] =
-                            gen_lc[1].u_lc.u_attn.kv_cache_v[kv_ly][kv_base_pos_r+1][kv_hd][kv_dm];
-                    end
-        end
-        if (kv_emit_count_r > 2) begin
-            for (kv_ly = 0; kv_ly < 2; kv_ly = kv_ly + 1)
-                for (kv_hd = 0; kv_hd < 2; kv_hd = kv_hd + 1)
-                    for (kv_dm = 0; kv_dm < 64; kv_dm = kv_dm + 1) begin
-                        gen_lc[0].u_lc.u_attn.kv_cache_k[kv_ly][kv_base_pos_r+2][kv_hd][kv_dm] =
-                            gen_lc[2].u_lc.u_attn.kv_cache_k[kv_ly][kv_base_pos_r+2][kv_hd][kv_dm];
-                        gen_lc[0].u_lc.u_attn.kv_cache_v[kv_ly][kv_base_pos_r+2][kv_hd][kv_dm] =
-                            gen_lc[2].u_lc.u_attn.kv_cache_v[kv_ly][kv_base_pos_r+2][kv_hd][kv_dm];
-                    end
-        end
-        if (kv_emit_count_r > 3) begin
-            for (kv_ly = 0; kv_ly < 2; kv_ly = kv_ly + 1)
-                for (kv_hd = 0; kv_hd < 2; kv_hd = kv_hd + 1)
-                    for (kv_dm = 0; kv_dm < 64; kv_dm = kv_dm + 1) begin
-                        gen_lc[0].u_lc.u_attn.kv_cache_k[kv_ly][kv_base_pos_r+3][kv_hd][kv_dm] =
-                            gen_lc[3].u_lc.u_attn.kv_cache_k[kv_ly][kv_base_pos_r+3][kv_hd][kv_dm];
-                        gen_lc[0].u_lc.u_attn.kv_cache_v[kv_ly][kv_base_pos_r+3][kv_hd][kv_dm] =
-                            gen_lc[3].u_lc.u_attn.kv_cache_v[kv_ly][kv_base_pos_r+3][kv_hd][kv_dm];
-                    end
-        end
-        // Step 2: Broadcast LC[0] to LC[1..3]
-        for (kv_ly = 0; kv_ly < 2; kv_ly = kv_ly + 1)
-            for (kv_pos = 0; kv_pos < 32; kv_pos = kv_pos + 1)
-                for (kv_hd = 0; kv_hd < 2; kv_hd = kv_hd + 1)
-                    for (kv_dm = 0; kv_dm < 64; kv_dm = kv_dm + 1) begin
-                        gen_lc[1].u_lc.u_attn.kv_cache_k[kv_ly][kv_pos][kv_hd][kv_dm] =
-                            gen_lc[0].u_lc.u_attn.kv_cache_k[kv_ly][kv_pos][kv_hd][kv_dm];
-                        gen_lc[1].u_lc.u_attn.kv_cache_v[kv_ly][kv_pos][kv_hd][kv_dm] =
-                            gen_lc[0].u_lc.u_attn.kv_cache_v[kv_ly][kv_pos][kv_hd][kv_dm];
-                        gen_lc[2].u_lc.u_attn.kv_cache_k[kv_ly][kv_pos][kv_hd][kv_dm] =
-                            gen_lc[0].u_lc.u_attn.kv_cache_k[kv_ly][kv_pos][kv_hd][kv_dm];
-                        gen_lc[2].u_lc.u_attn.kv_cache_v[kv_ly][kv_pos][kv_hd][kv_dm] =
-                            gen_lc[0].u_lc.u_attn.kv_cache_v[kv_ly][kv_pos][kv_hd][kv_dm];
-                        gen_lc[3].u_lc.u_attn.kv_cache_k[kv_ly][kv_pos][kv_hd][kv_dm] =
-                            gen_lc[0].u_lc.u_attn.kv_cache_k[kv_ly][kv_pos][kv_hd][kv_dm];
-                        gen_lc[3].u_lc.u_attn.kv_cache_v[kv_ly][kv_pos][kv_hd][kv_dm] =
-                            gen_lc[0].u_lc.u_attn.kv_cache_v[kv_ly][kv_pos][kv_hd][kv_dm];
-                    end
-        $display("[KV_SYNC] Merged %0d positions (base=%0d), broadcast to all", kv_emit_count_r, kv_base_pos_r);
-    end
-    if (fallback_token_valid_r) begin
-        // Fallback: LC[0] has new KV at seed_position_r, broadcast all
-        for (kv_ly = 0; kv_ly < 2; kv_ly = kv_ly + 1)
-            for (kv_pos = 0; kv_pos < 32; kv_pos = kv_pos + 1)
-                for (kv_hd = 0; kv_hd < 2; kv_hd = kv_hd + 1)
-                    for (kv_dm = 0; kv_dm < 64; kv_dm = kv_dm + 1) begin
-                        gen_lc[1].u_lc.u_attn.kv_cache_k[kv_ly][kv_pos][kv_hd][kv_dm] =
-                            gen_lc[0].u_lc.u_attn.kv_cache_k[kv_ly][kv_pos][kv_hd][kv_dm];
-                        gen_lc[1].u_lc.u_attn.kv_cache_v[kv_ly][kv_pos][kv_hd][kv_dm] =
-                            gen_lc[0].u_lc.u_attn.kv_cache_v[kv_ly][kv_pos][kv_hd][kv_dm];
-                        gen_lc[2].u_lc.u_attn.kv_cache_k[kv_ly][kv_pos][kv_hd][kv_dm] =
-                            gen_lc[0].u_lc.u_attn.kv_cache_k[kv_ly][kv_pos][kv_hd][kv_dm];
-                        gen_lc[2].u_lc.u_attn.kv_cache_v[kv_ly][kv_pos][kv_hd][kv_dm] =
-                            gen_lc[0].u_lc.u_attn.kv_cache_v[kv_ly][kv_pos][kv_hd][kv_dm];
-                        gen_lc[3].u_lc.u_attn.kv_cache_k[kv_ly][kv_pos][kv_hd][kv_dm] =
-                            gen_lc[0].u_lc.u_attn.kv_cache_k[kv_ly][kv_pos][kv_hd][kv_dm];
-                        gen_lc[3].u_lc.u_attn.kv_cache_v[kv_ly][kv_pos][kv_hd][kv_dm] =
-                            gen_lc[0].u_lc.u_attn.kv_cache_v[kv_ly][kv_pos][kv_hd][kv_dm];
-                    end
-        $display("[KV_SYNC] Fallback: broadcast LC[0] KV to all");
-    end
-end
-// synthesis translate_on
+// fp16_inference_top manages KV cache in shared SRAM. All 4 instances
+// access the same behav_sram, so committed prefix KV is naturally visible.
+// No cross-module KV copy required.
 
 // =========================================================================
 // Longest Path Comparator
@@ -543,8 +487,10 @@ always_ff @(posedge clk or negedge rst_n) begin
                 gen_count_r <= gen_count_r + 8'd1;
                 seed_token_id_r <= lc_out_token_id_w[0 +: `TOKEN_ID_W];
                 seed_position_r <= seed_position_r + {{(`POSITION_ID_W-1){1'b0}}, 1'b1};
+                kv_commit_old_prefix_r <= committed_prefix_len_r;
+                kv_commit_count_r <= 4'd1;
                 committed_prefix_len_r <= committed_prefix_len_r + 16'd1;
-                state_r <= ST_CHECK;
+                state_r <= ST_KV_COMMIT;
                 // synthesis translate_off
                 $display("[FINAL_TOP] FALLBACK: token=%0d", lc_out_token_id_w[0 +: `TOKEN_ID_W]);
                 // synthesis translate_on
@@ -567,14 +513,20 @@ always_ff @(posedge clk or negedge rst_n) begin
             if (emit_done) begin
                 seed_token_id_r <= emit_new_seed;
                 seed_position_r <= emit_new_position;
+                kv_commit_old_prefix_r <= committed_prefix_len_r;
+                kv_commit_count_r <= emit_tokens_emitted;
                 committed_prefix_len_r <= emit_new_prefix_len;
                 gen_count_r <= gen_count_r + {4'd0, emit_tokens_emitted};
-                state_r <= ST_CHECK;
+                state_r <= ST_KV_COMMIT;
                 // synthesis translate_off
                 $display("[FINAL_TOP] round done: emitted %0d tokens, new_seed=%0d pos=%0d",
                     emit_tokens_emitted, emit_new_seed, emit_new_position);
                 // synthesis translate_on
             end
+        end
+        ST_KV_COMMIT: begin
+            // KV copy is done in a separate always block (see below)
+            state_r <= ST_CHECK;
         end
         ST_CHECK: begin
             if (gen_count_r >= max_gen_r) state_r <= ST_DONE;

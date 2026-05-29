@@ -1,0 +1,34 @@
+                         Chronologic VCS (TM)
+       Version O-2018.09-SP2_Full64 -- Sat Apr 18 14:10:01 2026
+               Copyright (c) 1991-2018 by Synopsys Inc.
+                         ALL RIGHTS RESERVED
+
+This program is proprietary and confidential information of Synopsys Inc.
+and may be used and disclosed only as authorized in a license agreement
+controlling such use and disclosure.
+
+
+Warning-[LCA_FEATURES_ENABLED] Usage warning
+  LCA features enabled by '-lca' argument on the command line.  For more 
+  information regarding list of LCA features please refer to Chapter "LCA 
+  features" in the VCS/VCS-MX Release Notes
+
+Parsing design file 'code/bank_state_table.v'
+Parsing included file '/home/ICer/first/code/config/prediction_params.vh'.
+Back to file 'code/bank_state_table.v'.
+Parsing included file '/home/ICer/first/code/config/interface_params.vh'.
+Back to file 'code/bank_state_table.v'.
+Parsing included file '/home/ICer/first/code/config/memory_params.vh'.
+Back to file 'code/bank_state_table.v'.
+Parsing design file 'code/token_register.v'
+Parsing design file 'code/tb_commit_flush_lifecycle.v'
+
+Error-[SE] Syntax error
+  Following verilog source has syntax error :
+  "code/tb_commit_flush_lifecycle.v", 11: token is '1'
+      (`NODE_MASK_W'd1 << ((1 * `MAX_VERIFY_NODES_PER_BRANCH) + 1));
+                      ^
+
+1 warning
+1 error
+CPU time: .361 seconds to compile

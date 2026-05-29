@@ -1,0 +1,999 @@
+                         Chronologic VCS (TM)
+       Version O-2018.09-SP2_Full64 -- Thu May 28 19:16:19 2026
+               Copyright (c) 1991-2018 by Synopsys Inc.
+                         ALL RIGHTS RESERVED
+
+This program is proprietary and confidential information of Synopsys Inc.
+and may be used and disclosed only as authorized in a license agreement
+controlling such use and disclosure.
+
+Parsing design file 'rtl/transformer/floatMult16.v'
+Parsing design file 'rtl/transformer/floatAdd16.v'
+Parsing design file 'rtl/transformer/exponent.v'
+Parsing design file 'rtl/transformer/floatReciprocal.v'
+Parsing design file 'rtl/transformer/systolic_matvec16_tile.sv'
+Parsing design file 'rtl/transformer/fp16_matvec_tile.sv'
+Parsing design file 'rtl/transformer/fp16_matvec_tile_acc.sv'
+Parsing design file 'rtl/transformer/fp16_tiled_matvec.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/fp16_tiled_matvec.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/fp16_tiled_matvec.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/fp16_tiled_matvec.sv'.
+Parsing design file 'rtl/transformer/fp16_compute_module.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/fp16_compute_module.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/fp16_compute_module.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/fp16_compute_module.sv'.
+Parsing design file 'rtl/transformer/fp16_inv_sqrt_nr.sv'
+Parsing design file 'rtl/transformer/fp16_rope.sv'
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/fp16_rope.sv'.
+Parsing design file 'rtl/transformer/fp16_silu.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/fp16_silu.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/fp16_silu.sv'.
+Parsing design file 'rtl/transformer/fp16_embedding.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/fp16_embedding.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/fp16_embedding.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/fp16_embedding.sv'.
+Parsing design file 'rtl/transformer/fp16_sampler.sv'
+Parsing design file 'rtl/transformer/fp16_lm_head.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/fp16_lm_head.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/fp16_lm_head.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/fp16_lm_head.sv'.
+Parsing design file 'rtl/transformer/fp16_transformer_layer.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/fp16_transformer_layer.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/fp16_transformer_layer.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/fp16_transformer_layer.sv'.
+Parsing design file 'rtl/transformer/fp16_layer_scheduler.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/fp16_layer_scheduler.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/fp16_layer_scheduler.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/fp16_layer_scheduler.sv'.
+Parsing design file 'rtl/transformer/fp16_inference_top.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/fp16_inference_top.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/fp16_inference_top.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/fp16_inference_top.sv'.
+Parsing included file 'code_by/transformer/fp16_mha_tree_attention.sv'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'code_by/transformer/fp16_mha_tree_attention.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'code_by/transformer/fp16_mha_tree_attention.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'code_by/transformer/fp16_mha_tree_attention.sv'.
+Parsing included file 'rtl/transformer/fp16_rmsnorm.sv'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/fp16_rmsnorm.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/fp16_rmsnorm.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/fp16_rmsnorm.sv'.
+Back to file 'code_by/transformer/fp16_mha_tree_attention.sv'.
+Parsing included file 'rtl/transformer/fp16_mha_controller.sv'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/fp16_mha_controller.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/fp16_mha_controller.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/fp16_mha_controller.sv'.
+Back to file 'code_by/transformer/fp16_mha_tree_attention.sv'.
+Parsing included file 'rtl/transformer/fp16_residual_add.sv'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/fp16_residual_add.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/fp16_residual_add.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/fp16_residual_add.sv'.
+Back to file 'code_by/transformer/fp16_mha_tree_attention.sv'.
+Parsing included file 'rtl/transformer/fp16_ffn_swiglu.sv'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/fp16_ffn_swiglu.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/fp16_ffn_swiglu.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/fp16_ffn_swiglu.sv'.
+Back to file 'code_by/transformer/fp16_mha_tree_attention.sv'.
+Back to file 'rtl/transformer/fp16_inference_top.sv'.
+Parsing design file 'rtl/transformer/fp16_inference_lc_wrapper.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/fp16_inference_lc_wrapper.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/transformer/fp16_inference_lc_wrapper.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/fp16_inference_lc_wrapper.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/fp16_inference_lc_wrapper.sv'.
+Parsing design file 'rtl/pe_operators/pe_rmsnorm_compute.v'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/pe_operators/pe_rmsnorm_compute.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/pe_operators/pe_rmsnorm_compute.v'.
+Parsing design file 'rtl/pe_operators/pe_silu_mul_compute.v'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/pe_operators/pe_silu_mul_compute.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/pe_operators/pe_silu_mul_compute.v'.
+Parsing design file 'rtl/pe_operators/pe_residual_add_compute.v'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/pe_operators/pe_residual_add_compute.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/pe_operators/pe_residual_add_compute.v'.
+Parsing design file 'rtl/pe_operators/pe_attn_compute.v'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/pe_operators/pe_attn_compute.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/pe_operators/pe_attn_compute.v'.
+Parsing design file 'rtl/tree_control/pe_mac_unit.v'
+Parsing design file 'rtl/tree_control/pe_mac_unit_wide.v'
+Parsing design file 'rtl/tree_control/PeArrayComputeOverlay.v'
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/PeArrayComputeOverlay.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/PeArrayComputeOverlay.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/PeArrayComputeOverlay.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/PeArrayComputeOverlay.v'.
+Parsing design file 'rtl/tree_control/PeArrayNonlinearUnit.v'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/PeArrayNonlinearUnit.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/PeArrayNonlinearUnit.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/PeArrayNonlinearUnit.v'.
+Parsing design file 'rtl/tree_control/PeArrayLayerController.v'
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/PeArrayLayerController.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/PeArrayLayerController.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/PeArrayLayerController.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/PeArrayLayerController.v'.
+Parsing design file 'rtl/tree_control/HHTContextPredictor.v'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/HHTContextPredictor.v'.
+Parsing design file 'rtl/tree_control/request_controller.v'
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/request_controller.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/request_controller.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/request_controller.v'.
+Parsing design file 'rtl/tree_control/multicast_network.v'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/multicast_network.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/multicast_network.v'.
+Parsing design file 'rtl/tree_control/issue_bundle_adapter.v'
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/issue_bundle_adapter.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/issue_bundle_adapter.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/issue_bundle_adapter.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/issue_bundle_adapter.v'.
+Parsing design file 'rtl/tree_control/branch_parallel_controller.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/branch_parallel_controller.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/branch_parallel_controller.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/branch_parallel_controller.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/branch_parallel_controller.sv'.
+Parsing design file 'rtl/tree_control/draft_injection_interface.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/draft_injection_interface.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/draft_injection_interface.sv'.
+Parsing design file 'rtl/tree_control/longest_path_comparator.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/longest_path_comparator.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/longest_path_comparator.sv'.
+Parsing design file 'rtl/tree_control/kv_share_scheduler.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/kv_share_scheduler.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/kv_share_scheduler.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/kv_share_scheduler.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/kv_share_scheduler.sv'.
+Parsing design file 'rtl/tree_control/tree_to_native_bridge.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/tree_to_native_bridge.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/tree_to_native_bridge.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/tree_to_native_bridge.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/tree_to_native_bridge.sv'.
+Parsing design file 'rtl/tree_control/StrictTreeMaskPaperPath.v'
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/tree_control/tree_analyze.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/tree_analyze.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/tree_analyze.v'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/tree_control/agu.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/agu.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/agu.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/agu.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/agu.v'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/tree_control/prefetch_queue.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/prefetch_queue.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/prefetch_queue.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/prefetch_queue.v'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/tree_control/free_list.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/free_list.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/free_list.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/free_list.v'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/tree_control/bank_state_table.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/bank_state_table.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/bank_state_table.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/bank_state_table.v'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/tree_control/token_register.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/token_register.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/token_register.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/token_register.v'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/tree_control/comparator.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/comparator.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/comparator.v'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing included file 'rtl/tree_control/StrictTreeMaskPaperIssueScheduler.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperIssueScheduler.v'.
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperIssueScheduler.v'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperIssueScheduler.v'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperIssueScheduler.v'.
+Back to file 'rtl/tree_control/StrictTreeMaskPaperPath.v'.
+Parsing design file 'rtl/tree_control/branch_parallel_scheduler.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/branch_parallel_scheduler.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/branch_parallel_scheduler.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/tree_control/branch_parallel_scheduler.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/tree_control/branch_parallel_scheduler.sv'.
+Parsing design file 'rtl/tree_control/multi_token_emitter.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/tree_control/multi_token_emitter.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/tree_control/multi_token_emitter.sv'.
+Parsing design file 'rtl/transformer/speculative_decode_treecontrol_top.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_treecontrol_top.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_treecontrol_top.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_treecontrol_top.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_treecontrol_top.sv'.
+
+Warning-[IPDW] Identifier previously declared
+rtl/transformer/speculative_decode_treecontrol_top.sv, 781
+  Second declaration for identifier 'draft_valid' ignored
+  Identifier 'draft_valid' previously declared as wire. 
+  [rtl/transformer/speculative_decode_treecontrol_top.sv, 155]
+
+
+Warning-[IPDW] Identifier previously declared
+rtl/transformer/speculative_decode_treecontrol_top.sv, 782
+  Second declaration for identifier 'draft_token_id' ignored
+  Identifier 'draft_token_id' previously declared as wire. 
+  [rtl/transformer/speculative_decode_treecontrol_top.sv, 157]
+
+
+Warning-[IPDW] Identifier previously declared
+rtl/transformer/speculative_decode_treecontrol_top.sv, 783
+  Second declaration for identifier 'draft_parent_node_id' ignored
+  Identifier 'draft_parent_node_id' previously declared as wire. 
+  [rtl/transformer/speculative_decode_treecontrol_top.sv, 156]
+
+
+Warning-[IPDW] Identifier previously declared
+rtl/transformer/speculative_decode_treecontrol_top.sv, 784
+  Second declaration for identifier 'draft_position' ignored
+  Identifier 'draft_position' previously declared as wire. 
+  [rtl/transformer/speculative_decode_treecontrol_top.sv, 158]
+
+Parsing design file 'rtl/transformer/speculative_decode_final_top.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_final_top.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_final_top.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_final_top.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_final_top.sv'.
+Parsing design file 'rtl/transformer/speculative_decode_e2e_top.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_e2e_top.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_e2e_top.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_e2e_top.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'rtl/transformer/speculative_decode_e2e_top.sv'.
+Parsing design file 'code_by/tree_control/tree_flatten.v'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'code_by/tree_control/tree_flatten.v'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'code_by/tree_control/tree_flatten.v'.
+Parsing design file 'rtl/transformer/tree_verify_dispatcher.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/tree_verify_dispatcher.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/transformer/tree_verify_dispatcher.sv'.
+Parsing design file 'rtl/transformer/tree_builder.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/tree_builder.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/transformer/tree_builder.sv'.
+Parsing design file 'rtl/transformer/feedback_controller.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'rtl/transformer/feedback_controller.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'rtl/transformer/feedback_controller.sv'.
+Parsing design file 'tb/e2e/tb_speculative_decode_treecontrol.sv'
+Parsing included file 'rtl/config/interface_params.vh'.
+Back to file 'tb/e2e/tb_speculative_decode_treecontrol.sv'.
+Parsing included file 'rtl/config/prediction_params.vh'.
+Back to file 'tb/e2e/tb_speculative_decode_treecontrol.sv'.
+Parsing included file 'rtl/config/model_params.vh'.
+Back to file 'tb/e2e/tb_speculative_decode_treecontrol.sv'.
+Parsing included file 'rtl/config/memory_params.vh'.
+Back to file 'tb/e2e/tb_speculative_decode_treecontrol.sv'.
+Top Level Modules:
+       systolic_matvec16_tile
+       fp16_compute_module
+       pe_mac_unit_wide
+       PeArrayComputeOverlay
+       PeArrayNonlinearUnit
+       issue_bundle_adapter
+       branch_parallel_controller
+       speculative_decode_final_top
+       speculative_decode_e2e_top
+       tree_flatten
+       tb_speculative_decode_treecontrol
+TimeScale is 1 ns / 1 ps
+
+Warning-[SIOB] Select index out of bounds
+rtl/transformer/floatReciprocal.v, 193
+"in_bits[31]"
+  The select index is out of declared bounds : [15:0].
+  In module instance : u_recip u_recip u_inv_temp u_inv_sum 
+  In module : floatReciprocal.
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/tree_control/PeArrayComputeOverlay.v, 102
+" pe_mac_unit #(LANES_PER_PE, MAC_DEPTH, DATA_W, ) gen_pe_mac[0].u_mac( .clk (clk),  .rst_n (rst_n),  .clear (mac_clear_w[0]),  .mac_valid (mac_valid_w[0]),  .vector_val (mac_vector_val_w[(0 * DATA_W)+:DATA_W]),  .weight_col (mac_weight_col_w[((0 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .depth_cfg ({LANES_PER_PE {1'b0}}),  .result (mac_result_w[((0 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .done (mac_done_w[0]));"
+  The following 8-bit expression is connected to 7-bit port "depth_cfg" of 
+  module "pe_mac_unit", instance "gen_pe_mac[0].u_mac".
+  Expression: {LANES_PER_PE {1'b0}}
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/tree_control/PeArrayComputeOverlay.v, 102
+" pe_mac_unit #(LANES_PER_PE, MAC_DEPTH, DATA_W, ) gen_pe_mac[1].u_mac( .clk (clk),  .rst_n (rst_n),  .clear (mac_clear_w[1]),  .mac_valid (mac_valid_w[1]),  .vector_val (mac_vector_val_w[(1 * DATA_W)+:DATA_W]),  .weight_col (mac_weight_col_w[((1 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .depth_cfg ({LANES_PER_PE {1'b0}}),  .result (mac_result_w[((1 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .done (mac_done_w[1]));"
+  The following 8-bit expression is connected to 7-bit port "depth_cfg" of 
+  module "pe_mac_unit", instance "gen_pe_mac[1].u_mac".
+  Expression: {LANES_PER_PE {1'b0}}
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/tree_control/PeArrayComputeOverlay.v, 102
+" pe_mac_unit #(LANES_PER_PE, MAC_DEPTH, DATA_W, ) gen_pe_mac[2].u_mac( .clk (clk),  .rst_n (rst_n),  .clear (mac_clear_w[2]),  .mac_valid (mac_valid_w[2]),  .vector_val (mac_vector_val_w[(2 * DATA_W)+:DATA_W]),  .weight_col (mac_weight_col_w[((2 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .depth_cfg ({LANES_PER_PE {1'b0}}),  .result (mac_result_w[((2 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .done (mac_done_w[2]));"
+  The following 8-bit expression is connected to 7-bit port "depth_cfg" of 
+  module "pe_mac_unit", instance "gen_pe_mac[2].u_mac".
+  Expression: {LANES_PER_PE {1'b0}}
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/tree_control/PeArrayComputeOverlay.v, 102
+" pe_mac_unit #(LANES_PER_PE, MAC_DEPTH, DATA_W, ) gen_pe_mac[3].u_mac( .clk (clk),  .rst_n (rst_n),  .clear (mac_clear_w[3]),  .mac_valid (mac_valid_w[3]),  .vector_val (mac_vector_val_w[(3 * DATA_W)+:DATA_W]),  .weight_col (mac_weight_col_w[((3 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .depth_cfg ({LANES_PER_PE {1'b0}}),  .result (mac_result_w[((3 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .done (mac_done_w[3]));"
+  The following 8-bit expression is connected to 7-bit port "depth_cfg" of 
+  module "pe_mac_unit", instance "gen_pe_mac[3].u_mac".
+  Expression: {LANES_PER_PE {1'b0}}
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/tree_control/PeArrayComputeOverlay.v, 102
+" pe_mac_unit #(LANES_PER_PE, MAC_DEPTH, DATA_W, ) gen_pe_mac[4].u_mac( .clk (clk),  .rst_n (rst_n),  .clear (mac_clear_w[4]),  .mac_valid (mac_valid_w[4]),  .vector_val (mac_vector_val_w[(4 * DATA_W)+:DATA_W]),  .weight_col (mac_weight_col_w[((4 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .depth_cfg ({LANES_PER_PE {1'b0}}),  .result (mac_result_w[((4 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .done (mac_done_w[4]));"
+  The following 8-bit expression is connected to 7-bit port "depth_cfg" of 
+  module "pe_mac_unit", instance "gen_pe_mac[4].u_mac".
+  Expression: {LANES_PER_PE {1'b0}}
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/tree_control/PeArrayComputeOverlay.v, 102
+" pe_mac_unit #(LANES_PER_PE, MAC_DEPTH, DATA_W, ) gen_pe_mac[5].u_mac( .clk (clk),  .rst_n (rst_n),  .clear (mac_clear_w[5]),  .mac_valid (mac_valid_w[5]),  .vector_val (mac_vector_val_w[(5 * DATA_W)+:DATA_W]),  .weight_col (mac_weight_col_w[((5 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .depth_cfg ({LANES_PER_PE {1'b0}}),  .result (mac_result_w[((5 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .done (mac_done_w[5]));"
+  The following 8-bit expression is connected to 7-bit port "depth_cfg" of 
+  module "pe_mac_unit", instance "gen_pe_mac[5].u_mac".
+  Expression: {LANES_PER_PE {1'b0}}
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/tree_control/PeArrayComputeOverlay.v, 102
+" pe_mac_unit #(LANES_PER_PE, MAC_DEPTH, DATA_W, ) gen_pe_mac[6].u_mac( .clk (clk),  .rst_n (rst_n),  .clear (mac_clear_w[6]),  .mac_valid (mac_valid_w[6]),  .vector_val (mac_vector_val_w[(6 * DATA_W)+:DATA_W]),  .weight_col (mac_weight_col_w[((6 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .depth_cfg ({LANES_PER_PE {1'b0}}),  .result (mac_result_w[((6 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .done (mac_done_w[6]));"
+  The following 8-bit expression is connected to 7-bit port "depth_cfg" of 
+  module "pe_mac_unit", instance "gen_pe_mac[6].u_mac".
+  Expression: {LANES_PER_PE {1'b0}}
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/tree_control/PeArrayComputeOverlay.v, 102
+" pe_mac_unit #(LANES_PER_PE, MAC_DEPTH, DATA_W, ) gen_pe_mac[7].u_mac( .clk (clk),  .rst_n (rst_n),  .clear (mac_clear_w[7]),  .mac_valid (mac_valid_w[7]),  .vector_val (mac_vector_val_w[(7 * DATA_W)+:DATA_W]),  .weight_col (mac_weight_col_w[((7 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .depth_cfg ({LANES_PER_PE {1'b0}}),  .result (mac_result_w[((7 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .done (mac_done_w[7]));"
+  The following 8-bit expression is connected to 7-bit port "depth_cfg" of 
+  module "pe_mac_unit", instance "gen_pe_mac[7].u_mac".
+  Expression: {LANES_PER_PE {1'b0}}
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/tree_control/PeArrayComputeOverlay.v, 102
+" pe_mac_unit #(LANES_PER_PE, MAC_DEPTH, DATA_W, ) gen_pe_mac[8].u_mac( .clk (clk),  .rst_n (rst_n),  .clear (mac_clear_w[8]),  .mac_valid (mac_valid_w[8]),  .vector_val (mac_vector_val_w[(8 * DATA_W)+:DATA_W]),  .weight_col (mac_weight_col_w[((8 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .depth_cfg ({LANES_PER_PE {1'b0}}),  .result (mac_result_w[((8 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .done (mac_done_w[8]));"
+  The following 8-bit expression is connected to 7-bit port "depth_cfg" of 
+  module "pe_mac_unit", instance "gen_pe_mac[8].u_mac".
+  Expression: {LANES_PER_PE {1'b0}}
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/tree_control/PeArrayComputeOverlay.v, 102
+" pe_mac_unit #(LANES_PER_PE, MAC_DEPTH, DATA_W, ) gen_pe_mac[9].u_mac( .clk (clk),  .rst_n (rst_n),  .clear (mac_clear_w[9]),  .mac_valid (mac_valid_w[9]),  .vector_val (mac_vector_val_w[(9 * DATA_W)+:DATA_W]),  .weight_col (mac_weight_col_w[((9 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .depth_cfg ({LANES_PER_PE {1'b0}}),  .result (mac_result_w[((9 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .done (mac_done_w[9]));"
+  The following 8-bit expression is connected to 7-bit port "depth_cfg" of 
+  module "pe_mac_unit", instance "gen_pe_mac[9].u_mac".
+  Expression: {LANES_PER_PE {1'b0}}
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/tree_control/PeArrayComputeOverlay.v, 102
+" pe_mac_unit #(LANES_PER_PE, MAC_DEPTH, DATA_W, ) gen_pe_mac[10].u_mac( .clk (clk),  .rst_n (rst_n),  .clear (mac_clear_w[10]),  .mac_valid (mac_valid_w[10]),  .vector_val (mac_vector_val_w[(10 * DATA_W)+:DATA_W]),  .weight_col (mac_weight_col_w[((10 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .depth_cfg ({LANES_PER_PE {1'b0}}),  .result (mac_result_w[((10 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .done (mac_done_w[10]));"
+  The following 8-bit expression is connected to 7-bit port "depth_cfg" of 
+  module "pe_mac_unit", instance "gen_pe_mac[10].u_mac".
+  Expression: {LANES_PER_PE {1'b0}}
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/tree_control/PeArrayComputeOverlay.v, 102
+" pe_mac_unit #(LANES_PER_PE, MAC_DEPTH, DATA_W, ) gen_pe_mac[11].u_mac( .clk (clk),  .rst_n (rst_n),  .clear (mac_clear_w[11]),  .mac_valid (mac_valid_w[11]),  .vector_val (mac_vector_val_w[(11 * DATA_W)+:DATA_W]),  .weight_col (mac_weight_col_w[((11 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .depth_cfg ({LANES_PER_PE {1'b0}}),  .result (mac_result_w[((11 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .done (mac_done_w[11]));"
+  The following 8-bit expression is connected to 7-bit port "depth_cfg" of 
+  module "pe_mac_unit", instance "gen_pe_mac[11].u_mac".
+  Expression: {LANES_PER_PE {1'b0}}
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/tree_control/PeArrayComputeOverlay.v, 102
+" pe_mac_unit #(LANES_PER_PE, MAC_DEPTH, DATA_W, ) gen_pe_mac[12].u_mac( .clk (clk),  .rst_n (rst_n),  .clear (mac_clear_w[12]),  .mac_valid (mac_valid_w[12]),  .vector_val (mac_vector_val_w[(12 * DATA_W)+:DATA_W]),  .weight_col (mac_weight_col_w[((12 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .depth_cfg ({LANES_PER_PE {1'b0}}),  .result (mac_result_w[((12 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .done (mac_done_w[12]));"
+  The following 8-bit expression is connected to 7-bit port "depth_cfg" of 
+  module "pe_mac_unit", instance "gen_pe_mac[12].u_mac".
+  Expression: {LANES_PER_PE {1'b0}}
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/tree_control/PeArrayComputeOverlay.v, 102
+" pe_mac_unit #(LANES_PER_PE, MAC_DEPTH, DATA_W, ) gen_pe_mac[13].u_mac( .clk (clk),  .rst_n (rst_n),  .clear (mac_clear_w[13]),  .mac_valid (mac_valid_w[13]),  .vector_val (mac_vector_val_w[(13 * DATA_W)+:DATA_W]),  .weight_col (mac_weight_col_w[((13 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .depth_cfg ({LANES_PER_PE {1'b0}}),  .result (mac_result_w[((13 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .done (mac_done_w[13]));"
+  The following 8-bit expression is connected to 7-bit port "depth_cfg" of 
+  module "pe_mac_unit", instance "gen_pe_mac[13].u_mac".
+  Expression: {LANES_PER_PE {1'b0}}
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/tree_control/PeArrayComputeOverlay.v, 102
+" pe_mac_unit #(LANES_PER_PE, MAC_DEPTH, DATA_W, ) gen_pe_mac[14].u_mac( .clk (clk),  .rst_n (rst_n),  .clear (mac_clear_w[14]),  .mac_valid (mac_valid_w[14]),  .vector_val (mac_vector_val_w[(14 * DATA_W)+:DATA_W]),  .weight_col (mac_weight_col_w[((14 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .depth_cfg ({LANES_PER_PE {1'b0}}),  .result (mac_result_w[((14 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .done (mac_done_w[14]));"
+  The following 8-bit expression is connected to 7-bit port "depth_cfg" of 
+  module "pe_mac_unit", instance "gen_pe_mac[14].u_mac".
+  Expression: {LANES_PER_PE {1'b0}}
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/tree_control/PeArrayComputeOverlay.v, 102
+" pe_mac_unit #(LANES_PER_PE, MAC_DEPTH, DATA_W, ) gen_pe_mac[15].u_mac( .clk (clk),  .rst_n (rst_n),  .clear (mac_clear_w[15]),  .mac_valid (mac_valid_w[15]),  .vector_val (mac_vector_val_w[(15 * DATA_W)+:DATA_W]),  .weight_col (mac_weight_col_w[((15 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .depth_cfg ({LANES_PER_PE {1'b0}}),  .result (mac_result_w[((15 * LANES_PER_PE) * DATA_W)+:(LANES_PER_PE * DATA_W)]),  .done (mac_done_w[15]));"
+  The following 8-bit expression is connected to 7-bit port "depth_cfg" of 
+  module "pe_mac_unit", instance "gen_pe_mac[15].u_mac".
+  Expression: {LANES_PER_PE {1'b0}}
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_final_top.sv, 256
+" PeArrayLayerController gen_lc[0].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[0]),  .done (lc_done_w[0]),  .busy (lc_busy_w[0]),  .slot_valid (mux_lc_slot_valid[(0 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (mux_lc_slot_token_id[((0 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (mux_lc_slot_position_id[((0 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (mux_lc_tree_mask[((0 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (0 * 512))),  .hidden1_base_addr ((23'd2080 + (0 * 512))),  .final_base_addr ((23'd2096 + (0 * 512))),  .weight_sram_base_addr (23'd131072),  .kv_cache_base_addr ((23'd57344 + (0 * 1024))),  .final_norm_gamma_addr (23'd2048),  .lm_head_weight_base ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "hidden0_base_addr" of module "PeArrayLayerController", instance 
+  "gen_lc[0].u_lc".
+  Expression: (23'd2064 + (0 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_final_top.sv, 256
+" PeArrayLayerController gen_lc[0].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[0]),  .done (lc_done_w[0]),  .busy (lc_busy_w[0]),  .slot_valid (mux_lc_slot_valid[(0 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (mux_lc_slot_token_id[((0 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (mux_lc_slot_position_id[((0 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (mux_lc_tree_mask[((0 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (0 * 512))),  .hidden1_base_addr ((23'd2080 + (0 * 512))),  .final_base_addr ((23'd2096 + (0 * 512))),  .weight_sram_base_addr (23'd131072),  .kv_cache_base_addr ((23'd57344 + (0 * 1024))),  .final_norm_gamma_addr (23'd2048),  .lm_head_weight_base ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "hidden1_base_addr" of module "PeArrayLayerController", instance 
+  "gen_lc[0].u_lc".
+  Expression: (23'd2080 + (0 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_final_top.sv, 256
+" PeArrayLayerController gen_lc[0].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[0]),  .done (lc_done_w[0]),  .busy (lc_busy_w[0]),  .slot_valid (mux_lc_slot_valid[(0 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (mux_lc_slot_token_id[((0 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (mux_lc_slot_position_id[((0 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (mux_lc_tree_mask[((0 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (0 * 512))),  .hidden1_base_addr ((23'd2080 + (0 * 512))),  .final_base_addr ((23'd2096 + (0 * 512))),  .weight_sram_base_addr (23'd131072),  .kv_cache_base_addr ((23'd57344 + (0 * 1024))),  .final_norm_gamma_addr (23'd2048),  .lm_head_weight_base ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "final_base_addr" of module "PeArrayLayerController", instance 
+  "gen_lc[0].u_lc".
+  Expression: (23'd2096 + (0 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_final_top.sv, 256
+" PeArrayLayerController gen_lc[0].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[0]),  .done (lc_done_w[0]),  .busy (lc_busy_w[0]),  .slot_valid (mux_lc_slot_valid[(0 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (mux_lc_slot_token_id[((0 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (mux_lc_slot_position_id[((0 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (mux_lc_tree_mask[((0 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (0 * 512))),  .hidden1_base_addr ((23'd2080 + (0 * 512))),  .final_base_addr ((23'd2096 + (0 * 512))),  .weight_sram_base_addr (23'd131072),  .kv_cache_base_addr ((23'd57344 + (0 * 1024))),  .final_norm_gamma_addr (23'd2048),  .lm_head_weight_base ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "kv_cache_base_addr" of module "PeArrayLayerController", instance 
+  "gen_lc[0].u_lc".
+  Expression: (23'd57344 + (0 * 1024))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_final_top.sv, 256
+" PeArrayLayerController gen_lc[1].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[1]),  .done (lc_done_w[1]),  .busy (lc_busy_w[1]),  .slot_valid (mux_lc_slot_valid[(1 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (mux_lc_slot_token_id[((1 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (mux_lc_slot_position_id[((1 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (mux_lc_tree_mask[((1 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (1 * 512))),  .hidden1_base_addr ((23'd2080 + (1 * 512))),  .final_base_addr ((23'd2096 + (1 * 512))),  .weight_sram_base_addr (23'd131072),  .kv_cache_base_addr ((23'd57344 + (1 * 1024))),  .final_norm_gamma_addr (23'd2048),  .lm_head_weight_base ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "hidden0_base_addr" of module "PeArrayLayerController", instance 
+  "gen_lc[1].u_lc".
+  Expression: (23'd2064 + (1 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_final_top.sv, 256
+" PeArrayLayerController gen_lc[1].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[1]),  .done (lc_done_w[1]),  .busy (lc_busy_w[1]),  .slot_valid (mux_lc_slot_valid[(1 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (mux_lc_slot_token_id[((1 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (mux_lc_slot_position_id[((1 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (mux_lc_tree_mask[((1 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (1 * 512))),  .hidden1_base_addr ((23'd2080 + (1 * 512))),  .final_base_addr ((23'd2096 + (1 * 512))),  .weight_sram_base_addr (23'd131072),  .kv_cache_base_addr ((23'd57344 + (1 * 1024))),  .final_norm_gamma_addr (23'd2048),  .lm_head_weight_base ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "hidden1_base_addr" of module "PeArrayLayerController", instance 
+  "gen_lc[1].u_lc".
+  Expression: (23'd2080 + (1 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_final_top.sv, 256
+" PeArrayLayerController gen_lc[1].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[1]),  .done (lc_done_w[1]),  .busy (lc_busy_w[1]),  .slot_valid (mux_lc_slot_valid[(1 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (mux_lc_slot_token_id[((1 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (mux_lc_slot_position_id[((1 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (mux_lc_tree_mask[((1 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (1 * 512))),  .hidden1_base_addr ((23'd2080 + (1 * 512))),  .final_base_addr ((23'd2096 + (1 * 512))),  .weight_sram_base_addr (23'd131072),  .kv_cache_base_addr ((23'd57344 + (1 * 1024))),  .final_norm_gamma_addr (23'd2048),  .lm_head_weight_base ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "final_base_addr" of module "PeArrayLayerController", instance 
+  "gen_lc[1].u_lc".
+  Expression: (23'd2096 + (1 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_final_top.sv, 256
+" PeArrayLayerController gen_lc[1].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[1]),  .done (lc_done_w[1]),  .busy (lc_busy_w[1]),  .slot_valid (mux_lc_slot_valid[(1 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (mux_lc_slot_token_id[((1 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (mux_lc_slot_position_id[((1 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (mux_lc_tree_mask[((1 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (1 * 512))),  .hidden1_base_addr ((23'd2080 + (1 * 512))),  .final_base_addr ((23'd2096 + (1 * 512))),  .weight_sram_base_addr (23'd131072),  .kv_cache_base_addr ((23'd57344 + (1 * 1024))),  .final_norm_gamma_addr (23'd2048),  .lm_head_weight_base ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "kv_cache_base_addr" of module "PeArrayLayerController", instance 
+  "gen_lc[1].u_lc".
+  Expression: (23'd57344 + (1 * 1024))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_final_top.sv, 256
+" PeArrayLayerController gen_lc[2].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[2]),  .done (lc_done_w[2]),  .busy (lc_busy_w[2]),  .slot_valid (mux_lc_slot_valid[(2 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (mux_lc_slot_token_id[((2 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (mux_lc_slot_position_id[((2 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (mux_lc_tree_mask[((2 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (2 * 512))),  .hidden1_base_addr ((23'd2080 + (2 * 512))),  .final_base_addr ((23'd2096 + (2 * 512))),  .weight_sram_base_addr (23'd131072),  .kv_cache_base_addr ((23'd57344 + (2 * 1024))),  .final_norm_gamma_addr (23'd2048),  .lm_head_weight_base ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "hidden0_base_addr" of module "PeArrayLayerController", instance 
+  "gen_lc[2].u_lc".
+  Expression: (23'd2064 + (2 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_final_top.sv, 256
+" PeArrayLayerController gen_lc[2].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[2]),  .done (lc_done_w[2]),  .busy (lc_busy_w[2]),  .slot_valid (mux_lc_slot_valid[(2 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (mux_lc_slot_token_id[((2 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (mux_lc_slot_position_id[((2 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (mux_lc_tree_mask[((2 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (2 * 512))),  .hidden1_base_addr ((23'd2080 + (2 * 512))),  .final_base_addr ((23'd2096 + (2 * 512))),  .weight_sram_base_addr (23'd131072),  .kv_cache_base_addr ((23'd57344 + (2 * 1024))),  .final_norm_gamma_addr (23'd2048),  .lm_head_weight_base ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "hidden1_base_addr" of module "PeArrayLayerController", instance 
+  "gen_lc[2].u_lc".
+  Expression: (23'd2080 + (2 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_final_top.sv, 256
+" PeArrayLayerController gen_lc[2].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[2]),  .done (lc_done_w[2]),  .busy (lc_busy_w[2]),  .slot_valid (mux_lc_slot_valid[(2 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (mux_lc_slot_token_id[((2 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (mux_lc_slot_position_id[((2 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (mux_lc_tree_mask[((2 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (2 * 512))),  .hidden1_base_addr ((23'd2080 + (2 * 512))),  .final_base_addr ((23'd2096 + (2 * 512))),  .weight_sram_base_addr (23'd131072),  .kv_cache_base_addr ((23'd57344 + (2 * 1024))),  .final_norm_gamma_addr (23'd2048),  .lm_head_weight_base ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "final_base_addr" of module "PeArrayLayerController", instance 
+  "gen_lc[2].u_lc".
+  Expression: (23'd2096 + (2 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_final_top.sv, 256
+" PeArrayLayerController gen_lc[2].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[2]),  .done (lc_done_w[2]),  .busy (lc_busy_w[2]),  .slot_valid (mux_lc_slot_valid[(2 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (mux_lc_slot_token_id[((2 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (mux_lc_slot_position_id[((2 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (mux_lc_tree_mask[((2 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (2 * 512))),  .hidden1_base_addr ((23'd2080 + (2 * 512))),  .final_base_addr ((23'd2096 + (2 * 512))),  .weight_sram_base_addr (23'd131072),  .kv_cache_base_addr ((23'd57344 + (2 * 1024))),  .final_norm_gamma_addr (23'd2048),  .lm_head_weight_base ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "kv_cache_base_addr" of module "PeArrayLayerController", instance 
+  "gen_lc[2].u_lc".
+  Expression: (23'd57344 + (2 * 1024))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_final_top.sv, 256
+" PeArrayLayerController gen_lc[3].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[3]),  .done (lc_done_w[3]),  .busy (lc_busy_w[3]),  .slot_valid (mux_lc_slot_valid[(3 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (mux_lc_slot_token_id[((3 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (mux_lc_slot_position_id[((3 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (mux_lc_tree_mask[((3 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (3 * 512))),  .hidden1_base_addr ((23'd2080 + (3 * 512))),  .final_base_addr ((23'd2096 + (3 * 512))),  .weight_sram_base_addr (23'd131072),  .kv_cache_base_addr ((23'd57344 + (3 * 1024))),  .final_norm_gamma_addr (23'd2048),  .lm_head_weight_base ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "hidden0_base_addr" of module "PeArrayLayerController", instance 
+  "gen_lc[3].u_lc".
+  Expression: (23'd2064 + (3 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_final_top.sv, 256
+" PeArrayLayerController gen_lc[3].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[3]),  .done (lc_done_w[3]),  .busy (lc_busy_w[3]),  .slot_valid (mux_lc_slot_valid[(3 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (mux_lc_slot_token_id[((3 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (mux_lc_slot_position_id[((3 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (mux_lc_tree_mask[((3 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (3 * 512))),  .hidden1_base_addr ((23'd2080 + (3 * 512))),  .final_base_addr ((23'd2096 + (3 * 512))),  .weight_sram_base_addr (23'd131072),  .kv_cache_base_addr ((23'd57344 + (3 * 1024))),  .final_norm_gamma_addr (23'd2048),  .lm_head_weight_base ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "hidden1_base_addr" of module "PeArrayLayerController", instance 
+  "gen_lc[3].u_lc".
+  Expression: (23'd2080 + (3 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_final_top.sv, 256
+" PeArrayLayerController gen_lc[3].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[3]),  .done (lc_done_w[3]),  .busy (lc_busy_w[3]),  .slot_valid (mux_lc_slot_valid[(3 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (mux_lc_slot_token_id[((3 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (mux_lc_slot_position_id[((3 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (mux_lc_tree_mask[((3 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (3 * 512))),  .hidden1_base_addr ((23'd2080 + (3 * 512))),  .final_base_addr ((23'd2096 + (3 * 512))),  .weight_sram_base_addr (23'd131072),  .kv_cache_base_addr ((23'd57344 + (3 * 1024))),  .final_norm_gamma_addr (23'd2048),  .lm_head_weight_base ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "final_base_addr" of module "PeArrayLayerController", instance 
+  "gen_lc[3].u_lc".
+  Expression: (23'd2096 + (3 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_final_top.sv, 256
+" PeArrayLayerController gen_lc[3].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[3]),  .done (lc_done_w[3]),  .busy (lc_busy_w[3]),  .slot_valid (mux_lc_slot_valid[(3 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (mux_lc_slot_token_id[((3 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (mux_lc_slot_position_id[((3 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (mux_lc_tree_mask[((3 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (3 * 512))),  .hidden1_base_addr ((23'd2080 + (3 * 512))),  .final_base_addr ((23'd2096 + (3 * 512))),  .weight_sram_base_addr (23'd131072),  .kv_cache_base_addr ((23'd57344 + (3 * 1024))),  .final_norm_gamma_addr (23'd2048),  .lm_head_weight_base ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "kv_cache_base_addr" of module "PeArrayLayerController", instance 
+  "gen_lc[3].u_lc".
+  Expression: (23'd57344 + (3 * 1024))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 312
+"StrictTreeMaskPaperPath u_stmp( .clk (clk),  .rst_n (rst_n),  .req_valid (bridge_req_valid),  .req_ready (bridge_req_ready),  .req_id (bridge_req_id),  .src_prefix_slot_valid (bridge_prefix_slot_valid),  .src_prefix_node_id (bridge_prefix_node_id),  .src_prefix_token_id (bridge_prefix_token_id),  .src_prefix_position_id (bridge_prefix_position_id),  .src_committed_len (bridge_committed_len),  .src_frontier_level_valid (bridge_frontier_level_valid),  .src_frontier_slot_valid (bridge_frontier_slot_valid),  .src_frontier_node_id (bridge_frontier_node_id),  .src_frontier_parent_node_id (bridge_frontier_parent_node_id),  .src_frontier_token_id (bridge_frontier_token_id),  .src_frontier_referenced_token_id (bridge_frontier_referenced_token_id),  .src_frontier ... "
+  The following 51-bit expression is connected to 3-bit port 
+  "paper_issue_bundle_level_id" of module "StrictTreeMaskPaperPath", instance 
+  "u_stmp".
+  Expression: paper_issue_bundle_level_id
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 791
+"draft_injection_interface #(BRANCH_NUM, MAX_LEVELS, , , ) u_draft_inject( .clk (clk),  .rst_n (rst_n),  .inject_start (draft_inject_start),  .seed_token_id (seed_token_id_r),  .seed_position (seed_position_r),  .seed_node_id (seed_node_id_r),  .commit_feedback_valid (((emit_token_valid || fallback_token_valid_r) || (start && (state_r == ST_IDLE)))),  .commit_feedback_token ((emit_token_valid ? emit_token_id : (fallback_token_valid_r ? fallback_token_id_r : prompt_token_id))),  .draft_valid (draft_valid),  .draft_token_id (draft_token_id),  .draft_parent_node_id (draft_parent_node_id),  .draft_position (draft_position),  .draft_branch_id (draft_branch_id),  .draft_depth (draft_depth),  .draft_done (draft_done_w),  .branch_active (draft_branch_active),  . ... "
+  The following 1-bit expression is connected to 16-bit port "draft_token_id" 
+  of module "draft_injection_interface", instance "u_draft_inject".
+  Expression: draft_token_id
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 791
+"draft_injection_interface #(BRANCH_NUM, MAX_LEVELS, , , ) u_draft_inject( .clk (clk),  .rst_n (rst_n),  .inject_start (draft_inject_start),  .seed_token_id (seed_token_id_r),  .seed_position (seed_position_r),  .seed_node_id (seed_node_id_r),  .commit_feedback_valid (((emit_token_valid || fallback_token_valid_r) || (start && (state_r == ST_IDLE)))),  .commit_feedback_token ((emit_token_valid ? emit_token_id : (fallback_token_valid_r ? fallback_token_id_r : prompt_token_id))),  .draft_valid (draft_valid),  .draft_token_id (draft_token_id),  .draft_parent_node_id (draft_parent_node_id),  .draft_position (draft_position),  .draft_branch_id (draft_branch_id),  .draft_depth (draft_depth),  .draft_done (draft_done_w),  .branch_active (draft_branch_active),  . ... "
+  The following 1-bit expression is connected to 5-bit port 
+  "draft_parent_node_id" of module "draft_injection_interface", instance 
+  "u_draft_inject".
+  Expression: draft_parent_node_id
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 791
+"draft_injection_interface #(BRANCH_NUM, MAX_LEVELS, , , ) u_draft_inject( .clk (clk),  .rst_n (rst_n),  .inject_start (draft_inject_start),  .seed_token_id (seed_token_id_r),  .seed_position (seed_position_r),  .seed_node_id (seed_node_id_r),  .commit_feedback_valid (((emit_token_valid || fallback_token_valid_r) || (start && (state_r == ST_IDLE)))),  .commit_feedback_token ((emit_token_valid ? emit_token_id : (fallback_token_valid_r ? fallback_token_id_r : prompt_token_id))),  .draft_valid (draft_valid),  .draft_token_id (draft_token_id),  .draft_parent_node_id (draft_parent_node_id),  .draft_position (draft_position),  .draft_branch_id (draft_branch_id),  .draft_depth (draft_depth),  .draft_done (draft_done_w),  .branch_active (draft_branch_active),  . ... "
+  The following 1-bit expression is connected to 12-bit port "draft_position" 
+  of module "draft_injection_interface", instance "u_draft_inject".
+  Expression: draft_position
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 565
+" fp16_inference_lc_wrapper #(, , , , , , , , (23'd2064 + (0 * 512)), (23'd2080 + (0 * 512)), (23'd2096 + (0 * 512)), (23'd57344 + (0 * 16384)), (23'd131072 + (0 * 33792)), 32'd1024, , , , ) gen_lc[0].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[0]),  .done (lc_done_w[0]),  .busy (lc_busy_w[0]),  .slot_valid (lc_slot_valid_w[(0 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (lc_slot_token_id_w[((0 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (lc_slot_position_id_w[((0 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (lc_tree_mask_w[((0 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (0 * 512))),  .hidden1_base_addr ((23'd2080 + (0 * 512))),  .final_base_addr ((23'd2096 + ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "hidden0_base_addr" of module "fp16_inference_lc_wrapper", instance 
+  "gen_lc[0].u_lc".
+  Expression: (23'd2064 + (0 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 565
+" fp16_inference_lc_wrapper #(, , , , , , , , (23'd2064 + (0 * 512)), (23'd2080 + (0 * 512)), (23'd2096 + (0 * 512)), (23'd57344 + (0 * 16384)), (23'd131072 + (0 * 33792)), 32'd1024, , , , ) gen_lc[0].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[0]),  .done (lc_done_w[0]),  .busy (lc_busy_w[0]),  .slot_valid (lc_slot_valid_w[(0 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (lc_slot_token_id_w[((0 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (lc_slot_position_id_w[((0 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (lc_tree_mask_w[((0 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (0 * 512))),  .hidden1_base_addr ((23'd2080 + (0 * 512))),  .final_base_addr ((23'd2096 + ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "hidden1_base_addr" of module "fp16_inference_lc_wrapper", instance 
+  "gen_lc[0].u_lc".
+  Expression: (23'd2080 + (0 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 565
+" fp16_inference_lc_wrapper #(, , , , , , , , (23'd2064 + (0 * 512)), (23'd2080 + (0 * 512)), (23'd2096 + (0 * 512)), (23'd57344 + (0 * 16384)), (23'd131072 + (0 * 33792)), 32'd1024, , , , ) gen_lc[0].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[0]),  .done (lc_done_w[0]),  .busy (lc_busy_w[0]),  .slot_valid (lc_slot_valid_w[(0 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (lc_slot_token_id_w[((0 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (lc_slot_position_id_w[((0 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (lc_tree_mask_w[((0 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (0 * 512))),  .hidden1_base_addr ((23'd2080 + (0 * 512))),  .final_base_addr ((23'd2096 + ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "final_base_addr" of module "fp16_inference_lc_wrapper", instance 
+  "gen_lc[0].u_lc".
+  Expression: (23'd2096 + (0 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 565
+" fp16_inference_lc_wrapper #(, , , , , , , , (23'd2064 + (0 * 512)), (23'd2080 + (0 * 512)), (23'd2096 + (0 * 512)), (23'd57344 + (0 * 16384)), (23'd131072 + (0 * 33792)), 32'd1024, , , , ) gen_lc[0].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[0]),  .done (lc_done_w[0]),  .busy (lc_busy_w[0]),  .slot_valid (lc_slot_valid_w[(0 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (lc_slot_token_id_w[((0 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (lc_slot_position_id_w[((0 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (lc_tree_mask_w[((0 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (0 * 512))),  .hidden1_base_addr ((23'd2080 + (0 * 512))),  .final_base_addr ((23'd2096 + ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "kv_cache_base_addr" of module "fp16_inference_lc_wrapper", instance 
+  "gen_lc[0].u_lc".
+  Expression: (23'd57344 + (0 * 16384))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 565
+" fp16_inference_lc_wrapper #(, , , , , , , , (23'd2064 + (1 * 512)), (23'd2080 + (1 * 512)), (23'd2096 + (1 * 512)), (23'd57344 + (1 * 16384)), (23'd131072 + (1 * 33792)), 32'd1024, , , , ) gen_lc[1].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[1]),  .done (lc_done_w[1]),  .busy (lc_busy_w[1]),  .slot_valid (lc_slot_valid_w[(1 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (lc_slot_token_id_w[((1 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (lc_slot_position_id_w[((1 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (lc_tree_mask_w[((1 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (1 * 512))),  .hidden1_base_addr ((23'd2080 + (1 * 512))),  .final_base_addr ((23'd2096 + ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "hidden0_base_addr" of module "fp16_inference_lc_wrapper", instance 
+  "gen_lc[1].u_lc".
+  Expression: (23'd2064 + (1 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 565
+" fp16_inference_lc_wrapper #(, , , , , , , , (23'd2064 + (1 * 512)), (23'd2080 + (1 * 512)), (23'd2096 + (1 * 512)), (23'd57344 + (1 * 16384)), (23'd131072 + (1 * 33792)), 32'd1024, , , , ) gen_lc[1].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[1]),  .done (lc_done_w[1]),  .busy (lc_busy_w[1]),  .slot_valid (lc_slot_valid_w[(1 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (lc_slot_token_id_w[((1 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (lc_slot_position_id_w[((1 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (lc_tree_mask_w[((1 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (1 * 512))),  .hidden1_base_addr ((23'd2080 + (1 * 512))),  .final_base_addr ((23'd2096 + ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "hidden1_base_addr" of module "fp16_inference_lc_wrapper", instance 
+  "gen_lc[1].u_lc".
+  Expression: (23'd2080 + (1 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 565
+" fp16_inference_lc_wrapper #(, , , , , , , , (23'd2064 + (1 * 512)), (23'd2080 + (1 * 512)), (23'd2096 + (1 * 512)), (23'd57344 + (1 * 16384)), (23'd131072 + (1 * 33792)), 32'd1024, , , , ) gen_lc[1].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[1]),  .done (lc_done_w[1]),  .busy (lc_busy_w[1]),  .slot_valid (lc_slot_valid_w[(1 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (lc_slot_token_id_w[((1 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (lc_slot_position_id_w[((1 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (lc_tree_mask_w[((1 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (1 * 512))),  .hidden1_base_addr ((23'd2080 + (1 * 512))),  .final_base_addr ((23'd2096 + ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "final_base_addr" of module "fp16_inference_lc_wrapper", instance 
+  "gen_lc[1].u_lc".
+  Expression: (23'd2096 + (1 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 565
+" fp16_inference_lc_wrapper #(, , , , , , , , (23'd2064 + (1 * 512)), (23'd2080 + (1 * 512)), (23'd2096 + (1 * 512)), (23'd57344 + (1 * 16384)), (23'd131072 + (1 * 33792)), 32'd1024, , , , ) gen_lc[1].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[1]),  .done (lc_done_w[1]),  .busy (lc_busy_w[1]),  .slot_valid (lc_slot_valid_w[(1 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (lc_slot_token_id_w[((1 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (lc_slot_position_id_w[((1 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (lc_tree_mask_w[((1 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (1 * 512))),  .hidden1_base_addr ((23'd2080 + (1 * 512))),  .final_base_addr ((23'd2096 + ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "kv_cache_base_addr" of module "fp16_inference_lc_wrapper", instance 
+  "gen_lc[1].u_lc".
+  Expression: (23'd57344 + (1 * 16384))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 565
+" fp16_inference_lc_wrapper #(, , , , , , , , (23'd2064 + (2 * 512)), (23'd2080 + (2 * 512)), (23'd2096 + (2 * 512)), (23'd57344 + (2 * 16384)), (23'd131072 + (2 * 33792)), 32'd1024, , , , ) gen_lc[2].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[2]),  .done (lc_done_w[2]),  .busy (lc_busy_w[2]),  .slot_valid (lc_slot_valid_w[(2 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (lc_slot_token_id_w[((2 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (lc_slot_position_id_w[((2 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (lc_tree_mask_w[((2 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (2 * 512))),  .hidden1_base_addr ((23'd2080 + (2 * 512))),  .final_base_addr ((23'd2096 + ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "hidden0_base_addr" of module "fp16_inference_lc_wrapper", instance 
+  "gen_lc[2].u_lc".
+  Expression: (23'd2064 + (2 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 565
+" fp16_inference_lc_wrapper #(, , , , , , , , (23'd2064 + (2 * 512)), (23'd2080 + (2 * 512)), (23'd2096 + (2 * 512)), (23'd57344 + (2 * 16384)), (23'd131072 + (2 * 33792)), 32'd1024, , , , ) gen_lc[2].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[2]),  .done (lc_done_w[2]),  .busy (lc_busy_w[2]),  .slot_valid (lc_slot_valid_w[(2 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (lc_slot_token_id_w[((2 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (lc_slot_position_id_w[((2 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (lc_tree_mask_w[((2 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (2 * 512))),  .hidden1_base_addr ((23'd2080 + (2 * 512))),  .final_base_addr ((23'd2096 + ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "hidden1_base_addr" of module "fp16_inference_lc_wrapper", instance 
+  "gen_lc[2].u_lc".
+  Expression: (23'd2080 + (2 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 565
+" fp16_inference_lc_wrapper #(, , , , , , , , (23'd2064 + (2 * 512)), (23'd2080 + (2 * 512)), (23'd2096 + (2 * 512)), (23'd57344 + (2 * 16384)), (23'd131072 + (2 * 33792)), 32'd1024, , , , ) gen_lc[2].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[2]),  .done (lc_done_w[2]),  .busy (lc_busy_w[2]),  .slot_valid (lc_slot_valid_w[(2 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (lc_slot_token_id_w[((2 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (lc_slot_position_id_w[((2 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (lc_tree_mask_w[((2 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (2 * 512))),  .hidden1_base_addr ((23'd2080 + (2 * 512))),  .final_base_addr ((23'd2096 + ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "final_base_addr" of module "fp16_inference_lc_wrapper", instance 
+  "gen_lc[2].u_lc".
+  Expression: (23'd2096 + (2 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 565
+" fp16_inference_lc_wrapper #(, , , , , , , , (23'd2064 + (2 * 512)), (23'd2080 + (2 * 512)), (23'd2096 + (2 * 512)), (23'd57344 + (2 * 16384)), (23'd131072 + (2 * 33792)), 32'd1024, , , , ) gen_lc[2].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[2]),  .done (lc_done_w[2]),  .busy (lc_busy_w[2]),  .slot_valid (lc_slot_valid_w[(2 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (lc_slot_token_id_w[((2 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (lc_slot_position_id_w[((2 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (lc_tree_mask_w[((2 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (2 * 512))),  .hidden1_base_addr ((23'd2080 + (2 * 512))),  .final_base_addr ((23'd2096 + ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "kv_cache_base_addr" of module "fp16_inference_lc_wrapper", instance 
+  "gen_lc[2].u_lc".
+  Expression: (23'd57344 + (2 * 16384))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 565
+" fp16_inference_lc_wrapper #(, , , , , , , , (23'd2064 + (3 * 512)), (23'd2080 + (3 * 512)), (23'd2096 + (3 * 512)), (23'd57344 + (3 * 16384)), (23'd131072 + (3 * 33792)), 32'd1024, , , , ) gen_lc[3].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[3]),  .done (lc_done_w[3]),  .busy (lc_busy_w[3]),  .slot_valid (lc_slot_valid_w[(3 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (lc_slot_token_id_w[((3 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (lc_slot_position_id_w[((3 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (lc_tree_mask_w[((3 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (3 * 512))),  .hidden1_base_addr ((23'd2080 + (3 * 512))),  .final_base_addr ((23'd2096 + ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "hidden0_base_addr" of module "fp16_inference_lc_wrapper", instance 
+  "gen_lc[3].u_lc".
+  Expression: (23'd2064 + (3 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 565
+" fp16_inference_lc_wrapper #(, , , , , , , , (23'd2064 + (3 * 512)), (23'd2080 + (3 * 512)), (23'd2096 + (3 * 512)), (23'd57344 + (3 * 16384)), (23'd131072 + (3 * 33792)), 32'd1024, , , , ) gen_lc[3].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[3]),  .done (lc_done_w[3]),  .busy (lc_busy_w[3]),  .slot_valid (lc_slot_valid_w[(3 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (lc_slot_token_id_w[((3 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (lc_slot_position_id_w[((3 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (lc_tree_mask_w[((3 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (3 * 512))),  .hidden1_base_addr ((23'd2080 + (3 * 512))),  .final_base_addr ((23'd2096 + ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "hidden1_base_addr" of module "fp16_inference_lc_wrapper", instance 
+  "gen_lc[3].u_lc".
+  Expression: (23'd2080 + (3 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 565
+" fp16_inference_lc_wrapper #(, , , , , , , , (23'd2064 + (3 * 512)), (23'd2080 + (3 * 512)), (23'd2096 + (3 * 512)), (23'd57344 + (3 * 16384)), (23'd131072 + (3 * 33792)), 32'd1024, , , , ) gen_lc[3].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[3]),  .done (lc_done_w[3]),  .busy (lc_busy_w[3]),  .slot_valid (lc_slot_valid_w[(3 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (lc_slot_token_id_w[((3 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (lc_slot_position_id_w[((3 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (lc_tree_mask_w[((3 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (3 * 512))),  .hidden1_base_addr ((23'd2080 + (3 * 512))),  .final_base_addr ((23'd2096 + ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "final_base_addr" of module "fp16_inference_lc_wrapper", instance 
+  "gen_lc[3].u_lc".
+  Expression: (23'd2096 + (3 * 512))
+  	use +lint=PCWM for more details
+
+
+Warning-[PCWM-W] Port connection width mismatch
+rtl/transformer/speculative_decode_treecontrol_top.sv, 565
+" fp16_inference_lc_wrapper #(, , , , , , , , (23'd2064 + (3 * 512)), (23'd2080 + (3 * 512)), (23'd2096 + (3 * 512)), (23'd57344 + (3 * 16384)), (23'd131072 + (3 * 33792)), 32'd1024, , , , ) gen_lc[3].u_lc( .clk (clk),  .rst_n (rst_n),  .start (lc_start_w[3]),  .done (lc_done_w[3]),  .busy (lc_busy_w[3]),  .slot_valid (lc_slot_valid_w[(3 * LC_SLOTS)+:LC_SLOTS]),  .slot_token_id (lc_slot_token_id_w[((3 * LC_SLOTS) * 16)+:(LC_SLOTS * 16)]),  .slot_position_id (lc_slot_position_id_w[((3 * LC_SLOTS) * 12)+:(LC_SLOTS * 12)]),  .tree_mask (lc_tree_mask_w[((3 * LC_SLOTS) * LC_SLOTS)+:(LC_SLOTS * LC_SLOTS)]),  .embedding_base_addr (23'd256),  .hidden0_base_addr ((23'd2064 + (3 * 512))),  .hidden1_base_addr ((23'd2080 + (3 * 512))),  .final_base_addr ((23'd2096 + ... "
+  The following 32-bit expression is connected to 23-bit port 
+  "kv_cache_base_addr" of module "fp16_inference_lc_wrapper", instance 
+  "gen_lc[3].u_lc".
+  Expression: (23'd57344 + (3 * 16384))
+  	use +lint=PCWM for more details
+
+
+Warning-[SIOB] Select index out of bounds
+rtl/tree_control/PeArrayLayerController.v, 1109
+"slot_mac_out_r[0][(1021 * DATA_W)+:DATA_W]"
+  The select index is out of declared bounds : [4095:0].
+  In module instance : gen_lc[0].u_lc gen_lc[3].u_lc u_layer_ctrl 
+  gen_lc[1].u_lc gen_lc[2].u_lc 
+  In module : PeArrayLayerController.
+
+
+Warning-[CERO] Case equality with real operand
+rtl/transformer/fp16_rope.sv, 63
+fp16_rope, "(value !== value)"
+  Use of case equality operator '!==' with real operand 'value'.
+  
+
+Starting vcs inline pass...
+47 modules and 0 UDP read.
+recompiling module floatMult16
+recompiling module floatAdd16
+recompiling module exponent
+recompiling module floatReciprocal
+recompiling module systolic_matvec16_tile
+recompiling module fp16_matvec_tile_acc
+recompiling module fp16_tiled_matvec
+recompiling module fp16_compute_module
+recompiling module fp16_rope
+recompiling module fp16_sampler
+recompiling module fp16_lm_head
+recompiling module fp16_layer_scheduler
+recompiling module fp16_rmsnorm
+recompiling module fp16_mha_controller
+recompiling module fp16_residual_add
+recompiling module fp16_ffn_swiglu
+recompiling module fp16_mha_tree_attention
+recompiling module fp16_inference_lc_wrapper
+recompiling module pe_rmsnorm_compute
+recompiling module pe_silu_mul_compute
+recompiling module pe_residual_add_compute
+recompiling module pe_attn_compute
+recompiling module pe_mac_unit
+recompiling module pe_mac_unit_wide
+recompiling module PeArrayComputeOverlay
+recompiling module PeArrayNonlinearUnit
+recompiling module PeArrayLayerController
+recompiling module HHTContextPredictor
+recompiling module request_controller
+recompiling module multicast_network
+recompiling module issue_bundle_adapter
+recompiling module branch_parallel_controller
+recompiling module draft_injection_interface
+recompiling module longest_path_comparator
+recompiling module tree_to_native_bridge
+recompiling module agu
+recompiling module prefetch_queue
+recompiling module free_list
+recompiling module bank_state_table
+recompiling module token_register
+recompiling module branch_parallel_scheduler
+recompiling module multi_token_emitter
+recompiling module speculative_decode_final_top
+recompiling module speculative_decode_e2e_top
+recompiling module tree_flatten
+recompiling module tree_builder
+recompiling module tb_speculative_decode_treecontrol
+All of 47 modules done
+rm -f _csrc*.so pre_vcsobj_*.so share_vcsobj_*.so
+if [ -x ../simv_tc_cmp ]; then chmod -x ../simv_tc_cmp; fi
+g++  -o ../simv_tc_cmp    -Wl,-rpath-link=./ -Wl,-rpath='$ORIGIN'/simv_tc_cmp.daidir/ -Wl,-rpath=./simv_tc_cmp.daidir/ -Wl,-rpath='$ORIGIN'/simv_tc_cmp.daidir//scsim.db.dir  -rdynamic  -Wl,-rpath=/home/synopsys/vcs/O-2018.09-SP2/linux64/lib -L/home/synopsys/vcs/O-2018.09-SP2/linux64/lib   objs/amcQw_d.o   _95001_archive_1.so  SIM_l.o       rmapats_mop.o rmapats.o rmar.o rmar_nd.o  rmar_llvm_0_1.o rmar_llvm_0_0.o          -lzerosoft_rt_stubs -lvirsim -lerrorinf -lsnpsmalloc -lvfs    -lvcsnew -lsimprofile -luclinative /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/vcs_tls.o   -Wl,-whole-archive -lvcsucli -Wl,-no-whole-archive        _vcs_pli_stub_.o   /home/synopsys/vcs/O-2018.09-SP2/linux64/lib/vcs_save_restore_new.o /home/synopsys/verdi/Verdi_O-2018.09-SP2/share/PLI/VCS/LINUX64/pli.a -ldl  -lc -lm -lpthread -ldl 
+../simv_tc_cmp up to date
+CPU time: 4.780 seconds to compile + .635 seconds to elab + .285 seconds to link

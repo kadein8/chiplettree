@@ -145,8 +145,9 @@ function automatic [15:0] real_to_fp16;
     integer exp_v;
     integer biased_exp_v;
     real norm_v;
-    integer man_v;
-    integer rounded_v;
+    real man_real;
+    integer man_floor;
+    real frac_part;
     begin
         if (!(value < 0.0 || value >= 0.0)) begin
             real_to_fp16 = 16'h7e00;
@@ -170,25 +171,27 @@ function automatic [15:0] real_to_fp16;
                 if ((exp_v + 15) >= 31) begin
                     real_to_fp16 = {sign_v[0], FP16_EXP_INF, 10'd0};
                 end else if ((exp_v + 15) <= 0) begin
-                    norm_v = abs_v / (2.0 ** (-14));
-                    rounded_v = $rtoi(norm_v * (2.0 ** 10) + 0.5);
-                    if (rounded_v <= 0)
-                        real_to_fp16 = 16'h0000;
-                    else if (rounded_v >= (1 << 10))
-                        real_to_fp16 = {sign_v[0], 5'd1, 10'd0};
-                    else
-                        real_to_fp16 = {sign_v[0], 5'd0, rounded_v[9:0]};
+                    real_to_fp16 = 16'h0000;
                 end else begin
-                    man_v = $rtoi((norm_v - 1.0) * (2.0 ** 10) + 0.5);
-                    if (man_v == (1 << 10)) begin
-                        man_v = 0;
+                    man_real = (norm_v - 1.0) * 1024.0;
+                    man_floor = $rtoi(man_real);
+                    if (man_floor > man_real) man_floor = man_floor - 1;
+                    frac_part = man_real - man_floor;
+                    if (frac_part > 0.5)
+                        man_floor = man_floor + 1;
+                    else if (frac_part == 0.5) begin
+                        if (man_floor[0] == 1'b1)
+                            man_floor = man_floor + 1;
+                    end
+                    if (man_floor == 1024) begin
+                        man_floor = 0;
                         exp_v = exp_v + 1;
                     end
                     biased_exp_v = exp_v + 15;
                     if (biased_exp_v >= 31)
                         real_to_fp16 = {sign_v[0], FP16_EXP_INF, 10'd0};
                     else
-                        real_to_fp16 = {sign_v[0], biased_exp_v[4:0], man_v[9:0]};
+                        real_to_fp16 = {sign_v[0], biased_exp_v[4:0], man_floor[9:0]};
                 end
             end
         end

@@ -1,0 +1,14 @@
+tb_name=tb_alloc_metadata_flow
+timestamp=2026-04-18 14:52:30
+repo_root=/home/ICer/first
+run_dir=/home/ICer/first/verification/run_002_vcs_compile_fix
+log_dir=/home/ICer/first/verification/run_002_vcs_compile_fix/logs
+top_module=tb_alloc_metadata_flow
+compile_log=/home/ICer/first/verification/run_002_vcs_compile_fix/logs/tb_alloc_metadata_flow_compile.log
+run_log=/home/ICer/first/verification/run_002_vcs_compile_fix/logs/tb_alloc_metadata_flow_run.log
+simv_path=/home/ICer/first/verification/run_002_vcs_compile_fix/logs/tb_alloc_metadata_flow.simv
+compile_rc=2
+compile_status=FAIL
+run_status=SKIP
+judge=FAIL
+reason=compile_failed

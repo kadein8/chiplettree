@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  Apr 23 12:03 2026
+tb_alloc_metadata_flow PASS
+$finish called from file "/home/ICer/first/code/tb/tb_alloc_metadata_flow.v", line 306.
+$finish at simulation time                95000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 95000 ps
+CPU Time:      0.350 seconds;       Data structure size:   0.2Mb
+Thu Apr 23 12:03:27 2026

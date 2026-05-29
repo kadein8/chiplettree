@@ -1,0 +1,7 @@
+run_name=run_029_vcs_comparator_multi_branch_flush
+timestamp=2026-04-25 15:04:46
+tb_count=1
+tb_0=tb_comparator_multi_branch_flush
+tb_0_result_file=/home/ICer/first/verification/run_029_vcs_comparator_multi_branch_flush/logs/tb_comparator_multi_branch_flush_result.txt
+tb_0_judge=PASS
+overall_judge=PASS

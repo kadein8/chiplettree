@@ -1,0 +1,37 @@
+[
+  {
+    "accuracy_pct": 0,
+    "tokens_per_round": 1.0,
+    "cycles_per_token": 492280.0,
+    "speedup_vs_serial": 1.0,
+    "kind": "measured"
+  },
+  {
+    "accuracy_pct": 25,
+    "tokens_per_round": 1.33,
+    "cycles_per_token": 370135.3,
+    "speedup_vs_serial": 1.33,
+    "kind": "measured"
+  },
+  {
+    "accuracy_pct": 50,
+    "tokens_per_round": 1.88,
+    "cycles_per_token": 261851.1,
+    "speedup_vs_serial": 1.88,
+    "kind": "projected"
+  },
+  {
+    "accuracy_pct": 75,
+    "tokens_per_round": 2.73,
+    "cycles_per_token": 180322.3,
+    "speedup_vs_serial": 2.73,
+    "kind": "projected"
+  },
+  {
+    "accuracy_pct": 100,
+    "tokens_per_round": 4.0,
+    "cycles_per_token": 123070.0,
+    "speedup_vs_serial": 4.0,
+    "kind": "projected"
+  }
+]

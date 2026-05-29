@@ -1,0 +1,83 @@
+{
+  "mode": "autoregressive",
+  "num_tokens": 4,
+  "token_sequence_match": true,
+  "rtl_tokens": [
+    14,
+    14,
+    14,
+    14
+  ],
+  "ref_tokens": [
+    14,
+    14,
+    14,
+    14
+  ],
+  "steps": [
+    {
+      "step": 0,
+      "token_match": true,
+      "rtl_token": 14,
+      "ref_token": 14,
+      "final_hidden": {
+        "name": "step0_final_hidden",
+        "rtl_len": 128,
+        "ref_len": 128,
+        "compare_len": 128,
+        "max_abs_err": 0.07958984375,
+        "mean_abs_err": 0.02373504638671875,
+        "max_rel_err": 0.760064423084259,
+        "cosine_similarity": 0.9999500513076782
+      }
+    },
+    {
+      "step": 1,
+      "token_match": true,
+      "rtl_token": 14,
+      "ref_token": 14,
+      "final_hidden": {
+        "name": "step1_final_hidden",
+        "rtl_len": 128,
+        "ref_len": 128,
+        "compare_len": 128,
+        "max_abs_err": 0.072265625,
+        "mean_abs_err": 0.028410673141479492,
+        "max_rel_err": 1.022236704826355,
+        "cosine_similarity": 0.9999309778213501
+      }
+    },
+    {
+      "step": 2,
+      "token_match": true,
+      "rtl_token": 14,
+      "ref_token": 14,
+      "final_hidden": {
+        "name": "step2_final_hidden",
+        "rtl_len": 128,
+        "ref_len": 128,
+        "compare_len": 128,
+        "max_abs_err": 0.091796875,
+        "mean_abs_err": 0.026566848158836365,
+        "max_rel_err": 2.0155978202819824,
+        "cosine_similarity": 0.9999316930770874
+      }
+    },
+    {
+      "step": 3,
+      "token_match": true,
+      "rtl_token": 14,
+      "ref_token": 14,
+      "final_hidden": {
+        "name": "step3_final_hidden",
+        "rtl_len": 128,
+        "ref_len": 128,
+        "compare_len": 128,
+        "max_abs_err": 0.30859375,
+        "mean_abs_err": 0.09415042400360107,
+        "max_rel_err": 2.266897678375244,
+        "cosine_similarity": 0.9992014169692993
+      }
+    }
+  ]
+}

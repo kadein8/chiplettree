@@ -1,0 +1,10 @@
+Chronologic VCS simulator copyright 1991-2018
+Contains Synopsys proprietary information.
+Compiler version O-2018.09-SP2_Full64; Runtime version O-2018.09-SP2_Full64;  May  1 09:20 2026
+tb_control_chip_dual_tree_near_steady_state_closure PASS
+$finish called from file "/home/ICer/first/code/tb/tb_control_chip_dual_tree_near_steady_state_closure.v", line 714.
+$finish at simulation time              1346000
+           V C S   S i m u l a t i o n   R e p o r t 
+Time: 1346000 ps
+CPU Time:      0.240 seconds;       Data structure size:   5.1Mb
+Fri May  1 09:20:40 2026

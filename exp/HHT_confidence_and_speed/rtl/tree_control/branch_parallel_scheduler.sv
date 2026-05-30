@@ -158,10 +158,30 @@ always @(posedge clk or negedge rst_n) begin
                         lc_slot_valid[bi*LC_SLOTS + li] <= 1'b0;
                     end
 
-                    // Tree mask: set to all zeros (LC uses default causal attention)
-                    // The LC internally handles causal masking based on slot positions.
+                    // Causal tree mask: query slot i attends to all earlier
+                    // batch slots 0..i (the seed at slot 0 plus this branch's
+                    // own draft prefix at slots 1..i-1) plus itself.
+                    //
+                    // tree_mask[bi][i*LC_SLOTS + j] = 1 means "when computing
+                    // query slot i, batch slot j is visible". The attention
+                    // engine (fp16_mha_controller) reads row i as its
+                    // tree_visible_slots and gates each draft KV position by it.
+                    // committed-prefix KV is always visible regardless of mask.
+                    //
+                    // Without this (all-zero mask) every slot attended only to
+                    // the committed prefix, so every branch produced the same
+                    // "next token after the committed prefix" and ignored its
+                    // injected draft tokens — making deep branches useless.
                     for (li = 0; li < LC_SLOTS*LC_SLOTS; li = li + 1) begin
                         lc_tree_mask[bi*LC_SLOTS*LC_SLOTS + li] <= 1'b0;
+                    end
+                    begin : build_causal_mask
+                        integer qi, kj;
+                        for (qi = 0; qi < LC_SLOTS; qi = qi + 1) begin
+                            for (kj = 0; kj <= qi; kj = kj + 1) begin
+                                lc_tree_mask[bi*LC_SLOTS*LC_SLOTS + qi*LC_SLOTS + kj] <= 1'b1;
+                            end
+                        end
                     end
 
                 end else begin
@@ -214,11 +234,13 @@ always @(posedge clk or negedge rst_n) begin
             state_r <= ST_IDLE;
 
             // synthesis translate_off
-            $display("[BR_SCHED] all_done: gen[0]=%0d gen[1]=%0d gen[2]=%0d gen[3]=%0d",
-                branch_generated_token[0*TOKEN_ID_W +: TOKEN_ID_W],
-                branch_generated_token[1*TOKEN_ID_W +: TOKEN_ID_W],
-                branch_generated_token[2*TOKEN_ID_W +: TOKEN_ID_W],
-                branch_generated_token[3*TOKEN_ID_W +: TOKEN_ID_W]);
+            begin
+                integer pb;
+                $write("[BR_SCHED] all_done: gen=[");
+                for (pb = 0; pb < BRANCH_NUM; pb = pb + 1)
+                    $write("%0d ", branch_generated_token[pb*TOKEN_ID_W +: TOKEN_ID_W]);
+                $write("]\n");
+            end
             // synthesis translate_on
         end
 

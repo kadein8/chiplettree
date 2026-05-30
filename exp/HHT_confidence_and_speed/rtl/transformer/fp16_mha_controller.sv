@@ -937,6 +937,7 @@ always_ff @(posedge clk or negedge rst_n) begin
 
             ST_CACHE_K_WRITE: begin
                 if (sram_wr_valid && sram_wr_ready) begin
+                    // synthesis translate_on
                     if (beat_idx_r == (HEAD_BEATS - 1)) begin
                         rd_req_accepted_r <= 1'b0;
                         beat_idx_r <= 16'd0;
@@ -1046,6 +1047,7 @@ always_ff @(posedge clk or negedge rst_n) begin
 
             ST_DOT_RESP: begin
                 if (sram_resp_valid && sram_resp_ready) begin
+                    // synthesis translate_on
                     rd_req_accepted_r <= 1'b0;
                     if (beat_idx_r == (HEAD_BEATS - 1)) begin
                         dot_acc_r <= FP16_ZERO;
@@ -1079,6 +1081,9 @@ always_ff @(posedge clk or negedge rst_n) begin
                     if (fp16_gt(score_value_r, score_max_r))
                         score_max_r <= score_value_r;
                 end
+
+                // synthesis translate_off
+                // synthesis translate_on
 
                 if (pos_idx_r == effective_position_r) begin
                     pos_idx_r <= 16'd0;
@@ -1237,8 +1242,9 @@ always_ff @(posedge clk or negedge rst_n) begin
             end
 
             ST_O_WAIT: begin
-                if (matvec_result_valid_w && matvec_result_ready_w)
+                if (matvec_result_valid_w && matvec_result_ready_w) begin
                     state_r <= ST_IDLE;
+                end
             end
 
             default: begin

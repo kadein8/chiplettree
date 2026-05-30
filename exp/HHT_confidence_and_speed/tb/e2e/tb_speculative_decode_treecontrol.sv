@@ -12,7 +12,13 @@
 
 module tb_speculative_decode_treecontrol;
 
-localparam integer MEM_DEPTH = 270336;
+// Shared-SRAM depth, derived to match speculative_decode_treecontrol_top's
+// layout formula so the testbench tracks any BRANCH_NUM. For BRANCH_NUM=4
+// this evaluates to the historical 270336.
+localparam integer TB_KV_REGION_END = `KV_DRAFT_BASE_MIN + `BRANCH_NUM * 16384;
+localparam integer TB_WEIGHT_BASE =
+    (`MODEL_WEIGHT_SRAM_BASE > TB_KV_REGION_END) ? `MODEL_WEIGHT_SRAM_BASE : TB_KV_REGION_END;
+localparam integer MEM_DEPTH = TB_WEIGHT_BASE + `BRANCH_NUM * 33792 + 4096;
 localparam integer HBM_DEPTH = 32768;
 localparam integer MAX_WAIT_CYCLES = 8000000;
 localparam integer NUM_GEN_TOKENS = 8;
@@ -161,7 +167,7 @@ initial begin
         integer preload_cnt, ri;
         preload_cnt = 0;
         // Zero all behav_sram first
-        for (ri = 0; ri < 270336; ri = ri + 1)
+        for (ri = 0; ri < MEM_DEPTH; ri = ri + 1)
             u_dut.behav_sram[ri] = '0;
         for (ri = 0; ri < MEM_DEPTH; ri = ri + 1) begin
             if (sram_mem[ri] !== '0 && sram_mem[ri] !== {`SRAM_RDATA_W{1'bx}}) begin

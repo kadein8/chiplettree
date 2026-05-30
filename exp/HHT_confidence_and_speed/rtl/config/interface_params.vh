@@ -19,8 +19,13 @@
 // Tree node ID width
 `define NODE_ID_W                5
 
-// Branch ID width
-`define BRANCH_ID_W              2
+// Branch ID width — derived from branch count so any BRANCH_NUM works.
+// $clog2(4)=2 preserves the historical 4-branch width exactly.
+`define BRANCH_ID_W              $clog2(`BRANCH_NUM)
+
+// Depth/level field width — derived from MAX_DEPTH (= MAX_PRIVATE_NODES_PER_BRANCH).
+// Must hold values 0..MAX_DEPTH. $clog2(MAX_DEPTH+1).
+`define DEPTH_ID_W               $clog2(`MAX_PRIVATE_NODES_PER_BRANCH + 1)
 
 // Layer ID width
 `define LAYER_ID_W               6

@@ -130,6 +130,21 @@ HHTContextPredictor #(
 // =========================================================================
 // Tree Builder (same as e2e_top)
 // =========================================================================
+// Draft injection signals (declared here because tree_builder references them).
+logic draft_inject_start, draft_done_w;
+logic draft_valid;
+logic [`TOKEN_ID_W-1:0] draft_token_id;
+logic [`NODE_ID_W-1:0] draft_parent_node_id;
+logic [`POSITION_ID_W-1:0] draft_position;
+// Derived branch/depth field widths (track BRANCH_NUM / MAX_LEVELS).
+localparam integer DRAFT_BR_W  = $clog2(BRANCH_NUM);
+localparam integer DRAFT_DEP_W = $clog2(MAX_LEVELS + 1);
+logic [DRAFT_BR_W-1:0] draft_branch_id;
+logic [DRAFT_DEP_W-1:0] draft_depth;
+logic [BRANCH_NUM-1:0] draft_branch_active;
+logic [BRANCH_NUM*MAX_LEVELS*`TOKEN_ID_W-1:0] draft_branch_injected_tokens;
+logic [BRANCH_NUM*DRAFT_DEP_W-1:0] draft_branch_depth_out;
+
 logic tb_start, tb_done, tb_busy;
 logic tb_tree_req_valid, tb_tree_req_ready;
 logic [`NODE_ID_W-1:0] tb_seed_node_id;
@@ -503,7 +518,25 @@ end
 // 4× PE Array: PeArrayLayerController + shared SRAM via request_controller
 // =========================================================================
 localparam integer LC_SLOTS = `TREE_FRONTIER_SLOTS;
-localparam integer BEHAV_SRAM_DEPTH = 270336;
+
+// =========================================================================
+// Derived shared-SRAM layout (scales with BRANCH_NUM).
+//
+// Fixed preloaded regions (from sram_preload.memh): emb@256, gamma@2048,
+// lm_head@49664, committed-KV@49152. Per-LC draft KV+scratch occupies a
+// 16384-beat slot starting at KV_DRAFT_BASE_MIN. Per-LC weight scratch
+// (streamed from HBM at runtime, NOT preloaded) occupies a 33792-beat slot.
+//
+// The weight base is pushed above the KV-draft region so the two never
+// overlap. For BRANCH_NUM=4 this evaluates to the historical constants
+// (weight base 131072, depth 270336) exactly.
+// =========================================================================
+localparam integer KV_SLOT_STRIDE   = 16384;
+localparam integer W_SLOT_STRIDE    = 33792;
+localparam integer KV_REGION_END    = `KV_DRAFT_BASE_MIN + BRANCH_NUM * KV_SLOT_STRIDE;
+localparam integer WEIGHT_BASE_DRV  =
+    (`MODEL_WEIGHT_SRAM_BASE > KV_REGION_END) ? `MODEL_WEIGHT_SRAM_BASE : KV_REGION_END;
+localparam integer BEHAV_SRAM_DEPTH = WEIGHT_BASE_DRV + BRANCH_NUM * W_SLOT_STRIDE + 4096;
 reg [`SRAM_RDATA_W-1:0] behav_sram [0:BEHAV_SRAM_DEPTH-1];
 
 localparam integer HBM_LOCAL_DEPTH = 32768;
@@ -560,8 +593,8 @@ for (gi = 0; gi < BRANCH_NUM; gi = gi + 1) begin : gen_lc
         .WORK_H0_BASE(`MODEL_WORK_HIDDEN0_BASE + gi * 512),
         .WORK_H1_BASE(`MODEL_WORK_HIDDEN1_BASE + gi * 512),
         .WORK_F_BASE(`MODEL_WORK_FINAL_BASE + gi * 512),
-        .KV_BASE(`KV_DRAFT_BASE_MIN + gi * 16384),
-        .W_SRAM_BASE(`MODEL_WEIGHT_SRAM_BASE + gi * 33792),
+        .KV_BASE(`KV_DRAFT_BASE_MIN + gi * KV_SLOT_STRIDE),
+        .W_SRAM_BASE(WEIGHT_BASE_DRV[22:0] + gi * W_SLOT_STRIDE),
         .HBM_W_BASE(`MODEL_HBM_WEIGHT_BASE)
     ) u_lc (
         .clk(clk), .rst_n(rst_n),
@@ -574,8 +607,8 @@ for (gi = 0; gi < BRANCH_NUM; gi = gi + 1) begin : gen_lc
         .hidden0_base_addr(`MODEL_WORK_HIDDEN0_BASE + gi * 512),
         .hidden1_base_addr(`MODEL_WORK_HIDDEN1_BASE + gi * 512),
         .final_base_addr(`MODEL_WORK_FINAL_BASE + gi * 512),
-        .weight_sram_base_addr(`MODEL_WEIGHT_SRAM_BASE),
-        .kv_cache_base_addr(`KV_DRAFT_BASE_MIN + gi * 16384),
+        .weight_sram_base_addr(WEIGHT_BASE_DRV[22:0] + gi * W_SLOT_STRIDE),
+        .kv_cache_base_addr(`KV_DRAFT_BASE_MIN + gi * KV_SLOT_STRIDE),
         .final_norm_gamma_addr(`MODEL_FINAL_NORM_GAMMA_ADDR),
         .lm_head_weight_base_addr(`MODEL_LM_HEAD_WEIGHT_BASE),
         .hbm_weight_base_addr(`MODEL_HBM_WEIGHT_BASE),
@@ -633,7 +666,15 @@ for (gi = 0; gi < BRANCH_NUM; gi = gi + 1) begin : gen_lc
             localparam integer KV_POS_STRIDE_L = `MODEL_HEAD_NUM * (`MODEL_HEAD_DIM / (`SRAM_RDATA_W / `FP16_TILE_DATA_W)) * 2;
             for (kv_tok = 0; kv_tok < kv_commit_count_r; kv_tok = kv_tok + 1) begin
                 for (kv_layer = 0; kv_layer < `MODEL_N_LAYERS; kv_layer = kv_layer + 1) begin
-                    kv_src_base = (`KV_DRAFT_BASE_MIN + kv_tok * 16384) + kv_layer * 4096;
+                    // Committed token kv_tok on the verified chain is the TIP of
+                    // branch kv_tok, which lives at slot kv_tok of that branch's
+                    // KV region (seed=slot0 + kv_tok draft levels => tip=slot kv_tok).
+                    // Previously this read slot 0 of branch kv_tok, so every
+                    // committed token beyond the first copied the seed's KV
+                    // instead of the actual generated token's KV, corrupting the
+                    // committed history for subsequent rounds.
+                    kv_src_base = (`KV_DRAFT_BASE_MIN + kv_tok * 16384) + kv_layer * 4096
+                                  + kv_tok * KV_POS_STRIDE_L;
                     kv_dst_base = `KV_COMMITTED_BASE + kv_layer * 4096 + (kv_commit_old_prefix_r + kv_tok) * KV_POS_STRIDE_L;
                     for (kv_beat = 0; kv_beat < KV_POS_STRIDE_L; kv_beat = kv_beat + 1) begin
                         behav_sram[kv_dst_base + kv_beat] <= behav_sram[kv_src_base + kv_beat];
@@ -778,16 +819,8 @@ request_controller u_req_ctrl (
 // =========================================================================
 // Draft Injection Interface
 // =========================================================================
-logic draft_inject_start, draft_done_w;
-logic draft_valid;
-logic [`TOKEN_ID_W-1:0] draft_token_id;
-logic [`NODE_ID_W-1:0] draft_parent_node_id;
-logic [`POSITION_ID_W-1:0] draft_position;
-logic [1:0] draft_branch_id;
-logic [2:0] draft_depth;
-logic [BRANCH_NUM-1:0] draft_branch_active;
-logic [BRANCH_NUM*MAX_LEVELS*`TOKEN_ID_W-1:0] draft_branch_injected_tokens;
-logic [BRANCH_NUM*3-1:0] draft_branch_depth_out;
+// (draft_* signal declarations hoisted above the tree_builder instantiation,
+//  which references draft_valid/draft_token_id/etc.)
 
 draft_injection_interface #(.BRANCH_NUM(BRANCH_NUM), .MAX_DEPTH(MAX_LEVELS), .PREDICT_ACCURACY(PREDICT_ACCURACY)) u_draft_inject (
     .clk(clk), .rst_n(rst_n), .inject_start(draft_inject_start),
@@ -811,6 +844,43 @@ assign draft_inject_start = (state_r == ST_BUILD) && !tb_busy && !tb_done;
 // =========================================================================
 // Branch Parallel Scheduler (dispatches tree to 4 LCs)
 // =========================================================================
+// Canonical linear chain fed to the scheduler.
+//
+// The tree_builder reconstructs the draft tree from a flat candidate stream by
+// parent-node matching, which scrambles the per-branch depth (e.g. branch 1 can
+// end up with 2 draft tokens). The comparator, however, verifies against
+// draft_injection's authoritative branch_injected_tokens, where branch b holds
+// EXACTLY b tokens at levels 0..b-1. To keep the LCs consistent with what the
+// comparator checks, drive the scheduler directly from that same source:
+//   branch b  -> draft tokens = injected[b][0..depth_out[b]-1]
+//                level L position = seed_position + L + 1
+// so branch b's tip is slot depth_out[b] (= truth[b]), exactly what the chain
+// comparator expects. This bypasses the lossy tree_builder reconstruction for
+// the draft path (HHT-only candidates are not used in this experiment).
+logic [BRANCH_NUM-1:0]                              chain_branch_valid;
+logic [BRANCH_NUM*MAX_LEVELS*`TOKEN_ID_W-1:0]       chain_branch_draft_tokens;
+logic [BRANCH_NUM*MAX_LEVELS*`POSITION_ID_W-1:0]    chain_branch_draft_positions;
+logic [BRANCH_NUM*MAX_LEVELS-1:0]                   chain_branch_levels_valid;
+always_comb begin
+    integer cb, cl;
+    chain_branch_valid = tb_branch_valid;
+    chain_branch_draft_tokens = '0;
+    chain_branch_draft_positions = '0;
+    chain_branch_levels_valid = '0;
+    for (cb = 0; cb < BRANCH_NUM; cb = cb + 1) begin
+        for (cl = 0; cl < MAX_LEVELS; cl = cl + 1) begin
+            // level cl is valid for branch cb iff cl < depth_out[cb]
+            if (cl < draft_branch_depth_out[cb*DRAFT_DEP_W +: DRAFT_DEP_W]) begin
+                chain_branch_levels_valid[cb*MAX_LEVELS + cl] = 1'b1;
+                chain_branch_draft_tokens[(cb*MAX_LEVELS + cl)*`TOKEN_ID_W +: `TOKEN_ID_W] =
+                    draft_branch_injected_tokens[(cb*MAX_LEVELS + cl)*`TOKEN_ID_W +: `TOKEN_ID_W];
+                chain_branch_draft_positions[(cb*MAX_LEVELS + cl)*`POSITION_ID_W +: `POSITION_ID_W] =
+                    seed_position_r + cl[`POSITION_ID_W-1:0] + {{(`POSITION_ID_W-1){1'b0}}, 1'b1};
+            end
+        end
+    end
+end
+
 logic sched_start, sched_all_done;
 logic [BRANCH_NUM-1:0] sched_lc_start, sched_lc_done, sched_lc_busy;
 logic [BRANCH_NUM*LC_SLOTS-1:0] sched_lc_slot_valid;
@@ -824,8 +894,8 @@ logic [BRANCH_NUM*MAX_LEVELS*`TOKEN_ID_W-1:0] sched_branch_draft_tokens_out;
 
 branch_parallel_scheduler #(.BRANCH_NUM(BRANCH_NUM), .MAX_DEPTH(MAX_LEVELS)) u_scheduler (
     .clk(clk), .rst_n(rst_n), .start(sched_start), .all_done(sched_all_done),
-    .branch_valid(tb_branch_valid), .branch_draft_tokens(tb_branch_draft_tokens),
-    .branch_draft_positions(tb_branch_draft_positions), .branch_levels_valid(tb_branch_levels_valid),
+    .branch_valid(chain_branch_valid), .branch_draft_tokens(chain_branch_draft_tokens),
+    .branch_draft_positions(chain_branch_draft_positions), .branch_levels_valid(chain_branch_levels_valid),
     .seed_token_id(seed_token_id_r), .seed_position(seed_position_r),
     .committed_prefix_len(committed_prefix_len_r),
     .lc_start(sched_lc_start), .lc_done(sched_lc_done), .lc_busy(sched_lc_busy),
@@ -860,7 +930,7 @@ always_comb begin
     end
 end
 
-assign lc_start_w = use_fallback ? {3'b0, fallback_lc_start} : sched_lc_start;
+assign lc_start_w = use_fallback ? {{(BRANCH_NUM-1){1'b0}}, fallback_lc_start} : sched_lc_start;
 assign sched_lc_done = lc_done_w;
 assign sched_lc_busy = lc_busy_w;
 assign sched_lc_out_token_id = lc_out_token_id_w;
@@ -869,7 +939,8 @@ assign sched_lc_out_token_id = lc_out_token_id_w;
 // Longest Path Comparator
 // =========================================================================
 logic cmp2_start, cmp2_result_valid;
-logic [3:0] cmp2_accepted_count;
+localparam integer CMP_CNT_W = $clog2(BRANCH_NUM + 2);
+logic [CMP_CNT_W-1:0] cmp2_accepted_count;
 logic [(MAX_LEVELS+1)*`TOKEN_ID_W-1:0] cmp2_accepted_tokens;
 logic [BRANCH_NUM-1:0] cmp2_flush_mask;
 logic cmp2_all_correct;

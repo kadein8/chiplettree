@@ -22,6 +22,7 @@ module tree_builder #(
     parameter integer TOKEN_ID_W     = `TOKEN_ID_W,
     parameter integer POSITION_ID_W  = `POSITION_ID_W,
     parameter integer NODE_ID_W      = `NODE_ID_W,
+    parameter integer BR_W           = $clog2(BRANCH_NUM),
     parameter integer TIMEOUT_CYCLES = 32
 ) (
     input  logic                          clk,
@@ -83,7 +84,7 @@ module tree_builder #(
     // Per-branch token tracking for speculative lookup (packed to avoid VCS bug)
     logic [BRANCH_NUM*TOKEN_ID_W-1:0]  branch_tip_token_r;
     logic [BRANCH_NUM*TOKEN_ID_W-1:0]  branch_prev_token_r;
-    logic [1:0]                    explore_branch_r;
+    logic [BR_W-1:0]               explore_branch_r;
     logic                          explore_phase_r; // 0=cand_valid, 1=spec lookup
     logic [1:0]                    spec_wait_r;     // 0=register tokens, 1=query active, 2=check result
 
@@ -99,13 +100,13 @@ module tree_builder #(
 
     // Combinational: find which branch a candidate belongs to
     logic found_branch;
-    logic [1:0] target_branch;
+    logic [BR_W-1:0] target_branch;
     logic is_new_branch;
     integer bi;
 
     always_comb begin
         found_branch = 1'b0;
-        target_branch = 2'd0;
+        target_branch = {BR_W{1'b0}};
         is_new_branch = 1'b0;
 
         // Check if parent matches any existing branch tip
@@ -114,7 +115,7 @@ module tree_builder #(
                 (cand_parent_node_id == branch_tip_node_r[bi]) &&
                 (branch_depth_r[bi] < MAX_LEVELS[2:0])) begin
                 found_branch = 1'b1;
-                target_branch = bi[1:0];
+                target_branch = bi[BR_W-1:0];
             end
         end
 
@@ -123,7 +124,7 @@ module tree_builder #(
             for (bi = 0; bi < BRANCH_NUM; bi = bi + 1) begin
                 if (!branch_active_r[bi] && !found_branch) begin
                     found_branch = 1'b1;
-                    target_branch = bi[1:0];
+                    target_branch = bi[BR_W-1:0];
                     is_new_branch = 1'b1;
                 end
             end
@@ -263,10 +264,10 @@ module tree_builder #(
                             branch_prev_token_r[explore_branch_r*TOKEN_ID_W +: TOKEN_ID_W] <= branch_tip_token_r[explore_branch_r*TOKEN_ID_W +: TOKEN_ID_W];
                             branch_tip_token_r[explore_branch_r*TOKEN_ID_W +: TOKEN_ID_W] <= spec_prediction;
                         end else begin
-                            if (explore_branch_r == BRANCH_NUM[1:0] - 2'd1) begin
+                            if (explore_branch_r == (BRANCH_NUM-1)) begin
                                 state_r <= ST_OUTPUT;
                             end else begin
-                                explore_branch_r <= explore_branch_r + 2'd1;
+                                explore_branch_r <= explore_branch_r + {{(BR_W-1){1'b0}}, 1'b1};
                             end
                         end
                     end
